@@ -1,0 +1,159 @@
+@import "tailwindcss";
+
+@theme {
+  /* ============================================= */
+  /* KIYOKO AI v2 — Linear-inspired Blue Theme     */
+  /* ============================================= */
+
+  /* Primary — Blue (Linear style) */
+  --color-primary: #3B82F6;
+  --color-primary-hover: #2563EB;
+  --color-primary-light: #DBEAFE;
+  --color-primary-dark: #1D4ED8;
+  --color-primary-foreground: #FFFFFF;
+
+  /* Accent — Violet */
+  --color-accent: #8B5CF6;
+  --color-accent-hover: #7C3AED;
+  --color-accent-light: #EDE9FE;
+  --color-accent-foreground: #FFFFFF;
+
+  /* Success / Warning / Danger */
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-danger: #EF4444;
+
+  /* Surfaces — Light mode */
+  --color-background: #FFFFFF;
+  --color-surface: #FFFFFF;
+  --color-surface-secondary: #F9FAFB;
+  --color-surface-tertiary: #F3F4F6;
+  --color-card: #FFFFFF;
+  --color-popover: #FFFFFF;
+  --color-muted: #F3F4F6;
+
+  /* Borders */
+  --color-border: #E5E7EB;
+  --color-ring: #3B82F6;
+
+  /* Text */
+  --color-foreground: #111827;
+  --color-foreground-secondary: #4B5563;
+  --color-foreground-muted: #9CA3AF;
+
+  /* Dark surfaces (used in dark mode) — fully opaque */
+  --color-background-dark: #09090B;
+  --color-surface-dark: #0C0C0E;
+  --color-surface-dark-secondary: #18181B;
+  --color-surface-dark-tertiary: #27272A;
+  --color-card-dark: #18181B;
+  --color-border-dark: #27272A;
+
+  /* Fases del arco narrativo */
+  --color-phase-hook: #EF4444;
+  --color-phase-build: #F59E0B;
+  --color-phase-peak: #10B981;
+  --color-phase-close: #3B82F6;
+
+  /* Tipos de escena */
+  --color-scene-original: #6B7280;
+  --color-scene-improved: #F59E0B;
+  --color-scene-new: #3B82F6;
+  --color-scene-filler: #8B5CF6;
+  --color-scene-video: #EC4899;
+
+  /* Fonts */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* Radius */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px rgb(0 0 0 / 0.05), 0 2px 4px rgb(0 0 0 / 0.03);
+  --shadow-lg: 0 10px 25px rgb(0 0 0 / 0.08), 0 4px 10px rgb(0 0 0 / 0.04);
+  --shadow-xl: 0 20px 50px rgb(0 0 0 / 0.12);
+
+  /* Sidebar */
+  --sidebar-width: 240px;
+  --sidebar-collapsed-width: 48px;
+}
+
+/* ============================================= */
+/* DARK MODE                                      */
+/* ============================================= */
+[data-theme='dark'] {
+  --color-background: var(--color-background-dark);
+  --color-surface: var(--color-surface-dark);
+  --color-surface-secondary: var(--color-surface-dark-secondary);
+  --color-surface-tertiary: var(--color-surface-dark-tertiary);
+  --color-card: var(--color-card-dark);
+  --color-popover: var(--color-card-dark);
+  --color-muted: var(--color-surface-dark-tertiary);
+  --color-border: var(--color-border-dark);
+  --color-foreground: #F9FAFB;
+  --color-foreground-secondary: #D1D5DB;
+  --color-foreground-muted: #6B7280;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --color-background: var(--color-background-dark);
+    --color-surface: var(--color-surface-dark);
+    --color-surface-secondary: var(--color-surface-dark-secondary);
+    --color-surface-tertiary: var(--color-surface-dark-tertiary);
+    --color-card: var(--color-card-dark);
+    --color-popover: var(--color-card-dark);
+    --color-muted: var(--color-surface-dark-tertiary);
+    --color-border: var(--color-border-dark);
+    --color-foreground: #F9FAFB;
+    --color-foreground-secondary: #D1D5DB;
+    --color-foreground-muted: #6B7280;
+  }
+}
+
+/* ============================================= */
+/* BASE STYLES                                    */
+/* ============================================= */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-foreground-muted);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-foreground-secondary);
+}
+
+/* Selection */
+::selection {
+  background: var(--color-primary-light);
+  color: var(--color-foreground);
+}
+
+[data-theme='dark'] ::selection {
+  background: var(--color-primary);
+  color: white;
+}
