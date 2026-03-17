@@ -1691,7 +1691,7 @@ export default function StoryboardPage() {
 
   return (
     <>
-      <div className={cn('flex h-full transition-all duration-300 ', aiSidebar.open ? 'mr-[400px]' : '')}>
+      <div className={cn('flex h-full overflow-hidden transition-all duration-300', aiSidebar.open ? 'mr-[400px]' : '')}>
         {/* ════════════════════════════════════════════════════════════
             LEFT PANEL: Scene List
            ════════════════════════════════════════════════════════════ */}

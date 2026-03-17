@@ -77,6 +77,7 @@ export default function ArcPage() {
 
   if (loading) {
     return (
+
       <div className="space-y-6">
         <div>
           <div className="h-6 w-40 animate-pulse rounded bg-surface-secondary" />

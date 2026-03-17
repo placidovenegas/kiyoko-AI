@@ -76,6 +76,7 @@ export default function AdminUsersPage() {
   const filtered = filter === 'all' ? users : users.filter(u => u.role === filter);
 
   return (
+
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Gestión de Usuarios</h1>

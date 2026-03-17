@@ -98,7 +98,7 @@ export default function ProjectLayout({
     <ProjectProvider>
       <div className="flex h-full flex-col overflow-hidden">
         <ProjectHeader />
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-y-auto">
           {children}
         </div>
       </div>

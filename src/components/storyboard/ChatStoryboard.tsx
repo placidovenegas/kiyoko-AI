@@ -613,15 +613,62 @@ export function ChatStoryboard({
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Header */}
-      <div className="flex items-center gap-2 h-12 px-4 shrink-0 border-b border-foreground/6">
-        <div className="flex items-center justify-center size-6 rounded-lg bg-primary/10">
-          <Bot size={14} className="text-primary" />
+      <div className="flex items-center gap-2 h-10 px-3 shrink-0 border-b border-foreground/6">
+        <div className="flex items-center justify-center size-5 rounded bg-primary/10">
+          <Bot size={12} className="text-primary" />
         </div>
-        <div className="min-w-0">
-          <span className="text-sm font-semibold text-foreground">Director Creativo</span>
-          <span className="ml-1.5 text-xs text-foreground/40">Kiyoko AI</span>
+        <span className="text-[12px] font-semibold text-foreground flex-1">Kiyoko AI</span>
+        <div className="flex items-center gap-1">
+          {/* Conversations history */}
+          <button
+            type="button"
+            onClick={() => setShowConversations(!showConversations)}
+            className="flex items-center justify-center size-6 rounded text-foreground/30 hover:text-foreground/60 hover:bg-foreground/5 transition-colors"
+            title="Historial de chats"
+          >
+            <MessageSquare size={13} />
+          </button>
+          {/* New chat */}
+          <button
+            type="button"
+            onClick={startNewConversation}
+            className="flex items-center justify-center size-6 rounded text-foreground/30 hover:text-foreground/60 hover:bg-foreground/5 transition-colors"
+            title="Nuevo chat"
+          >
+            <Plus size={13} />
+          </button>
         </div>
       </div>
+
+      {/* Conversations list dropdown */}
+      {showConversations && (
+        <div className="border-b border-foreground/6 bg-surface-secondary max-h-48 overflow-y-auto">
+          {conversations.length === 0 ? (
+            <p className="px-3 py-4 text-center text-[11px] text-foreground/30">Sin conversaciones previas</p>
+          ) : (
+            conversations.map((conv) => (
+              <button
+                key={conv.id}
+                type="button"
+                onClick={() => loadConversation(conv.id)}
+                className={cn(
+                  'flex items-center gap-2 w-full px-3 py-2 text-left transition-colors hover:bg-foreground/5',
+                  conversationId === conv.id && 'bg-primary/5',
+                )}
+              >
+                <MessageSquare size={12} className="shrink-0 text-foreground/25" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-medium text-foreground/70 truncate">{conv.title}</p>
+                  <p className="text-[10px] text-foreground/30">
+                    {new Date(conv.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+                    {' · '}{conv.message_count} msgs
+                  </p>
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+      )}
 
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">

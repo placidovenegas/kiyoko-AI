@@ -15,6 +15,7 @@ export default function UserSettingsPage() {
   };
 
   return (
+
     <div className="mx-auto max-w-2xl space-y-6">
       {/* Header */}
       <div>

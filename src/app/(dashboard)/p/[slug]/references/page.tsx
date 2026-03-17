@@ -85,6 +85,7 @@ export default function ReferencesPage() {
 
   if (loading) {
     return (
+
       <div className="space-y-6">
         <div>
           <div className="h-6 w-56 animate-pulse rounded bg-surface-secondary" />
