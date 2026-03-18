@@ -1,116 +1,153 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
-import { PanelLeft } from 'lucide-react';
-import { Sidebar } from '@/components/layout/Sidebar';
+import { useState, useCallback, useRef } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { ChevronLeft } from 'lucide-react';
+import {
+  SidebarProvider,
+  Sidebar,
+  SidebarInset,
+  SidebarTrigger,
+} from '@/components/ui/sidebar';
+import { Separator } from '@/components/ui/separator';
+import { Button } from '@/components/ui/button';
 import { Header } from '@/components/layout/Header';
-import { ChatPanel } from '@/components/layout/ChatPanel';
+import { KiyokoChat } from '@/components/chat/KiyokoChat';
 import { CommandMenu } from '@/components/shared/CommandMenu';
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { DashboardSidebar } from '@/components/layout/DashboardSidebar';
+import { ProjectSidebarContent } from '@/components/layout/ProjectSidebar';
+import { useKiyokoChat } from '@/hooks/useKiyokoChat';
 import { cn } from '@/lib/utils/cn';
 
-type SidebarMode = 'expanded' | 'collapsed';
-
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const [sidebarMode, setSidebarMode] = useState<SidebarMode>(() => {
-    if (typeof window === 'undefined') return 'expanded';
-    try {
-      const stored = localStorage.getItem('kiyoko-layout');
-      if (stored) {
-        const parsed = JSON.parse(stored).sidebarMode;
-        if (parsed === 'expanded' || parsed === 'collapsed') return parsed;
-      }
-    } catch { /* */ }
-    return 'expanded';
-  });
+  const pathname = usePathname();
+  const router = useRouter();
   const [chatOpen, setChatOpen] = useState(false);
+  const [chatWidth, setChatWidth] = useState(560);
+  const chatWidthRef = useRef(560);
+  const { isExpanded, toggleExpanded, setExpanded } = useKiyokoChat();
 
-  const isCollapsed = sidebarMode === 'collapsed';
-  const sidebarWidth = isCollapsed ? 48 : 220;
+  const handleToggleChat = useCallback(() => {
+    if (isExpanded) {
+      setExpanded(false);
+    }
+    setChatOpen((p) => !p);
+  }, [isExpanded, setExpanded]);
 
-  useEffect(() => {
-    try { localStorage.setItem('kiyoko-layout', JSON.stringify({ sidebarMode })); } catch { /* */ }
-  }, [sidebarMode]);
+  const handleCloseChat = useCallback(() => {
+    setChatOpen(false);
+    setExpanded(false);
+  }, [setExpanded]);
 
-  const toggleSidebar = useCallback(() => {
-    setSidebarMode((m) => m === 'expanded' ? 'collapsed' : 'expanded');
-  }, []);
+  const handleToggleExpand = useCallback(() => {
+    toggleExpanded();
+  }, [toggleExpanded]);
 
-  const handleToggleChat = useCallback(() => setChatOpen((p) => !p), []);
+  const projectMatch = pathname.match(/^\/project\/([^/]+)/);
+  const projectSlug = projectMatch ? projectMatch[1] : null;
 
   return (
-    <TooltipProvider delayDuration={0}>
-      <div className="flex h-screen flex-col overflow-hidden bg-background">
-        {/* ─── Navbar ─── */}
-        <div className="flex items-center h-12 shrink-0 bg-background border-b border-foreground/6 px-3">
-          <div className="flex items-center gap-2 shrink-0 mr-3">
-            <div className="flex items-center justify-center size-6 rounded-md bg-primary text-[10px] font-bold text-white">K</div>
-            {!isCollapsed && (
-              <span className="text-[12px] font-semibold text-foreground/60 hidden sm:inline">Kiyoko AI</span>
-            )}
-          </div>
-          <div className="w-px h-4 bg-foreground/6 mx-1 shrink-0" />
+    <SidebarProvider>
+      <Sidebar collapsible="icon">
+        {projectSlug ? (
+          <ProjectSidebarContent projectSlug={projectSlug} />
+        ) : (
+          <DashboardSidebar />
+        )}
+      </Sidebar>
+
+      <SidebarInset className="h-svh! max-h-svh! overflow-hidden">
+        {/* Header — fixed at top */}
+        <header className="flex h-12 shrink-0 items-center gap-2 border-b px-3 bg-background z-30">
+          {pathname === '/dashboard' ? (
+            <SidebarTrigger />
+          ) : (
+            <Button variant="ghost" size="icon" className="size-7" onClick={() => router.back()}>
+              <ChevronLeft />
+              <span className="sr-only">Volver</span>
+            </Button>
+          )}
+          <Separator orientation="vertical" className="h-4" />
           <div className="flex-1 min-w-0">
             <Header onToggleChat={handleToggleChat} chatOpen={chatOpen} />
           </div>
-        </div>
+        </header>
 
-        {/* ─── Body ─── */}
-        <div className="flex flex-1 overflow-hidden">
-          {/* Sidebar */}
-          <div
-            className="shrink-0 flex flex-col bg-background border-r border-foreground/6 overflow-hidden transition-[width] duration-200 ease-in-out"
-            style={{ width: sidebarWidth }}
-          >
-            <div className="flex-1 overflow-y-auto overflow-x-hidden">
-              <Sidebar collapsed={isCollapsed} onToggleCollapse={toggleSidebar} />
-            </div>
+        {/* Content + Chat — fills remaining height below header */}
+        <div className="flex flex-1 min-h-0 overflow-hidden">
+          {/* Main content — hidden when chat is expanded */}
+          {!(chatOpen && isExpanded) && (
+            <div className="flex-1 overflow-y-auto min-w-0">{children}</div>
+          )}
 
-            {/* Toggle button */}
-            <div className="shrink-0 border-t border-foreground/6 p-1.5">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={toggleSidebar}
+          {/* Chat */}
+          {chatOpen && (
+            <>
+              {isExpanded ? (
+                /* Expanded mode: chat fills entire content area */
+                <div className="flex-1 min-w-0 min-h-0">
+                  <KiyokoChat
+                    mode="expanded"
+                    onClose={handleCloseChat}
+                    onToggleExpand={handleToggleExpand}
+                    projectSlug={projectSlug ?? undefined}
+                  />
+                </div>
+              ) : (
+                /* Panel mode: resize handle + fixed-width panel */
+                <>
+                  {/* Resize handle */}
+                  <div
                     className={cn(
-                      'flex items-center gap-2.5 w-full rounded-md text-[13px] transition-all duration-150',
-                      isCollapsed ? 'justify-center p-2' : 'px-2.5 py-1.5',
-                      'text-foreground/40 hover:text-foreground/70 hover:bg-foreground/5',
+                      'w-1.5 shrink-0 cursor-col-resize transition-colors',
+                      'bg-transparent hover:bg-primary/30 active:bg-primary/50',
+                      'relative group',
                     )}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      const startX = e.clientX;
+                      const startW = chatWidthRef.current;
+                      const onMove = (ev: MouseEvent) => {
+                        const newW = Math.max(400, Math.min(1200, startW + (startX - ev.clientX)));
+                        setChatWidth(newW);
+                        chatWidthRef.current = newW;
+                      };
+                      const onUp = () => {
+                        document.removeEventListener('mousemove', onMove);
+                        document.removeEventListener('mouseup', onUp);
+                        document.body.style.cursor = '';
+                        document.body.style.userSelect = '';
+                      };
+                      document.addEventListener('mousemove', onMove);
+                      document.addEventListener('mouseup', onUp);
+                      document.body.style.cursor = 'col-resize';
+                      document.body.style.userSelect = 'none';
+                    }}
                   >
-                    <PanelLeft size={15} className={cn('transition-transform', isCollapsed && 'rotate-180')} />
-                    {!isCollapsed && <span className="flex-1 text-left">Colapsar</span>}
-                  </button>
-                </TooltipTrigger>
-                {isCollapsed && (
-                  <TooltipContent side="right" sideOffset={8}>
-                    <p className="text-xs">Expandir menu</p>
-                  </TooltipContent>
-                )}
-              </Tooltip>
-            </div>
-          </div>
+                    {/* Visual indicator line */}
+                    <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-px bg-border group-hover:bg-primary/50 transition-colors" />
+                  </div>
 
-          {/* Main + Chat with resizable panels */}
-          {chatOpen ? (
-            <ResizablePanelGroup orientation="horizontal" className="flex-1">
-              <ResizablePanel defaultSize={70} minSize={40}>
-                <main className="h-full overflow-y-auto">{children}</main>
-              </ResizablePanel>
-              <ResizableHandle withHandle />
-              <ResizablePanel defaultSize={30} minSize={20} maxSize={45}>
-                <ChatPanel onClose={() => setChatOpen(false)} />
-              </ResizablePanel>
-            </ResizablePanelGroup>
-          ) : (
-            <main className="flex-1 overflow-y-auto">{children}</main>
+                  {/* Chat panel */}
+                  <div
+                    className="shrink-0 min-h-0 border-l border-border"
+                    style={{ width: chatWidth }}
+                  >
+                    <KiyokoChat
+                      mode="panel"
+                      onClose={handleCloseChat}
+                      onToggleExpand={handleToggleExpand}
+                      projectSlug={projectSlug ?? undefined}
+                    />
+                  </div>
+                </>
+              )}
+            </>
           )}
         </div>
+      </SidebarInset>
 
-        <CommandMenu />
-      </div>
-    </TooltipProvider>
+      <CommandMenu />
+    </SidebarProvider>
   );
 }

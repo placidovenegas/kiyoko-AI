@@ -36,7 +36,19 @@
       "Bash(node -e \"const p = require\\(''react-resizable-panels''\\); console.log\\(Object.keys\\(p\\).join\\('', ''\\)\\)\")",
       "Bash(node -e \"const {Group} = require\\(''''react-resizable-panels''''\\); const c = Group\\({direction: ''''horizontal'''', children: []}\\); console.log\\(''''works''''\\)\")",
       "Bash(npx shadcn@latest add sidebar)",
-      "Bash(npx shadcn@latest init -d)"
+      "Bash(npx shadcn@latest init -d)",
+      "Bash(npx shadcn@latest add sidebar tooltip dropdown-menu sheet separator --overwrite)",
+      "Bash(npx shadcn@latest add sidebar --overwrite)",
+      "Bash(npx shadcn@latest add dropdown-menu -r --overwrite)",
+      "Bash(node -e \"const m = require\\(''@ai-sdk/react''\\); console.log\\(Object.keys\\(m\\).filter\\(k => /chat/i.test\\(k\\)\\).join\\('', ''\\)\\)\")",
+      "Bash(grep -r \"ChatPanel\\\\|ChatStoryboard\\\\|useAiChat\" 'c:/Users/placi/Documents/GitHub/kiyoko AI/src/app' --include=*.tsx --include=*.ts)",
+      "Bash(python -m json.tool)",
+      "Bash(curl -s http://localhost:3000/api/ai/providers/status)",
+      "Bash(while IFS='=' read -r key val)",
+      "Bash(do echo:*)",
+      "Bash(done)",
+      "WebFetch(domain:cloud.cerebras.ai)",
+      "WebFetch(domain:inference-docs.cerebras.ai)"
     ]
   },
   "enableAllProjectMcpServers": true,

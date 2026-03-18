@@ -1,4 +1,4 @@
-export type AiProviderId = 'gemini' | 'claude' | 'openai' | 'groq' | 'stability';
+export type AiProviderId = 'groq' | 'cerebras' | 'mistral' | 'gemini' | 'grok' | 'deepseek' | 'claude' | 'openai' | 'stability';
 export type AiProviderType = 'text' | 'image' | 'both';
 export type AiTask = 'text_generation' | 'image_generation' | 'chat' | 'analysis';
 

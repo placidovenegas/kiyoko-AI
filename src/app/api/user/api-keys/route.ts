@@ -21,7 +21,7 @@ export async function GET() {
 
     const { data: keys, error } = await supabase
       .from('user_api_keys')
-      .select('id, provider, key_hint, is_active, monthly_budget_usd, monthly_spent_usd, created_at, updated_at')
+      .select('id, provider, api_key_hint, is_active, monthly_budget_usd, monthly_spent_usd, created_at, updated_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const validProviders: AiProviderId[] = ['gemini', 'claude', 'openai', 'groq', 'stability'];
+    const validProviders: AiProviderId[] = ['groq', 'cerebras', 'mistral', 'gemini', 'grok', 'deepseek', 'claude', 'openai', 'stability'];
     if (!validProviders.includes(provider)) {
       return NextResponse.json(
         { error: `Invalid provider. Must be one of: ${validProviders.join(', ')}` },
@@ -111,12 +111,12 @@ export async function POST(request: NextRequest) {
         user_id: user.id,
         provider,
         api_key_encrypted: encryptedKey,
-        key_hint: keyHint,
+        api_key_hint: keyHint,
         is_active: true,
         monthly_budget_usd: monthlyBudget ?? null,
         monthly_spent_usd: 0,
       })
-      .select('id, provider, key_hint, is_active, monthly_budget_usd, monthly_spent_usd, created_at')
+      .select('id, provider, api_key_hint, is_active, monthly_budget_usd, monthly_spent_usd, created_at')
       .single();
 
     if (error) {

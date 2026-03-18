@@ -90,7 +90,8 @@
 /* ============================================= */
 /* DARK MODE                                      */
 /* ============================================= */
-[data-theme='dark'] {
+[data-theme='dark'],
+.dark {
   --color-background: var(--color-background-dark);
   --color-surface: var(--color-surface-dark);
   --color-surface-secondary: var(--color-surface-dark-secondary);
@@ -282,5 +283,119 @@ body {
   }
   html {
     @apply font-sans;
+  }
+}
+
+/* ============================================= */
+/* CHAT — Table styles (dark/light aware)        */
+/* ============================================= */
+
+.chat-table-wrap {
+  overflow-x: auto;
+  margin: 0.75rem -1rem;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+.chat-table-wrap::-webkit-scrollbar {
+  height: 5px;
+}
+.chat-table-wrap::-webkit-scrollbar-track {
+  background: transparent;
+}
+.chat-table-wrap::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+.chat-table {
+  width: 100%;
+  min-width: 500px;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+/* Header */
+.chat-table thead {
+  background: var(--color-surface-secondary, #f1f5f9);
+}
+.dark .chat-table thead {
+  background: var(--color-surface-dark-tertiary, #27272a);
+}
+
+.chat-table th {
+  padding: 0.55rem 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-foreground-muted, #9ca3af);
+  white-space: nowrap;
+  border-bottom: 2px solid var(--color-border, #e5e7eb);
+}
+.dark .chat-table th {
+  border-bottom-color: var(--color-border-dark, #27272a);
+}
+
+/* Rows */
+.chat-table td {
+  padding: 0.5rem 0.75rem;
+  vertical-align: top;
+  color: var(--color-foreground-secondary, #4b5563);
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  max-width: 280px;
+}
+.dark .chat-table td {
+  color: var(--color-foreground-secondary, #d1d5db);
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+/* Last row no border */
+.chat-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Zebra striping */
+.chat-table tbody tr:nth-child(even) {
+  background: var(--color-surface-secondary, #f9fafb);
+}
+.dark .chat-table tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* Hover */
+.chat-table tbody tr:hover {
+  background: var(--color-surface-tertiary, #f3f4f6);
+}
+.dark .chat-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Color swatch detection (for hex color columns) */
+.chat-color-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid rgba(128, 128, 128, 0.2);
+  vertical-align: middle;
+  margin-right: 0.35rem;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .chat-table {
+    font-size: 0.72rem;
+  }
+  .chat-table th,
+  .chat-table td {
+    padding: 0.35rem 0.5rem;
+  }
+  .chat-table td {
+    max-width: 180px;
   }
 }

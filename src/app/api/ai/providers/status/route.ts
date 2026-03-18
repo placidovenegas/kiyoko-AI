@@ -1,31 +1,45 @@
 import { NextResponse } from 'next/server';
-import { AI_PROVIDERS, TEXT_PROVIDER_CHAIN, IMAGE_PROVIDER_CHAIN } from '@/lib/ai/providers';
+import { getAllProviderStatuses, PROVIDER_META, type ProviderId } from '@/lib/ai/sdk-router';
 
 export async function GET() {
-  const providers = Object.values(AI_PROVIDERS).map(p => ({
-    id: p.id,
-    name: p.name,
-    type: p.type,
-    isFree: p.isFree,
-    model: p.defaultModel,
-    imageModel: p.imageModel || null,
-    available: !!process.env[p.envKey],
-    envKey: p.envKey,
-  }));
+  const statuses = getAllProviderStatuses();
 
-  // Find first available text provider
-  let activeTextProvider: string | null = null;
-  for (const id of TEXT_PROVIDER_CHAIN) {
-    const p = AI_PROVIDERS[id];
-    if (p && process.env[p.envKey]) { activeTextProvider = id; break; }
-  }
+  // Build response with full provider info
+  const providers = statuses.map((s) => {
+    const meta = PROVIDER_META[s.id as ProviderId];
+    let status: 'available' | 'rate_limited' | 'no_key' | 'cooldown';
 
-  // Find first available image provider
-  let activeImageProvider: string | null = null;
-  for (const id of IMAGE_PROVIDER_CHAIN) {
-    const p = AI_PROVIDERS[id];
-    if (p && p.type !== 'text' && process.env[p.envKey]) { activeImageProvider = id; break; }
-  }
+    if (!s.hasKey) {
+      status = 'no_key';
+    } else if (s.isDisabled) {
+      status = 'cooldown';
+    } else {
+      status = 'available';
+    }
 
-  return NextResponse.json({ providers, activeTextProvider, activeImageProvider });
+    return {
+      id: s.id,
+      name: s.name,
+      type: 'text' as const,
+      isFree: s.isFree,
+      defaultModel: meta.defaultModel,
+      imageModel: null,
+      status,
+      description: meta.description,
+      signupUrl: meta.signupUrl,
+      // Quota info
+      retryInSeconds: s.retryInSeconds,
+      lastError: s.lastError,
+    };
+  });
+
+  // Determine active provider (first available)
+  const activeTextProvider = providers.find((p) => p.status === 'available')?.id ?? null;
+
+  return NextResponse.json({
+    success: true,
+    providers,
+    activeTextProvider,
+    activeImageProvider: null,
+  });
 }
