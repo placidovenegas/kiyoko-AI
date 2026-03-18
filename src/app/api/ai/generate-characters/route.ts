@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { generateText, Output } from 'ai';
 import { createClient } from '@/lib/supabase/server';
-import { getAvailableProvider, logUsage } from '@/lib/ai/router';
+import { getModelWithFallback, logUsage } from '@/lib/ai/sdk-router';
 import { SYSTEM_CHARACTER_GENERATOR } from '@/lib/ai/prompts/system-character-generator';
+import { charactersArraySchema } from '@/lib/ai/schemas/character-output';
 
 interface GenerateCharactersBody {
   projectId: string;
@@ -49,7 +51,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const provider = await getAvailableProvider(user.id, 'text');
+    const { model, providerId } = getModelWithFallback();
     const startTime = Date.now();
 
     const characterList = descriptions
@@ -64,50 +66,34 @@ Brief: ${project.brief ?? 'No brief'}
 Characters to create:
 ${characterList}
 
-Respond with the JSON character sheet format as specified.`;
+Respond with a JSON object containing a "characters" array and optional "consistency_rules" array.`;
 
-    const result = await provider.instance.generateText(
-      {
-        prompt: userPrompt,
-        systemPrompt: SYSTEM_CHARACTER_GENERATOR,
-        maxTokens: 4096,
-        temperature: 0.7,
-      },
-      provider.apiKey
-    );
+    const { experimental_output: output, usage } = await generateText({
+      model,
+      system: SYSTEM_CHARACTER_GENERATOR,
+      prompt: userPrompt,
+      output: Output.object({ schema: charactersArraySchema }),
+    });
 
     const responseTimeMs = Date.now() - startTime;
 
     await logUsage({
       userId: user.id,
       projectId,
-      provider: provider.providerId,
-      model: provider.model,
+      provider: providerId,
+      model: providerId,
       task: 'generate-characters',
-      inputTokens: result.inputTokens,
-      outputTokens: result.outputTokens,
-      estimatedCost: 0, // TODO: Calculate based on provider pricing
+      inputTokens: usage.inputTokens ?? 0,
+      outputTokens: usage.outputTokens ?? 0,
+      estimatedCost: 0,
       responseTimeMs,
       success: true,
     });
 
-    let characterData;
-    try {
-      characterData = JSON.parse(result.text);
-    } catch {
-      return NextResponse.json(
-        { error: 'Failed to parse AI response as JSON' },
-        { status: 500 }
-      );
-    }
-
-    // TODO: Save characters to the database linked to the project
-
     return NextResponse.json({
       success: true,
-      ...characterData,
-      provider: provider.providerId,
-      model: provider.model,
+      data: output,
+      provider: providerId,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';

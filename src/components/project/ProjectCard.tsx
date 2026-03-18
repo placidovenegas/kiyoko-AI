@@ -9,6 +9,8 @@ import {
   IconUsers,
   IconClock,
 } from '@tabler/icons-react';
+import { FavoriteButton } from '@/components/shared/FavoriteButton';
+import { useFavorites } from '@/hooks/useFavorites';
 
 export interface Project {
   id: string;
@@ -51,6 +53,7 @@ function formatDuration(seconds: number | null): string {
 }
 
 export function ProjectCard({ project }: { project: Project }) {
+  const { isFavorite, toggleFavorite } = useFavorites();
   const timeAgo = formatDistanceToNow(new Date(project.updated_at), {
     addSuffix: true,
     locale: es,
@@ -58,7 +61,7 @@ export function ProjectCard({ project }: { project: Project }) {
 
   return (
     <Link
-      href={`/p/${project.slug}`}
+      href={`/project/${project.slug}`}
       className={cn(
         'group relative flex flex-col overflow-hidden rounded-xl border border-surface-tertiary bg-surface',
         'transition-all duration-150 ease-in-out',
@@ -93,6 +96,16 @@ export function ProjectCard({ project }: { project: Project }) {
               {project.client_name}
             </p>
           )}
+        </div>
+
+        {/* Favorite star */}
+        <div className="absolute top-2 left-2 z-10">
+          <FavoriteButton
+            isFavorite={isFavorite(project.id)}
+            onToggle={() => toggleFavorite(project.id)}
+            size={18}
+            className="drop-shadow-md"
+          />
         </div>
 
         {/* DEMO ribbon */}

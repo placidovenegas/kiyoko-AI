@@ -1,6 +1,6 @@
 # Fase 11 — Seed Proyecto Demo Domenech
 
-## Estado: PENDIENTE
+## Estado: ✅ COMPLETADO
 
 ## Objetivo
 
@@ -53,6 +53,11 @@ Con tiempos exactos de 0:00 a 1:25
 - `supabase/migrations/00004_seed_domenech.sql` — SQL seed
 
 ## Criterios de Aceptación
-- [ ] Todos los datos insertados en Supabase
-- [ ] El proyecto demo se renderiza en todas las pestañas
-- [ ] Los prompts están completos y correctos
+- [x] Todos los datos insertados en Supabase (migración 00004_seed_domenech.sql)
+- [x] El proyecto demo se renderiza en todas las pestañas
+- [x] Los prompts están completos y correctos
+
+## Notas de implementación
+- Seed SQL: supabase/migrations/00004_seed_domenech.sql
+- 28 escenas, 4 personajes, 3 fondos precargados
+- Proyecto con is_demo: true

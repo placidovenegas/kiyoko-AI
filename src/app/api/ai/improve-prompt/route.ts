@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { generateText } from 'ai';
+import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
-import { getAvailableProvider } from '@/lib/ai/router';
+import { getModelWithFallback } from '@/lib/ai/sdk-router';
 import { SYSTEM_SCENE_IMPROVER } from '@/lib/ai/prompts/system-scene-improver';
 
 interface SceneContext {
@@ -19,6 +21,15 @@ interface ImprovePromptBody {
   instruction?: string;
   sceneContext?: SceneContext;
 }
+
+// Inline schema for the improve-prompt response
+const improvePromptResponseSchema = z.object({
+  improved_prompt: z.string(),
+  improvements: z.array(z.object({
+    type: z.enum(['improve', 'add']),
+    text: z.string(),
+  })),
+});
 
 export async function POST(request: NextRequest) {
   try {
@@ -43,7 +54,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const provider = await getAvailableProvider(user.id, 'text');
+    const { model, providerId } = getModelWithFallback();
 
     // Build context information from sceneContext
     let contextInfo = '';
@@ -71,9 +82,7 @@ ${contextInfo}
 
 ${instruction ? `Additional instruction: ${instruction}` : ''}
 
-Respond with a JSON object containing:
-- "improved_prompt": the generated prompt
-- "improvements": array of objects with { "type": "add", "text": "description of what was included" }`;
+Return a JSON object with "improved_prompt" (the generated prompt) and "improvements" (array of objects with "type" and "text" describing what was included).`;
     } else {
       // IMPROVE mode: improve an existing prompt
       userPrompt = `Improve this image generation prompt:
@@ -85,40 +94,34 @@ ${contextInfo ? `Context:\n${contextInfo}` : ''}
 
 ${instruction ? `User instruction: ${instruction}` : ''}
 
-Respond with a JSON object containing:
-- "improved_prompt": the improved prompt
-- "improvements": array of objects with { "type": "improve" | "add", "text": "description of the change" }`;
+Return a JSON object with "improved_prompt" (the improved prompt) and "improvements" (array of objects with "type" and "text" describing each change).`;
     }
 
-    const result = await provider.instance.generateText(
-      {
-        prompt: userPrompt,
-        systemPrompt: SYSTEM_SCENE_IMPROVER,
-        maxTokens: 2048,
-        temperature: 0.6,
-      },
-      provider.apiKey
-    );
+    const { text } = await generateText({
+      model,
+      system: SYSTEM_SCENE_IMPROVER,
+      prompt: userPrompt,
+    });
 
-    // Try to parse the AI response as JSON
-    let improved;
+    // Parse with Zod for validation, with fallback
+    let improved: z.infer<typeof improvePromptResponseSchema>;
     try {
-      // Strip markdown code fences if present
-      let text = result.text.trim();
-      if (text.startsWith('```json')) {
-        text = text.slice(7);
-      } else if (text.startsWith('```')) {
-        text = text.slice(3);
+      let cleanText = text.trim();
+      if (cleanText.startsWith('```json')) {
+        cleanText = cleanText.slice(7);
+      } else if (cleanText.startsWith('```')) {
+        cleanText = cleanText.slice(3);
       }
-      if (text.endsWith('```')) {
-        text = text.slice(0, -3);
+      if (cleanText.endsWith('```')) {
+        cleanText = cleanText.slice(0, -3);
       }
-      improved = JSON.parse(text.trim());
+      const parsed: unknown = JSON.parse(cleanText.trim());
+      improved = improvePromptResponseSchema.parse(parsed);
     } catch {
       // Fallback: treat the entire response as the improved prompt
-      console.error('[improve-prompt] Failed to parse AI response as JSON, using raw text');
+      console.error('[improve-prompt] Failed to parse AI response, using raw text');
       improved = {
-        improved_prompt: result.text.trim(),
+        improved_prompt: text.trim(),
         improvements: [{ type: 'improve', text: 'AI-enhanced prompt (raw response)' }],
       };
     }
@@ -126,9 +129,8 @@ Respond with a JSON object containing:
     return NextResponse.json({
       success: true,
       improved_prompt: improved.improved_prompt,
-      improvements: improved.improvements ?? [],
-      provider: provider.providerId,
-      model: provider.model,
+      improvements: improved.improvements,
+      provider: providerId,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';

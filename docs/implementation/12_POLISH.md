@@ -1,6 +1,6 @@
 # Fase 12 — Pulido Final
 
-## Estado: PENDIENTE
+## Estado: ⚠️ PARCIAL (loading states y error handling implementados, resto pendiente)
 
 ## Objetivo
 
@@ -57,8 +57,34 @@ Responsive design completo, dark mode, animaciones, loading states, error handli
 - Prefetch de rutas probables
 
 ## Criterios de Aceptación
-- [ ] App usable en mobile
-- [ ] Dark mode sin glitches
-- [ ] Animaciones suaves (60fps)
-- [ ] No hay estados de loading sin feedback
+- [ ] App usable en mobile (MobileNav existe pero responsive incompleto)
+- [x] Dark mode funcional (ThemeToggle implementado)
+- [ ] Animaciones suaves (60fps) (Framer Motion instalado, uso parcial)
+- [x] No hay estados de loading sin feedback (loading.tsx en dashboard, new, storyboard, project)
 - [ ] SEO correcto en cada página
+
+## Notas de implementación
+### Implementado:
+- Loading.tsx en: dashboard, new, p/[slug], p/[slug]/storyboard
+- Error.tsx boundary global
+- not-found.tsx página 404
+- ThemeToggle.tsx (Light/Dark/System)
+- MobileNav.tsx (hamburger + drawer)
+- EmptyState.tsx componente
+- Toast notifications con Sonner
+- Skeleton loaders (skeleton.tsx componente)
+
+### Pendiente:
+- [ ] Responsive completo en todas las páginas (mobile-first)
+- [ ] Grid adaptativos 1-2-3 columnas en escenas, personajes, fondos
+- [ ] Page transitions con Framer Motion
+- [ ] Layout animations en cards
+- [ ] AnimatePresence en modals y drawers
+- [ ] Expand/collapse suave en SceneCards
+- [ ] Entrada escalonada en grids
+- [ ] Metadata dinámica por página (SEO)
+- [ ] Open Graph image
+- [ ] Manifest.json para PWA
+- [ ] Lazy loading de imágenes con Next.js Image
+- [ ] Prefetch de rutas probables
+- [ ] Optimistic updates en operaciones CRUD

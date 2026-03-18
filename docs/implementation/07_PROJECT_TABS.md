@@ -1,6 +1,6 @@
 # Fase 07 — Pestañas del Proyecto
 
-## Estado: PENDIENTE
+## Estado: ✅ COMPLETADO (base — pendiente mejoras v4/v6)
 
 ## Objetivo
 
@@ -61,6 +61,28 @@ Implementar las 10 pestañas del proyecto individual: diagnóstico, arco narrati
 - Ver Fase 06
 
 ## Criterios de Aceptación
-- [ ] Todas las pestañas renderizando datos
-- [ ] Navegación entre pestañas fluida
-- [ ] Interactividad en cada pestaña
+- [x] Todas las pestañas renderizando datos
+- [x] Navegación entre pestañas fluida
+- [x] Interactividad en cada pestaña
+
+## Notas de implementación
+### Páginas implementadas (todas las 10 pestañas):
+- /p/[slug]/analysis — Diagnóstico con IA
+- /p/[slug]/arc — Arco narrativo visual
+- /p/[slug]/scenes — Lista de escenas
+- /p/[slug]/scenes/[sceneId] — Detalle de escena
+- /p/[slug]/characters — Grid de personajes
+- /p/[slug]/backgrounds — Grid de fondos
+- /p/[slug]/timeline — Timeline cronológico
+- /p/[slug]/references — Tabla de referencias
+- /p/[slug]/chat — Chat IA por proyecto
+- /p/[slug]/exports — Panel de exportación
+- /p/[slug]/settings — Configuración
+- /p/[slug]/storyboard — Vista de storyboard (con loading.tsx)
+
+### Pendiente → ver Fases 13, 17:
+- [ ] Chat como panel lateral del storyboard (no pestaña separada) — Fase 13
+- [ ] Diagnóstico con issues vinculados a escenas + "Arreglar con IA" — Fase 17
+- [ ] Timeline visual con barra proporcional y drag & drop — Fase 17
+- [ ] Personajes con reglas editables — Fase 13
+- [ ] Fondos con generación IA — Fase 17

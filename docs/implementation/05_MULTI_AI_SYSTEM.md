@@ -1,6 +1,6 @@
 # Fase 05 — Sistema Multi-IA con Fallback
 
-## Estado: PENDIENTE
+## Estado: ✅ COMPLETADO (base — pendiente nuevos providers v7)
 
 ## Objetivo
 
@@ -57,8 +57,23 @@ IMÁGENES: DALL-E → Stability → Gemini Imagen (gratis)
 ```
 
 ## Criterios de Aceptación
-- [ ] Router selecciona provider correctamente
-- [ ] Fallback automático cuando un provider falla
-- [ ] API keys cifradas en DB
-- [ ] Página de gestión de keys funcional
-- [ ] Logs de uso registrados
+- [x] Router selecciona provider correctamente
+- [x] Fallback automático cuando un provider falla (generateTextWithFallback, streamTextWithFallback)
+- [x] API keys cifradas en DB (AES-256-GCM en crypto.ts)
+- [x] Página de gestión de keys funcional (/settings/api-keys)
+- [x] Logs de uso registrados (ai_usage_logs + logUsage())
+
+## Notas de implementación
+- AI Router completo con fallback: router.ts
+- 5 providers: Gemini, Claude, OpenAI, Groq, Stability
+- Cadena texto actual: Groq → Gemini → Claude → OpenAI
+- Cadena imágenes actual: OpenAI → Stability → Gemini
+- Stores: useAiProviderStore.ts
+- Hooks: useAiProvider.ts, useApiKeys.ts, useAiUsage.ts
+- API routes: /api/ai/providers/status, /api/user/api-keys (CRUD + test), /api/user/usage
+
+### Pendiente → ver Fase 14 (Nuevos Providers v7):
+- [ ] Añadir Grok, DeepSeek, Mistral
+- [ ] Reordenar cadena de prioridad para creativos
+- [ ] SDK Factory pattern
+- [ ] Badge de provider en respuestas

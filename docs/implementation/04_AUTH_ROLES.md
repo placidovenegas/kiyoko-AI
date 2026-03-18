@@ -1,6 +1,6 @@
 # Fase 04 — Autenticación y Roles
 
-## Estado: PENDIENTE
+## Estado: ✅ COMPLETADO
 
 ## Objetivo
 
@@ -44,8 +44,17 @@ Admin bloquea → role=blocked (sin acceso)
 ```
 
 ## Criterios de Aceptación
-- [ ] Login/registro funcional con Supabase Auth
-- [ ] Auto-creación de perfil via trigger
-- [ ] Middleware protege todas las rutas
-- [ ] Admin puede aprobar/bloquear usuarios
-- [ ] Redirecciones correctas según role
+- [x] Login/registro funcional con Supabase Auth
+- [x] Auto-creación de perfil via trigger
+- [x] Middleware protege todas las rutas
+- [x] Admin puede aprobar/bloquear usuarios
+- [x] Redirecciones correctas según role
+
+## Notas de implementación
+- Todas las páginas auth implementadas: login, register, pending, blocked, forgot-password
+- Layout de auth con diseño consistente
+- Middleware.ts con protección de rutas completa
+- Admin panel: /admin (resumen) + /admin/users (tabla)
+- API routes: /api/admin/users + /api/admin/users/[userId]
+- Hooks: useAuth.ts + useAdmin.ts
+- Supabase clients: client.ts, server.ts, middleware.ts, admin.ts

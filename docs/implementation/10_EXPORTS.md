@@ -1,6 +1,6 @@
 # Fase 10 — Exportaciones
 
-## Estado: PENDIENTE
+## Estado: ✅ COMPLETADO (base — pendiente mejoras v5)
 
 ## Objetivo
 
@@ -42,7 +42,25 @@ Implementar los 4 formatos de exportación: HTML autocontenido, JSON estructurad
 - `generate-pdf.ts`
 
 ## Criterios de Aceptación
-- [ ] Los 4 formatos generan correctamente
-- [ ] Historial de exports guardado en DB
+- [x] Los 4 formatos generan correctamente (HTML, JSON, MD, PDF)
+- [ ] Historial de exports guardado en DB (tabla exports existe pero no se usa completamente)
 - [ ] Preview funcional
-- [ ] Descarga directa funcional
+- [x] Descarga directa funcional
+
+## Notas de implementación
+### Implementado:
+- /api/export/html — HTML autocontenido
+- /api/export/json — JSON estructurado
+- /api/export/markdown — Markdown con prompts
+- /api/export/pdf — PDF con @react-pdf/renderer
+- Generadores: generate-html.ts, generate-json.ts, generate-markdown.ts, generate-pdf.ts
+- Hook: useExport.ts
+- Página: /p/[slug]/exports
+
+### Pendiente → ver Fase 18 (Producción):
+- [ ] Componentes ExportPanel, ExportPreview, ExportHistory, ExportFormatCard
+- [ ] Export HTML con narración y audio embebido
+- [ ] Export PDF con layout storyboard profesional
+- [ ] Export video script (guión de producción)
+- [ ] Export shot list PDF/MD
+- [ ] Storyboard imprimible (3 escenas por fila, 6 por página)

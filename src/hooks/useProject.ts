@@ -4,7 +4,7 @@ import { useCallback, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useProjectStore } from '@/stores/useProjectStore';
 import type { Project, ProjectCreateInput } from '@/types';
-import { slugify } from '@/lib/utils/slugify';
+import { generateProjectSlug } from '@/lib/utils/slugify';
 
 export function useProject(slug?: string) {
   const store = useProjectStore();
@@ -49,7 +49,7 @@ export function useProject(slug?: string) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
-    const projectSlug = slugify(input.title);
+    const projectSlug = generateProjectSlug(input.title);
     const { data, error } = await supabase
       .from('projects')
       .insert({

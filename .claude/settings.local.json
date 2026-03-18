@@ -24,7 +24,19 @@
       "Bash(npx shadcn@latest init -y)",
       "Bash(node -e \"const m = require\\(''react-resizable-panels''\\); console.log\\(Object.keys\\(m\\).join\\('', ''\\)\\)\")",
       "Bash(sed -i \"s/bg-card border border-border/bg-surface-secondary border border-border\\\\/40/g\" src/components/layout/Header.tsx)",
-      "Bash(sed -i \"s/''bg-card border border-border/''bg-surface-secondary border border-border\\\\/40/g\" src/components/layout/Header.tsx)"
+      "Bash(sed -i \"s/''bg-card border border-border/''bg-surface-secondary border border-border\\\\/40/g\" src/components/layout/Header.tsx)",
+      "WebFetch(domain:ai-sdk.dev)",
+      "Bash(cp -r \"src/app/\\(dashboard\\)/project/[id]\" \"src/app/\\(dashboard\\)/project/[slug]\")",
+      "Bash(rm -rf \"src/app/\\(dashboard\\)/project/[id]\")",
+      "Bash(find \"src/app/\\(dashboard\\)/project/[slug]/\" -name \"*.tsx\" -exec sed -i \"s/\\\\.eq\\(''id'', projectId\\)/\\\\.eq\\(''slug'', projectId\\)/g\" {} +)",
+      "Bash(npx next:*)",
+      "Bash(npx tsc:*)",
+      "Bash(node -e \"const ai = require\\(''ai''\\); console.log\\(Object.keys\\(ai\\).filter\\(k => /message/i.test\\(k\\)\\).join\\('', ''\\)\\)\")",
+      "Bash(node -e \"const { tool } = require\\(''ai''\\); const { z } = require\\(''zod''\\); const t = tool\\({ description: ''test'', inputSchema: z.object\\({ x: z.string\\(\\) }\\) }\\); console.log\\(''OK:'', typeof t\\);\")",
+      "Bash(node -e \"const p = require\\(''react-resizable-panels''\\); console.log\\(Object.keys\\(p\\).join\\('', ''\\)\\)\")",
+      "Bash(node -e \"const {Group} = require\\(''''react-resizable-panels''''\\); const c = Group\\({direction: ''''horizontal'''', children: []}\\); console.log\\(''''works''''\\)\")",
+      "Bash(npx shadcn@latest add sidebar)",
+      "Bash(npx shadcn@latest init -d)"
     ]
   },
   "enableAllProjectMcpServers": true,

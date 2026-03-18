@@ -1,6 +1,6 @@
 # Fase 03 — Base de Datos (Supabase)
 
-## Estado: PENDIENTE
+## Estado: ✅ COMPLETADO
 
 ## Objetivo
 
@@ -44,8 +44,20 @@ Crear el schema completo de la base de datos en Supabase, aplicar RLS policies, 
 13. `ai_usage_logs` — Log de uso de IA
 
 ## Criterios de Aceptación
-- [ ] Todas las tablas creadas correctamente
-- [ ] RLS activo en todas las tablas
-- [ ] Policies verificadas
-- [ ] Storage buckets creados
-- [ ] Tipos TypeScript generados
+- [x] Todas las tablas creadas correctamente
+- [x] RLS activo en todas las tablas
+- [x] Policies verificadas
+- [x] Storage buckets creados
+- [ ] Tipos TypeScript generados con `supabase gen types` (se usan tipos manuales en src/types/)
+
+## Notas de implementación
+- 5 migraciones aplicadas: initial_schema, rls_policies, storage_buckets, seed_domenech, ai_usage_logs_insert_policy
+- 13 tablas creadas con RLS
+- 3 storage buckets: project-assets, avatars, exports
+- Tipos TypeScript manuales en `src/types/` (project.ts, scene.ts, character.ts, background.ts, timeline.ts, ai.ts, export.ts, ai-actions.ts)
+
+### Pendiente para fases futuras (v4/v5):
+- [ ] ALTER TABLE characters ADD role_rules JSONB, ai_notes TEXT
+- [ ] ALTER TABLE scenes ADD narration_text, narration_audio_url, narration_audio_duration_ms, music_suggestion, sfx_suggestion, music_intensity, image_versions JSONB
+- [ ] ALTER TABLE projects ADD narration_mode, narration_config JSONB, narration_full_text, narration_full_audio_url, global_rules JSONB
+- [ ] CREATE TABLE change_history (para historial con undo)

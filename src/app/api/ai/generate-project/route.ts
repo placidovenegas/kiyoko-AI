@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { generateText, Output } from 'ai';
 import { createClient } from '@/lib/supabase/server';
-import { getAvailableProvider, logUsage } from '@/lib/ai/router';
+import { getModelWithFallback, logUsage } from '@/lib/ai/sdk-router';
 import { SYSTEM_PROJECT_GENERATOR } from '@/lib/ai/prompts/system-project-generator';
+import { projectOutputSchema } from '@/lib/ai/schemas/project-output';
 
 interface GenerateProjectBody {
   brief: string;
@@ -32,61 +34,42 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const provider = await getAvailableProvider(user.id, 'text');
+    const { model, providerId } = getModelWithFallback();
     const startTime = Date.now();
 
-    // TODO: Build the user prompt from the body fields
     const userPrompt = `Generate a complete storyboard project with the following details:
 - Brief: ${brief}
 - Visual Style: ${style}
 - Platform: ${platform}
 - Duration: ${duration} seconds
 
-Respond with a JSON object containing: title, description, scenes (array), characters (array), backgrounds (array), arc_phases (array).`;
+Respond with a JSON object matching the schema for: title, description, client_name, style, target_platform, target_duration_seconds, color_palette (primary, secondary, accent, dark, light), and tags.`;
 
-    const result = await provider.instance.generateText(
-      {
-        prompt: userPrompt,
-        systemPrompt: SYSTEM_PROJECT_GENERATOR,
-        maxTokens: 4096,
-        temperature: 0.7,
-      },
-      provider.apiKey
-    );
+    const { experimental_output: output, usage } = await generateText({
+      model,
+      system: SYSTEM_PROJECT_GENERATOR,
+      prompt: userPrompt,
+      output: Output.object({ schema: projectOutputSchema }),
+    });
 
     const responseTimeMs = Date.now() - startTime;
 
     await logUsage({
       userId: user.id,
-      provider: provider.providerId,
-      model: provider.model,
+      provider: providerId,
+      model: providerId,
       task: 'generate-project',
-      inputTokens: result.inputTokens,
-      outputTokens: result.outputTokens,
-      estimatedCost: 0, // TODO: Calculate based on provider pricing
+      inputTokens: usage.inputTokens ?? 0,
+      outputTokens: usage.outputTokens ?? 0,
+      estimatedCost: 0,
       responseTimeMs,
       success: true,
     });
 
-    // TODO: Parse the AI response JSON and validate structure
-    // TODO: Save the project to the database
-    // TODO: Return the saved project with its ID
-
-    let projectData;
-    try {
-      projectData = JSON.parse(result.text);
-    } catch {
-      return NextResponse.json(
-        { error: 'Failed to parse AI response as JSON' },
-        { status: 500 }
-      );
-    }
-
     return NextResponse.json({
       success: true,
-      project: projectData,
-      provider: provider.providerId,
-      model: provider.model,
+      data: output,
+      provider: providerId,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';

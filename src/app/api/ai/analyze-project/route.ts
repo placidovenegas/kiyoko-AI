@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { generateText, Output } from 'ai';
 import { createClient } from '@/lib/supabase/server';
-import { getAvailableProvider } from '@/lib/ai/router';
+import { getModelWithFallback } from '@/lib/ai/sdk-router';
 import { SYSTEM_ANALYZER } from '@/lib/ai/prompts/system-analyzer';
+import { analysisOutputSchema } from '@/lib/ai/schemas/analysis-output';
 
 interface AnalyzeProjectBody {
   projectId: string;
@@ -125,7 +127,7 @@ export async function POST(request: NextRequest) {
 
     const fullContext = contextParts.join('\n');
 
-    const provider = await getAvailableProvider(user.id, 'text');
+    const { model, providerId } = getModelWithFallback();
 
     const userPrompt = `Analyze this storyboard project scene by scene and provide a detailed diagnostic.
 
@@ -134,46 +136,14 @@ ${fullContext}
 Respond with a JSON object following the format specified in your instructions.
 Be constructive and specific. Evaluate each scene's prompt quality, the narrative flow, visual consistency, pacing, and overall production readiness.`;
 
-    const result = await provider.instance.generateText(
-      {
-        prompt: userPrompt,
-        systemPrompt: SYSTEM_ANALYZER,
-        maxTokens: 4096,
-        temperature: 0.5,
-      },
-      provider.apiKey
-    );
+    const { experimental_output: output } = await generateText({
+      model,
+      system: SYSTEM_ANALYZER,
+      prompt: userPrompt,
+      output: Output.object({ schema: analysisOutputSchema }),
+    });
 
-    // Try to parse the AI response as JSON
-    let diagnostic;
-    try {
-      let text = result.text.trim();
-      if (text.startsWith('```json')) {
-        text = text.slice(7);
-      } else if (text.startsWith('```')) {
-        text = text.slice(3);
-      }
-      if (text.endsWith('```')) {
-        text = text.slice(0, -3);
-      }
-      diagnostic = JSON.parse(text.trim());
-    } catch {
-      // Fallback: return the raw text wrapped in a basic structure
-      console.error('[analyze-project] Failed to parse AI response as JSON, using raw text');
-      diagnostic = {
-        summary: result.text.trim(),
-        overall_score: 0,
-        strengths: [],
-        warnings: [],
-        suggestions: [],
-        metrics: {
-          total_scenes: scenes.length,
-          estimated_duration: 0,
-          total_characters: characters.length,
-          total_backgrounds: backgrounds.length,
-        },
-      };
-    }
+    const diagnostic = output;
 
     // UPDATE project_issues table with the new analysis results
     try {
@@ -187,7 +157,7 @@ Be constructive and specific. Evaluate each scene's prompt quality, the narrativ
       const newIssues: Array<Record<string, unknown>> = [];
       let sortOrder = 0;
 
-      if (diagnostic.strengths && Array.isArray(diagnostic.strengths)) {
+      if (diagnostic && diagnostic.strengths && Array.isArray(diagnostic.strengths)) {
         for (const s of diagnostic.strengths) {
           newIssues.push({
             project_id: projectId,
@@ -201,7 +171,7 @@ Be constructive and specific. Evaluate each scene's prompt quality, the narrativ
         }
       }
 
-      if (diagnostic.warnings && Array.isArray(diagnostic.warnings)) {
+      if (diagnostic && diagnostic.warnings && Array.isArray(diagnostic.warnings)) {
         for (const w of diagnostic.warnings) {
           newIssues.push({
             project_id: projectId,
@@ -215,7 +185,7 @@ Be constructive and specific. Evaluate each scene's prompt quality, the narrativ
         }
       }
 
-      if (diagnostic.suggestions && Array.isArray(diagnostic.suggestions)) {
+      if (diagnostic && diagnostic.suggestions && Array.isArray(diagnostic.suggestions)) {
         for (const s of diagnostic.suggestions) {
           newIssues.push({
             project_id: projectId,
@@ -245,9 +215,8 @@ Be constructive and specific. Evaluate each scene's prompt quality, the narrativ
 
     return NextResponse.json({
       success: true,
-      diagnostic,
-      provider: provider.providerId,
-      model: provider.model,
+      data: diagnostic,
+      provider: providerId,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';

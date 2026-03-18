@@ -1,6 +1,6 @@
 # Fase 09 — Integración IA Completa
 
-## Estado: PENDIENTE
+## Estado: ✅ COMPLETADO (base — pendiente mejoras v4)
 
 ## Objetivo
 
@@ -50,8 +50,39 @@ Implementar todas las API routes de IA, system prompts, wizard de creación de p
 - `useAiProvider.ts` — Provider activo
 
 ## Criterios de Aceptación
-- [ ] Todas las API routes usando AI Router
-- [ ] Wizard completo de 5 pasos
-- [ ] Chat con streaming funcional
-- [ ] Botones "Mejorar con IA" en escenas
-- [ ] Generación de imágenes funcional
+- [x] Todas las API routes usando AI Router
+- [x] Wizard completo de 5 pasos (/new)
+- [x] Chat con streaming funcional (/api/ai/chat)
+- [x] Botones "Mejorar con IA" en escenas (/api/ai/improve-prompt)
+- [x] Generación de imágenes funcional (/api/ai/generate-image)
+
+## Notas de implementación
+### API Routes implementadas (11):
+- /api/ai/generate-project — Genera proyecto desde brief
+- /api/ai/generate-scenes — Genera escenas
+- /api/ai/generate-image — Genera imagen
+- /api/ai/generate-characters — Genera personajes
+- /api/ai/generate-arc — Genera arco narrativo
+- /api/ai/generate-timeline — Genera timeline
+- /api/ai/generate-voice — TTS con Google Cloud
+- /api/ai/improve-prompt — Mejora prompts
+- /api/ai/analyze-project — Diagnóstico IA
+- /api/ai/chat — Chat con streaming
+- /api/ai/providers/status — Estado providers
+
+### System Prompts implementados (10):
+system-analyzer, system-character-generator, system-chat-assistant, system-chat-director, system-narration-generator, system-project-generator, system-scene-generator, system-scene-improver, system-storyboard-director, system-timeline-generator
+
+### Schemas Zod implementados (5):
+analysis-output, character-output, project-output, scene-output, timeline-output
+
+### Hooks implementados:
+useAiGenerate.ts, useAiChat.ts, useAiProvider.ts
+### Store: useAiChatStore.ts
+
+### Pendiente → ver Fase 13 (Chat Director):
+- [ ] Action system completo con plan → confirmar → ejecutar
+- [ ] Chat como panel lateral en storyboard
+- [ ] Contexto completo del proyecto en cada mensaje
+- [ ] Comandos globales desde el chat
+- [ ] Reglas de personaje inyectadas en prompts

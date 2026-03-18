@@ -1,11 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { generateText, Output } from 'ai';
+import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
-import { getAvailableProvider, logUsage } from '@/lib/ai/router';
+import { getModelWithFallback, logUsage } from '@/lib/ai/sdk-router';
 import { SYSTEM_PROJECT_GENERATOR } from '@/lib/ai/prompts/system-project-generator';
 
 interface GenerateArcBody {
   projectId: string;
 }
+
+// No dedicated arc schema file exists, so define inline
+const arcOutputSchema = z.object({
+  phases: z.array(z.object({
+    id: z.enum(['hook', 'build', 'peak', 'close']),
+    title: z.string(),
+    description: z.string(),
+    scene_numbers: z.array(z.string()),
+    duration_seconds: z.number(),
+    emotional_goal: z.string(),
+    pacing: z.enum(['slow', 'medium', 'fast']),
+  })),
+  overall_theme: z.string(),
+  emotional_journey: z.string(),
+});
 
 export async function POST(request: NextRequest) {
   try {
@@ -50,7 +67,7 @@ export async function POST(request: NextRequest) {
       .eq('project_id', projectId)
       .order('order', { ascending: true });
 
-    const provider = await getAvailableProvider(user.id, 'text');
+    const { model, providerId } = getModelWithFallback();
     const startTime = Date.now();
 
     const userPrompt = `Generate a narrative arc for this storyboard project:
@@ -63,65 +80,34 @@ Platform: ${project.platform ?? 'general'}
 Scenes:
 ${(scenes ?? []).map((s: Record<string, unknown>, i: number) => `${i + 1}. ${s.title}: ${s.description}`).join('\n')}
 
-Generate a JSON response with the narrative arc phases:
-{
-  "phases": [
-    {
-      "id": "hook" | "build" | "peak" | "close",
-      "title": "string",
-      "description": "string",
-      "scene_numbers": ["string"],
-      "duration_seconds": number,
-      "emotional_goal": "string",
-      "pacing": "slow" | "medium" | "fast"
-    }
-  ],
-  "overall_theme": "string",
-  "emotional_journey": "string"
-}`;
+Generate the narrative arc with phases (hook, build, peak, close), overall_theme, and emotional_journey.`;
 
-    const result = await provider.instance.generateText(
-      {
-        prompt: userPrompt,
-        systemPrompt: SYSTEM_PROJECT_GENERATOR,
-        maxTokens: 2048,
-        temperature: 0.6,
-      },
-      provider.apiKey
-    );
+    const { experimental_output: output, usage } = await generateText({
+      model,
+      system: SYSTEM_PROJECT_GENERATOR,
+      prompt: userPrompt,
+      output: Output.object({ schema: arcOutputSchema }),
+    });
 
     const responseTimeMs = Date.now() - startTime;
 
     await logUsage({
       userId: user.id,
       projectId,
-      provider: provider.providerId,
-      model: provider.model,
+      provider: providerId,
+      model: providerId,
       task: 'generate-arc',
-      inputTokens: result.inputTokens,
-      outputTokens: result.outputTokens,
-      estimatedCost: 0, // TODO: Calculate based on provider pricing
+      inputTokens: usage.inputTokens ?? 0,
+      outputTokens: usage.outputTokens ?? 0,
+      estimatedCost: 0,
       responseTimeMs,
       success: true,
     });
 
-    let arcData;
-    try {
-      arcData = JSON.parse(result.text);
-    } catch {
-      return NextResponse.json(
-        { error: 'Failed to parse AI response as JSON' },
-        { status: 500 }
-      );
-    }
-
-    // TODO: Save arc to the database linked to the project
-
     return NextResponse.json({
       success: true,
-      arc: arcData,
-      provider: provider.providerId,
-      model: provider.model,
+      data: output,
+      provider: providerId,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';

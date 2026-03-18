@@ -78,6 +78,16 @@ export function useAuth() {
     router.push('/login');
   }
 
+  async function signInWithGoogle() {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+    if (error) throw error;
+  }
+
   async function resetPassword(email: string) {
     const { error } = await supabase.auth.resetPasswordForEmail(email);
     if (error) throw error;
@@ -89,6 +99,7 @@ export function useAuth() {
     signIn,
     signUp,
     signOut,
+    signInWithGoogle,
     resetPassword,
     isAdmin: user?.role === 'admin',
     isApproved: user?.role && ['admin', 'editor', 'viewer'].includes(user.role),

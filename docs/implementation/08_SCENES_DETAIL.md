@@ -1,6 +1,6 @@
 # Fase 08 — Escenas en Detalle
 
-## Estado: PENDIENTE
+## Estado: ⚠️ PARCIAL (base implementada, faltan componentes avanzados)
 
 ## Objetivo
 
@@ -46,8 +46,27 @@ Implementar la vista completa de escenas: cards colapsables/expandibles, prompts
 - SceneAiImproveButton
 
 ## Criterios de Aceptación
-- [ ] Cards expand/collapse fluido
-- [ ] Prompts con syntax highlight y copy funcional
-- [ ] Upload de imágenes a Supabase Storage
-- [ ] Filtros actualizan la vista
-- [ ] DnD reordena y persiste
+- [x] Cards expand/collapse fluido
+- [x] Prompts con copy funcional (PromptBlock + CopyButton)
+- [x] Upload de imágenes a Supabase Storage (ImageUpload)
+- [ ] Filtros actualizan la vista (filtros básicos, faltan por fondo/personaje)
+- [ ] DnD reordena y persiste (@dnd-kit instalado pero no implementado en escenas)
+
+## Notas de implementación
+### Implementado:
+- /p/[slug]/scenes — Lista de escenas con page.tsx
+- /p/[slug]/scenes/[sceneId] — Detalle individual
+- Hooks: useScenes.ts
+- Componentes: ChatStoryboard.tsx, HistoryPanel.tsx (en storyboard/)
+- PromptBlock.tsx, CopyButton.tsx, ImageUpload.tsx, ImagePreview.tsx, ImageCropOverlay.tsx
+- SceneSelectionBar.tsx para selección múltiple
+
+### Pendiente:
+- [ ] Syntax highlight con Shiki (se usa PromptBlock sin highlight)
+- [ ] SceneCard expandida completa con metadata visual
+- [ ] ScenePromptEditor con Tiptap (Tiptap instalado pero no integrado en escenas)
+- [ ] SceneGrid con filtros avanzados (por fondo, personaje, tipo)
+- [ ] Drag & drop con @dnd-kit para reordenar
+- [ ] SceneImageGallery con historial de versiones
+- [ ] Navegación prev/next en detalle
+- [ ] Vista: lista, grid, timeline toggle

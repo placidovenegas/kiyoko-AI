@@ -3,95 +3,99 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, PlusCircle, Users, Settings, Key, FileText } from 'lucide-react';
+import { LayoutDashboard, PlusCircle, Users, Settings, Key } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { createClient } from '@/lib/supabase/client';
+import { ProjectSidebar } from './ProjectSidebar';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface SidebarProps {
   collapsed: boolean;
   onToggleCollapse: () => void;
-  modeSelector?: React.ReactNode;
 }
 
-interface RecentProject { id: string; slug: string; title: string; }
-
-export function Sidebar({ collapsed, modeSelector }: SidebarProps) {
+export function Sidebar({ collapsed }: SidebarProps) {
   const pathname = usePathname();
-  const supabase = createClient();
-  const [recentProjects, setRecentProjects] = useState<RecentProject[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
+
+  const projectMatch = pathname.match(/^\/project\/([^/]+)/);
+  const projectSlug = projectMatch ? projectMatch[1] : null;
 
   useEffect(() => {
     async function load() {
+      const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       const { data: p } = await supabase.from('profiles').select('role').eq('id', user.id).single();
       if (p?.role === 'admin') setIsAdmin(true);
-      const { data: projects } = await supabase.from('projects').select('id, slug, title').order('updated_at', { ascending: false }).limit(4);
-      if (projects) setRecentProjects(projects as RecentProject[]);
     }
     load();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
-  function NavLink({ href, label, icon: Icon }: { href: string; label: string; icon: React.ComponentType<{ size?: number; className?: string }> }) {
-    const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href + '/'));
-    return (
-      <Link
-        href={href}
-        title={collapsed ? label : undefined}
-        className={cn(
-          'flex items-center gap-2.5 rounded-md text-[13px] transition-colors duration-100',
-          collapsed ? 'justify-center p-2' : 'px-2.5 py-[6px]',
-          active ? 'bg-foreground/[0.08] text-foreground' : 'text-foreground/50 hover:text-foreground/80 hover:bg-foreground/[0.04]',
-        )}
-      >
-        <Icon size={15} className="shrink-0" />
-        {!collapsed && <span className="truncate">{label}</span>}
-      </Link>
-    );
+  if (projectSlug) {
+    return <ProjectSidebar projectSlug={projectSlug} collapsed={collapsed} />;
   }
 
   return (
-    <aside className="flex flex-col h-full overflow-hidden">
-      <nav className="flex-1 overflow-y-auto py-2 px-1.5 space-y-0.5">
-        <NavLink href="/dashboard" label="Proyectos" icon={LayoutDashboard} />
-        <NavLink href="/new" label="Nuevo" icon={PlusCircle} />
+    <TooltipProvider delayDuration={0}>
+      <nav className="py-2 px-1.5 space-y-0.5">
+        <NavItem href="/dashboard" label="Proyectos" icon={LayoutDashboard} collapsed={collapsed} active={pathname === '/dashboard'} />
+        <NavItem href="/new" label="Nuevo Proyecto" icon={PlusCircle} collapsed={collapsed} active={pathname === '/new'} />
+        <NavItem href="/organizations" label="Organizaciones" icon={Users} collapsed={collapsed} active={pathname.startsWith('/organizations')} />
 
-        <div className="!my-2 mx-1.5 h-px bg-foreground/[0.06]" />
+        {isAdmin && (
+          <>
+            <div className="my-2 mx-1.5 h-px bg-foreground/6" />
+            <NavItem href="/admin/users" label="Admin" icon={Users} collapsed={collapsed} active={pathname.startsWith('/admin')} />
+          </>
+        )}
 
-        {recentProjects.map(project => {
-          const active = pathname.startsWith(`/p/${project.slug}`);
-          return (
-            <Link
-              key={project.id}
-              href={`/p/${project.slug}`}
-              title={collapsed ? project.title : undefined}
-              className={cn(
-                'flex items-center gap-2 rounded-md text-[13px] transition-colors duration-100',
-                collapsed ? 'justify-center p-2' : 'px-2.5 py-[6px]',
-                active ? 'bg-foreground/[0.08] text-foreground' : 'text-foreground/50 hover:text-foreground/80 hover:bg-foreground/[0.04]',
-              )}
-            >
-              <FileText size={14} className="shrink-0" />
-              {!collapsed && <span className="truncate">{project.title}</span>}
-            </Link>
-          );
-        })}
-
-        {isAdmin && <div className="!my-2 mx-1.5 h-px bg-foreground/[0.06]" />}
-        {isAdmin && <NavLink href="/admin/users" label="Usuarios" icon={Users} />}
-
-        <div className="!my-2 mx-1.5 h-px bg-foreground/[0.06]" />
-
-        <NavLink href="/settings" label="Ajustes" icon={Settings} />
-        <NavLink href="/settings/api-keys" label="API Keys" icon={Key} />
+        <div className="my-2 mx-1.5 h-px bg-foreground/6" />
+        <NavItem href="/settings" label="Ajustes" icon={Settings} collapsed={collapsed} active={pathname === '/settings'} />
+        <NavItem href="/settings/api-keys" label="API Keys" icon={Key} collapsed={collapsed} active={pathname === '/settings/api-keys'} />
       </nav>
-
-      {modeSelector && (
-        <div className="shrink-0 border-t border-foreground/[0.06] p-1.5">
-          {modeSelector}
-        </div>
-      )}
-    </aside>
+    </TooltipProvider>
   );
+}
+
+function NavItem({ href, label, icon: Icon, collapsed, active }: {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  collapsed: boolean;
+  active: boolean;
+}) {
+  const link = (
+    <Link
+      href={href}
+      className={cn(
+        'flex items-center gap-2.5 rounded-md text-[13px] transition-colors duration-100',
+        collapsed ? 'justify-center p-2' : 'px-2.5 py-1.75',
+        active
+          ? 'bg-brand-500/10 text-brand-500 font-medium'
+          : 'text-foreground/50 hover:text-foreground hover:bg-foreground/5',
+      )}
+    >
+      <Icon size={16} className="shrink-0" />
+      {!collapsed && <span className="truncate">{label}</span>}
+    </Link>
+  );
+
+  if (collapsed) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>{link}</TooltipTrigger>
+        <TooltipContent side="right" sideOffset={8}>
+          <p className="text-xs">{label}</p>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return link;
 }

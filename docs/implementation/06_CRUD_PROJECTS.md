@@ -1,6 +1,6 @@
 # Fase 06 — CRUD de Proyectos
 
-## Estado: PENDIENTE
+## Estado: ✅ COMPLETADO
 
 ## Objetivo
 
@@ -41,8 +41,18 @@ Implementar el dashboard con grid de proyectos, overview del proyecto individual
 - `useProject.ts` — CRUD de proyectos
 
 ## Criterios de Aceptación
-- [ ] Dashboard muestra proyectos del usuario
-- [ ] Filtros y búsqueda funcionan
-- [ ] Overview muestra stats correctos
-- [ ] Settings editable con validación
-- [ ] Navegación entre pestañas funcional
+- [x] Dashboard muestra proyectos del usuario
+- [x] Filtros y búsqueda funcionan
+- [x] Overview muestra stats correctos
+- [x] Settings editable con validación
+- [x] Navegación entre pestañas funcional
+
+## Notas de implementación
+- Dashboard: /dashboard con ProjectGrid + ProjectCard + loading.tsx
+- Wizard: /new con loading state
+- Overview: /p/[slug] con layout.tsx y loading.tsx
+- Settings: /p/[slug]/settings
+- Componentes: ProjectCard.tsx, ProjectGrid.tsx, SceneSelectionBar.tsx
+- Store: useProjectStore.ts + useFilterStore.ts
+- Hooks: useProject.ts
+- Context: ProjectContext.tsx

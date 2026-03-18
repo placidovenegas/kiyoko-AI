@@ -23,13 +23,13 @@ export function useProject() {
 
 export function ProjectProvider({ children }: { children: ReactNode }) {
   const params = useParams();
-  const slug = params.slug as string;
+  const projectId = params.slug as string;
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!slug) return;
+    if (!projectId) return;
 
     const supabase = createClient();
 
@@ -38,7 +38,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       const { data, error: err } = await supabase
         .from('projects')
         .select('*')
-        .eq('slug', slug)
+        .eq('slug', projectId)
         .single();
 
       if (err) {
@@ -50,7 +50,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     }
 
     fetchProject();
-  }, [slug]);
+  }, [projectId]);
 
   return (
     <ProjectContext.Provider value={{ project, loading, error }}>

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { generateText, Output } from 'ai';
 import { createClient } from '@/lib/supabase/server';
-import { getAvailableProvider } from '@/lib/ai/router';
+import { getModelWithFallback } from '@/lib/ai/sdk-router';
 import { SYSTEM_SCENE_GENERATOR } from '@/lib/ai/prompts/system-scene-generator';
+import { sceneOutputSchema } from '@/lib/ai/schemas/scene-output';
 
 interface GenerateScenesBody {
   projectId: string;
@@ -87,7 +89,7 @@ export async function POST(request: NextRequest) {
         ).join('\n')
       : 'No backgrounds defined yet.';
 
-    const provider = await getAvailableProvider(user.id, 'text');
+    const { model, providerId } = getModelWithFallback();
 
     const userPrompt = `Generate a new scene for this storyboard project based on the user's instruction.
 
@@ -109,62 +111,19 @@ ${backgroundDescriptions}
 === USER INSTRUCTION ===
 ${instruction}
 
-Generate a scene that fits naturally within the existing storyboard. Respond with a JSON object containing:
-{
-  "scene_number": "string (e.g. '3A' or '4')",
-  "title": "string",
-  "description": "string (narrative description)",
-  "scene_type": "original" | "improved" | "new" | "filler" | "video",
-  "arc_phase": "hook" | "build" | "peak" | "resolve",
-  "prompt_image": "string (detailed image generation prompt)",
-  "prompt_video": "string (detailed video generation prompt)",
-  "duration_seconds": number,
-  "camera_angle": "string",
-  "camera_movement": "string",
-  "lighting": "string",
-  "mood": "string",
-  "director_notes": "string",
-  "suggested_insert_after": number | null (sort_order value of the scene it should come after, null for first)
-}`;
+Generate a scene that fits naturally within the existing storyboard. Return a single scene object matching the required schema.`;
 
-    const result = await provider.instance.generateText(
-      {
-        prompt: userPrompt,
-        systemPrompt: SYSTEM_SCENE_GENERATOR,
-        maxTokens: 4096,
-        temperature: 0.7,
-      },
-      provider.apiKey
-    );
-
-    // Try to parse the AI response as JSON
-    let scene;
-    try {
-      let text = result.text.trim();
-      if (text.startsWith('```json')) {
-        text = text.slice(7);
-      } else if (text.startsWith('```')) {
-        text = text.slice(3);
-      }
-      if (text.endsWith('```')) {
-        text = text.slice(0, -3);
-      }
-      const parsed = JSON.parse(text.trim());
-      // Handle both single scene object and array
-      scene = Array.isArray(parsed) ? parsed[0] : (parsed.scene ?? parsed);
-    } catch {
-      console.error('[generate-scenes] Failed to parse AI response as JSON');
-      return NextResponse.json(
-        { error: 'Failed to parse AI response as JSON', raw: result.text },
-        { status: 500 }
-      );
-    }
+    const { experimental_output: output } = await generateText({
+      model,
+      system: SYSTEM_SCENE_GENERATOR,
+      prompt: userPrompt,
+      output: Output.object({ schema: sceneOutputSchema }),
+    });
 
     return NextResponse.json({
       success: true,
-      scene,
-      provider: provider.providerId,
-      model: provider.model,
+      data: output,
+      provider: providerId,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';

@@ -14,6 +14,7 @@ import {
   IconPlayerPlay,
   IconSortDescending,
 } from '@tabler/icons-react';
+import { useOrgStore } from '@/stores/useOrgStore';
 
 type StatusFilter = 'all' | 'in_progress' | 'completed' | 'archived';
 type SortOption = 'recent' | 'name_asc' | 'most_progress';
@@ -48,14 +49,23 @@ export default function DashboardPage() {
   const [activeFilter, setActiveFilter] = useState<StatusFilter>('all');
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<SortOption>('recent');
+  const { currentOrgId } = useOrgStore();
 
   useEffect(() => {
     async function fetchProjects() {
+      setLoading(true);
       const supabase = createClient();
-      const { data, error } = await supabase
+      let query = supabase
         .from('projects')
         .select('*')
         .order('updated_at', { ascending: false });
+
+      // Filter by organization if one is selected
+      if (currentOrgId) {
+        query = query.eq('organization_id', currentOrgId);
+      }
+
+      const { data, error } = await query;
 
       if (!error && data) {
         setProjects(data as Project[]);
@@ -64,7 +74,7 @@ export default function DashboardPage() {
     }
 
     fetchProjects();
-  }, []);
+  }, [currentOrgId]);
 
   // Counts per filter
   const counts = useMemo(() => {

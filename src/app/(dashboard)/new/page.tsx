@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { slugify } from '@/lib/utils/slugify';
+import { slugify, generateProjectSlug } from '@/lib/utils/slugify';
 import { cn } from '@/lib/utils/cn';
 import { toast } from 'sonner';
 import {
@@ -463,7 +463,7 @@ export default function NewProjectPage() {
       if (!user) throw new Error('No autenticado');
 
       const title = data.title || 'Nuevo Proyecto';
-      const slug = slugify(title) + '-' + Date.now().toString(36);
+      const slug = generateProjectSlug(title);
 
       // Insert project
       const { data: project, error } = await supabase
@@ -519,7 +519,7 @@ export default function NewProjectPage() {
       }
 
       toast.success('Proyecto creado con exito');
-      router.push(`/p/${project.slug}`);
+      router.push(`/project/${project.slug}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error al crear proyecto');
       setIsCreating(false);

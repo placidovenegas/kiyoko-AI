@@ -1,6 +1,6 @@
 # Fase 01 — Scaffolding y Dependencias
 
-## Estado: EN PROGRESO
+## Estado: ✅ COMPLETADO
 
 ## Objetivo
 
@@ -79,8 +79,13 @@ Todos los campos de variables de entorno documentados.
 Instrucciones del proyecto para Claude Code.
 
 ## Criterios de Aceptación
-- [ ] `npm run dev` funciona sin errores
-- [ ] Todas las dependencias instaladas
-- [ ] Estructura de carpetas completa creada
-- [ ] Alias `@/*` funciona correctamente
-- [ ] `.env.example` creado con todos los campos
+- [x] `npm run dev` funciona sin errores
+- [x] Todas las dependencias instaladas
+- [x] Estructura de carpetas completa creada
+- [x] Alias `@/*` funciona correctamente
+- [x] `.env.example` creado con todos los campos
+
+## Notas de implementación
+- Estructura `src/` completa con app/, components/, lib/, stores/, hooks/, types/
+- Todas las dependencias core, IA, UI y export instaladas
+- Falta crear carpetas de componentes por dominio: `scenes/`, `characters/`, `backgrounds/`, `analysis/`, `arc/`, `timeline/`, `references/`, `ai/`, `exports/`, `admin/` (los componentes están en `project/`, `storyboard/`, `shared/` en su lugar)
