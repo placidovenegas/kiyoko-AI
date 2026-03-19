@@ -2,6 +2,9 @@
 
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { KButton } from '@/components/ui/kiyoko-button';
+import { ShieldX, LogOut } from 'lucide-react';
+import { AuthCard } from '@/components/auth';
 
 export default function BlockedPage() {
   const router = useRouter();
@@ -13,9 +16,9 @@ export default function BlockedPage() {
   }
 
   return (
-    <div className="rounded-2xl bg-surface p-8 text-center shadow-dialog">
-      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 text-3xl">
-        🚫
+    <AuthCard className="text-center">
+      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/10">
+        <ShieldX className="h-7 w-7 text-red-500" />
       </div>
       <h1 className="text-xl font-semibold text-foreground">
         Cuenta bloqueada
@@ -24,12 +27,15 @@ export default function BlockedPage() {
         Tu cuenta ha sido bloqueada por un administrador. Si crees que esto
         es un error, contacta al soporte.
       </p>
-      <button
+      <KButton
+        variant="outline"
+        size="lg"
         onClick={handleSignOut}
-        className="mt-6 rounded-lg border border-surface-tertiary px-6 py-2.5 text-sm font-medium text-foreground-secondary transition hover:bg-surface-secondary"
+        icon={<LogOut className="h-4 w-4" />}
+        className="mt-6"
       >
         Cerrar sesión
-      </button>
-    </div>
+      </KButton>
+    </AuthCard>
   );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useProject } from '@/contexts/ProjectContext';
 import { createClient } from '@/lib/supabase/client';
 
 interface TimelineEntry {
@@ -31,8 +31,7 @@ const PHASE_COLORS: Record<string, string> = {
 };
 
 export default function TimelinePage() {
-  const params = useParams();
-  const projectId = params.slug as string;
+  const { project, loading: projectLoading } = useProject();
   const supabase = createClient();
 
   const [loading, setLoading] = useState(true);
@@ -40,21 +39,22 @@ export default function TimelinePage() {
   const [entries, setEntries] = useState<TimelineEntry[]>([]);
 
   const fetchData = useCallback(async () => {
+    if (!project?.id) return;
     setLoading(true);
 
     const { data: entriesData } = await supabase
       .from('timeline_entries')
       .select('*')
-      .eq('project_id', projectId)
+      .eq('project_id', project.id)
       .order('sort_order', { ascending: true });
 
     setEntries(entriesData ?? []);
     setLoading(false);
-  }, [projectId, supabase]);
+  }, [project?.id, supabase]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (!projectLoading && project?.id) fetchData();
+  }, [fetchData, projectLoading, project?.id]);
 
   const handleRegenerate = () => {
     alert('Proximamente');
@@ -69,7 +69,7 @@ export default function TimelinePage() {
     0
   );
 
-  if (loading) {
+  if (loading || projectLoading) {
     return (
 
       <div className="space-y-6">

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useParams } from 'next/navigation';
+import { useProject } from '@/contexts/ProjectContext';
 import { createClient } from '@/lib/supabase/client';
 import { CopyButton } from '@/components/ui/CopyButton';
 import { toast } from 'sonner';
@@ -10,8 +10,7 @@ import { ImageCropOverlay } from '@/components/ui/ImageCropOverlay';
 import type { Character } from '@/types/character';
 
 export default function CharactersPage() {
-  const params = useParams();
-  const projectId = params.slug as string;
+  const { project, loading: projectLoading } = useProject();
 
   const [characters, setCharacters] = useState<Character[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,7 +25,7 @@ export default function CharactersPage() {
   const editInputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
-    if (!projectId) return;
+    if (!project?.id) return;
     const supabase = createClient();
 
     async function fetchCharacters() {
@@ -34,7 +33,7 @@ export default function CharactersPage() {
       const { data } = await supabase
         .from('characters')
         .select('*')
-        .eq('project_id', projectId)
+        .eq('project_id', project!.id)
         .order('sort_order', { ascending: true });
 
       setCharacters((data as Character[]) ?? []);
@@ -43,7 +42,7 @@ export default function CharactersPage() {
     }
 
     fetchCharacters();
-  }, [projectId]);
+  }, [project?.id]);
 
   useEffect(() => {
     if (editingField && editInputRef.current) {
@@ -53,13 +52,13 @@ export default function CharactersPage() {
   }, [editingField]);
 
   async function handleImageUpload(characterId: string, file: File) {
-    if (!projectId) return;
+    if (!project?.id) return;
     setUploadingId(characterId);
 
     try {
       const supabase = createClient();
       const fileExt = file.name.split('.').pop();
-      const filePath = `${projectId}/references/characters/${characterId}.${fileExt}`;
+      const filePath = `${project!.id}/references/characters/${characterId}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from('project-assets')
@@ -138,7 +137,7 @@ export default function CharactersPage() {
   }
 
   async function handleImageDelete(characterId: string, filePath: string) {
-    if (!projectId) return;
+    if (!project?.id) return;
 
     try {
       const supabase = createClient();
@@ -236,7 +235,7 @@ export default function CharactersPage() {
     }
   }
 
-  if (loading) {
+  if (loading || projectLoading) {
     return (
 
       <div className="space-y-6">

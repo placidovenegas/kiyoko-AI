@@ -50,7 +50,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <SidebarProvider>
       <Sidebar collapsible="icon">
         {projectSlug ? (
-          <ProjectSidebarContent projectSlug={projectSlug} />
+          <ProjectSidebarContent projectSlug={projectSlug} onOpenChat={handleToggleChat} />
         ) : (
           <DashboardSidebar />
         )}

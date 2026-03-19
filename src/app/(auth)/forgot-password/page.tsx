@@ -2,20 +2,30 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { KButton } from '@/components/ui/kiyoko-button';
+import { Mail, ArrowLeft, CheckCircle } from 'lucide-react';
+import { AuthCard, AuthError, AuthInput } from '@/components/auth';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState('');
+  const supabase = createClient();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
+    setError('');
     try {
-      // TODO: Supabase resetPasswordForEmail
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+      });
+      if (resetError) throw resetError;
       setSent(true);
-    } catch {
-      // handle error
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al enviar el email');
     } finally {
       setLoading(false);
     }
@@ -23,28 +33,32 @@ export default function ForgotPasswordPage() {
 
   if (sent) {
     return (
-      <div className="rounded-2xl bg-surface p-8 text-center shadow-dialog">
-        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-3xl">
-          ✉️
+      <AuthCard className="text-center">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-500/10">
+          <CheckCircle className="h-7 w-7 text-green-500" />
         </div>
         <h1 className="text-xl font-semibold text-foreground">Email enviado</h1>
         <p className="mt-3 text-sm text-foreground-secondary">
-          Si existe una cuenta con ese email, recibirás instrucciones para
-          restablecer tu contraseña.
+          Si existe una cuenta con <strong className="text-foreground">{email}</strong>,
+          recibirás instrucciones para restablecer tu contraseña.
         </p>
         <Link
           href="/login"
-          className="mt-6 inline-block text-sm font-medium text-brand-500 hover:text-brand-600"
+          className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-brand-500 hover:text-brand-600"
         >
+          <ArrowLeft className="h-4 w-4" />
           Volver al login
         </Link>
-      </div>
+      </AuthCard>
     );
   }
 
   return (
-    <div className="rounded-2xl bg-surface p-8 shadow-dialog">
+    <AuthCard>
       <div className="mb-8 text-center">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-brand-500/10">
+          <Mail className="h-7 w-7 text-brand-500" />
+        </div>
         <h1 className="text-xl font-semibold text-foreground">
           Recuperar contraseña
         </h1>
@@ -54,34 +68,37 @@ export default function ForgotPasswordPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label htmlFor="email" className="mb-1 block text-sm font-medium text-foreground-secondary">
-            Email
-          </label>
-          <input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="w-full rounded-lg border border-surface-tertiary bg-surface px-4 py-2.5 text-sm text-foreground outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
-          />
-        </div>
+        <AuthError message={error} />
 
-        <button
+        <AuthInput
+          label="Email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          placeholder="tu@email.com"
+          autoComplete="email"
+        />
+
+        <KButton
           type="submit"
-          disabled={loading}
-          className="w-full rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600 disabled:opacity-50"
+          size="lg"
+          loading={loading}
+          className="w-full"
         >
-          {loading ? 'Enviando...' : 'Enviar instrucciones'}
-        </button>
+          Enviar instrucciones
+        </KButton>
       </form>
 
-      <p className="mt-6 text-center text-sm text-foreground-muted">
-        <Link href="/login" className="font-medium text-brand-500 hover:text-brand-600">
+      <p className="mt-6 text-center">
+        <Link
+          href="/login"
+          className="inline-flex items-center gap-2 text-sm font-medium text-foreground-muted hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
           Volver al login
         </Link>
       </p>
-    </div>
+    </AuthCard>
   );
 }

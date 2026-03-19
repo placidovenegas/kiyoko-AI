@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useProject } from '@/contexts/ProjectContext';
 import { createClient } from '@/lib/supabase/client';
 
 interface ProjectIssue {
@@ -22,8 +22,7 @@ interface ProjectMetrics {
 }
 
 export default function AnalysisPage() {
-  const params = useParams();
-  const projectId = params.slug as string;
+  const { project: projectCtx, loading: projectLoading } = useProject();
   const supabase = createClient();
 
   const [loading, setLoading] = useState(true);
@@ -31,40 +30,31 @@ export default function AnalysisPage() {
   const [issues, setIssues] = useState<ProjectIssue[]>([]);
 
   const fetchData = useCallback(async () => {
+    if (!projectCtx?.id) return;
     setLoading(true);
 
-    // Get project by id
-    const { data: project, error: projectError } = await supabase
-      .from('projects')
-      .select('id, total_scenes, total_characters, total_backgrounds, estimated_duration_seconds')
-      .eq('slug', projectId)
-      .single();
-
-    if (projectError || !project) {
-      setLoading(false);
-      return;
-    }
+    const proj = projectCtx as unknown as Record<string, number>;
     setMetrics({
-      total_scenes: project.total_scenes ?? 0,
-      total_characters: project.total_characters ?? 0,
-      total_backgrounds: project.total_backgrounds ?? 0,
-      estimated_duration_seconds: project.estimated_duration_seconds ?? 0,
+      total_scenes: proj.total_scenes ?? 0,
+      total_characters: proj.total_characters ?? 0,
+      total_backgrounds: proj.total_backgrounds ?? 0,
+      estimated_duration_seconds: proj.estimated_duration_seconds ?? 0,
     });
 
     // Fetch issues
     const { data: issuesData } = await supabase
       .from('project_issues')
       .select('*')
-      .eq('project_id', project.id)
+      .eq('project_id', projectCtx.id)
       .order('sort_order', { ascending: true });
 
     setIssues(issuesData ?? []);
     setLoading(false);
-  }, [projectId, supabase]);
+  }, [projectCtx?.id, supabase]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (!projectLoading && projectCtx?.id) fetchData();
+  }, [fetchData, projectLoading, projectCtx?.id]);
 
   const handleResolve = async (issueId: string) => {
     const { error } = await supabase
@@ -133,7 +123,7 @@ export default function AnalysisPage() {
     },
   ];
 
-  if (loading) {
+  if (loading || projectLoading) {
     return (
 
       <div className="space-y-6">

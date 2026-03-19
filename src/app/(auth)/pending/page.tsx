@@ -3,12 +3,14 @@
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { KButton } from '@/components/ui/kiyoko-button';
+import { Clock, LogOut } from 'lucide-react';
+import { AuthCard } from '@/components/auth';
 
 export default function PendingPage() {
   const router = useRouter();
   const supabase = createClient();
 
-  // Check if role has been updated — redirect if no longer pending
   useEffect(() => {
     async function checkRole() {
       const { data: { user } } = await supabase.auth.getUser();
@@ -31,6 +33,8 @@ export default function PendingPage() {
       }
     }
     checkRole();
+    const interval = setInterval(checkRole, 10000);
+    return () => clearInterval(interval);
   }, [supabase, router]);
 
   async function handleSignOut() {
@@ -39,23 +43,29 @@ export default function PendingPage() {
   }
 
   return (
-    <div className="rounded-2xl bg-surface p-8 text-center shadow-dialog">
-      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-brand-100 text-3xl">
-        ⏳
+    <AuthCard className="text-center">
+      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/10">
+        <Clock className="h-7 w-7 text-amber-500" />
       </div>
       <h1 className="text-xl font-semibold text-foreground">
-        Tu cuenta está pendiente de aprobación
+        Cuenta pendiente de aprobación
       </h1>
       <p className="mt-3 text-sm text-foreground-secondary">
         Un administrador revisará tu solicitud pronto. Recibirás un email
         cuando tu cuenta sea activada.
       </p>
-      <button
+      <div className="mt-2 text-xs text-foreground-muted">
+        Comprobando estado automáticamente...
+      </div>
+      <KButton
+        variant="outline"
+        size="lg"
         onClick={handleSignOut}
-        className="mt-6 rounded-lg border border-surface-tertiary px-6 py-2.5 text-sm font-medium text-foreground-secondary transition hover:bg-surface-secondary"
+        icon={<LogOut className="h-4 w-4" />}
+        className="mt-6"
       >
         Cerrar sesión
-      </button>
-    </div>
+      </KButton>
+    </AuthCard>
   );
 }

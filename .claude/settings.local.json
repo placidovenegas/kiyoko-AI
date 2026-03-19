@@ -48,7 +48,17 @@
       "Bash(do echo:*)",
       "Bash(done)",
       "WebFetch(domain:cloud.cerebras.ai)",
-      "WebFetch(domain:inference-docs.cerebras.ai)"
+      "WebFetch(domain:inference-docs.cerebras.ai)",
+      "Bash(find \"c:/Users/placi/Documents/GitHub/kiyoko AI/src/app/\\(dashboard\\)\" -type f -name \"page.tsx\")",
+      "Bash(grep -r \"generate-narration\\\\|NarrationComponent\\\\|VoiceGenerator\" 'c:/Users/placi/Documents/GitHub/kiyoko AI/src' --include=*.ts --include=*.tsx)",
+      "WebFetch(domain:ui.shadcn.com)",
+      "Bash(npx shadcn@latest add input-group)",
+      "Bash(mkdir -p \"/c/Users/placi/Documents/GitHub/kiyoko AI/src/app/\\(dashboard\\)/project/[slug]/tasks\")",
+      "Bash(mkdir -p \"/c/Users/placi/Documents/GitHub/kiyoko AI/src/app/\\(dashboard\\)/project/[slug]/videos\")",
+      "Bash(mkdir -p \"c:/Users/placi/Documents/GitHub/kiyoko AI/src/app/\\(dashboard\\)/project/[slug]/video/[videoSlug]/storyboard\")",
+      "Bash(mkdir -p \"c:/Users/placi/Documents/GitHub/kiyoko AI/src/app/\\(dashboard\\)/project/[slug]/video/[videoSlug]/script\")",
+      "Bash(mkdir -p \"c:/Users/placi/Documents/GitHub/kiyoko AI/src/app/\\(dashboard\\)/project/[slug]/video/[videoSlug]/narration\")",
+      "Bash(mkdir -p \"c:/Users/placi/Documents/GitHub/kiyoko AI/src/app/\\(dashboard\\)/project/[slug]/video/[videoSlug]/export\")"
     ]
   },
   "enableAllProjectMcpServers": true,

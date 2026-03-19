@@ -1,0 +1,274 @@
+'use client';
+
+import { useState, useCallback } from 'react';
+import { X, Plus, Sparkles, Video, Monitor, Tv } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils/cn';
+import { KSelect } from '@/components/ui/kiyoko-select';
+import { KButton } from '@/components/ui/kiyoko-button';
+
+interface VideoCreateModalProps {
+  open: boolean;
+  onClose: () => void;
+  projectId: string;
+  onCreated: () => void;
+}
+
+/* Platform icon SVGs */
+function YouTubeIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor">
+      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+    </svg>
+  );
+}
+function InstagramIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor">
+      <path d="M12 0C8.74 0 8.333.015 7.053.072 5.775.132 4.905.333 4.14.63c-.789.306-1.459.717-2.126 1.384S.935 3.35.63 4.14C.333 4.905.131 5.775.072 7.053.012 8.333 0 8.74 0 12s.015 3.667.072 4.947c.06 1.277.261 2.148.558 2.913.306.788.717 1.459 1.384 2.126.667.666 1.336 1.079 2.126 1.384.766.296 1.636.499 2.913.558C8.333 23.988 8.74 24 12 24s3.667-.015 4.947-.072c1.277-.06 2.148-.262 2.913-.558.788-.306 1.459-.718 2.126-1.384.666-.667 1.079-1.335 1.384-2.126.296-.765.499-1.636.558-2.913.06-1.28.072-1.687.072-4.947s-.015-3.667-.072-4.947c-.06-1.277-.262-2.149-.558-2.913-.306-.789-.718-1.459-1.384-2.126C21.319 1.347 20.651.935 19.86.63c-.765-.297-1.636-.499-2.913-.558C15.667.012 15.26 0 12 0zm0 2.16c3.203 0 3.585.016 4.85.071 1.17.055 1.805.249 2.227.415.562.217.96.477 1.382.896.419.42.679.819.896 1.381.164.422.36 1.057.413 2.227.057 1.266.07 1.646.07 4.85s-.015 3.585-.074 4.85c-.061 1.17-.256 1.805-.421 2.227-.224.562-.479.96-.899 1.382-.419.419-.824.679-1.38.896-.42.164-1.065.36-2.235.413-1.274.057-1.649.07-4.859.07-3.211 0-3.586-.015-4.859-.074-1.171-.061-1.816-.256-2.236-.421-.569-.224-.96-.479-1.379-.899-.421-.419-.69-.824-.9-1.38-.165-.42-.359-1.065-.42-2.235-.045-1.26-.061-1.649-.061-4.844 0-3.196.016-3.586.061-4.861.061-1.17.255-1.814.42-2.234.21-.57.479-.96.9-1.381.419-.419.81-.689 1.379-.898.42-.166 1.051-.361 2.221-.421 1.275-.045 1.65-.06 4.859-.06l.045.03zm0 3.678a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 1 0 0-12.324zM12 16c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm7.846-10.405a1.441 1.441 0 1 1-2.882 0 1.441 1.441 0 0 1 2.882 0z" />
+    </svg>
+  );
+}
+function TikTokIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor">
+      <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z" />
+    </svg>
+  );
+}
+
+const PLATFORMS = [
+  { value: 'youtube', label: 'YouTube', aspect: '16:9', icon: YouTubeIcon, color: 'text-red-500' },
+  { value: 'instagram_reels', label: 'Reels', aspect: '9:16', icon: InstagramIcon, color: 'text-pink-500' },
+  { value: 'tiktok', label: 'TikTok', aspect: '9:16', icon: TikTokIcon, color: 'text-foreground' },
+  { value: 'tv', label: 'TV', aspect: '16:9', icon: Tv, color: 'text-sky-500' },
+  { value: 'web', label: 'Web', aspect: '16:9', icon: Monitor, color: 'text-emerald-500' },
+] as const;
+
+export function VideoCreateModal({ open, onClose, projectId, onCreated }: VideoCreateModalProps) {
+  const [title, setTitle] = useState('');
+  const [platform, setPlatform] = useState('youtube');
+  const [duration, setDuration] = useState(60);
+  const [aspectRatio, setAspectRatio] = useState('16:9');
+  const [creating, setCreating] = useState(false);
+  const [mode, setMode] = useState<'manual' | 'ai'>('manual');
+  const [aiBrief, setAiBrief] = useState('');
+
+  const handleCreate = useCallback(async () => {
+    if (mode === 'manual' && !title.trim()) {
+      toast.error('El título es obligatorio');
+      return;
+    }
+    if (mode === 'ai' && !aiBrief.trim()) {
+      toast.error('Describe el video que quieres crear');
+      return;
+    }
+
+    setCreating(true);
+    try {
+      const supabase = createClient();
+      const videoName = mode === 'ai' ? aiBrief.split(/[.,!?\n]/)[0].trim().slice(0, 80) || 'Video IA' : title.trim();
+      const slug = videoName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + Math.random().toString(36).slice(2, 8);
+
+      const { error } = await supabase.from('video_cuts').insert({
+        project_id: projectId,
+        name: videoName,
+        slug,
+        platform,
+        target_duration_seconds: duration,
+        aspect_ratio: aspectRatio,
+        is_primary: false,
+        sort_order: Math.floor(Date.now() / 1000) % 100000,
+        status: 'draft',
+      });
+
+      if (error) throw error;
+      toast.success(`Video "${videoName}" creado`);
+      setTitle('');
+      setAiBrief('');
+      onCreated();
+      onClose();
+    } catch (err) {
+      console.error(err);
+      toast.error('Error al crear el video');
+    } finally {
+      setCreating(false);
+    }
+  }, [title, aiBrief, platform, duration, aspectRatio, projectId, mode, onCreated, onClose]);
+
+  if (!open) return null;
+
+  const selectedPlatform = PLATFORMS.find((p) => p.value === platform);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="mx-4 w-full max-w-lg rounded-2xl border border-surface-tertiary bg-surface shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-surface-tertiary px-6 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500/10">
+              <Video className="h-5 w-5 text-brand-500" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-foreground">Nuevo Video</h3>
+              <p className="text-xs text-foreground-muted">Añade un video al proyecto</p>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-foreground-muted transition hover:bg-surface-secondary hover:text-foreground">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="space-y-5 p-6">
+          {/* Mode toggle */}
+          <div className="flex rounded-lg border border-surface-tertiary p-1">
+            <button
+              type="button"
+              onClick={() => setMode('manual')}
+              className={cn(
+                'flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition',
+                mode === 'manual' ? 'bg-brand-500 text-white shadow-sm' : 'text-foreground-muted hover:text-foreground',
+              )}
+            >
+              <Plus className="h-4 w-4" />
+              Manual
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('ai')}
+              className={cn(
+                'flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition',
+                mode === 'ai' ? 'bg-accent text-white shadow-sm' : 'text-foreground-muted hover:text-foreground',
+              )}
+            >
+              <Sparkles className="h-4 w-4" />
+              Generar con IA
+            </button>
+          </div>
+
+          {/* AI Brief or Manual Title */}
+          {mode === 'ai' ? (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground-secondary">Describe el video</label>
+              <textarea
+                value={aiBrief}
+                onChange={(e) => setAiBrief(e.target.value)}
+                placeholder="Ej: Un reel de 30s mostrando la nueva colección de zapatos, estilo dinámico con transiciones rápidas..."
+                rows={3}
+                autoFocus
+                className="w-full resize-none rounded-lg border border-surface-tertiary bg-surface-secondary px-3 py-2.5 text-sm text-foreground placeholder:text-foreground-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+              />
+            </div>
+          ) : (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground-secondary">Título del video</label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Ej: Spot YouTube semana 12..."
+                autoFocus
+                className="w-full rounded-lg border border-surface-tertiary bg-surface-secondary px-3 py-2.5 text-sm text-foreground placeholder:text-foreground-muted focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+              />
+            </div>
+          )}
+
+          {/* Platform */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-foreground-secondary">Plataforma</label>
+            <div className="grid grid-cols-5 gap-2">
+              {PLATFORMS.map((p) => {
+                const isSelected = platform === p.value;
+                const PlatformIcon = p.icon;
+                return (
+                  <button
+                    key={p.value}
+                    type="button"
+                    onClick={() => { setPlatform(p.value); setAspectRatio(p.aspect); }}
+                    className={cn(
+                      'flex flex-col items-center gap-1.5 rounded-xl border-2 px-2 py-3 text-xs font-medium transition',
+                      isSelected
+                        ? 'border-brand-500 bg-brand-500/10 text-brand-500'
+                        : 'border-surface-tertiary text-foreground-muted hover:border-foreground-muted/30 hover:text-foreground-secondary',
+                    )}
+                  >
+                    <PlatformIcon className={cn('h-5 w-5', isSelected ? p.color : '')} />
+                    <span>{p.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Duration + Aspect Ratio */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground-secondary">Duración</label>
+              <div className="relative">
+                <input
+                  type="number"
+                  min={5}
+                  max={600}
+                  value={duration}
+                  onChange={(e) => setDuration(Number(e.target.value))}
+                  className="w-full rounded-lg border border-surface-tertiary bg-surface-secondary px-3 py-2.5 pr-10 text-sm text-foreground focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-foreground-muted">seg</span>
+              </div>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground-secondary">Aspect Ratio</label>
+              <KSelect
+                size="lg"
+                value={aspectRatio}
+                onChange={setAspectRatio}
+                options={[
+                  { value: '16:9', label: '16:9', description: 'Horizontal' },
+                  { value: '9:16', label: '9:16', description: 'Vertical' },
+                  { value: '1:1', label: '1:1', description: 'Cuadrado' },
+                  { value: '4:5', label: '4:5', description: 'Feed' },
+                ]}
+              />
+            </div>
+          </div>
+
+          {/* Preview */}
+          <div className="flex items-center gap-3 rounded-lg bg-surface-secondary px-4 py-3">
+            <div className={cn(
+              'flex items-center justify-center rounded-md border border-surface-tertiary bg-surface text-[10px] font-bold text-foreground-muted',
+              aspectRatio === '9:16' ? 'h-10 w-6' : aspectRatio === '1:1' ? 'h-8 w-8' : aspectRatio === '4:5' ? 'h-10 w-8' : 'h-6 w-10',
+            )}>
+              {aspectRatio}
+            </div>
+            <div className="text-xs text-foreground-muted">
+              <span className="font-medium text-foreground">{selectedPlatform?.label}</span>
+              {' · '}{duration}s{' · '}{aspectRatio}
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-3 border-t border-surface-tertiary px-6 py-4">
+          <KButton variant="ghost" size="md" onClick={onClose}>
+            Cancelar
+          </KButton>
+          <KButton
+            variant={mode === 'ai' ? 'ai' : 'primary'}
+            size="md"
+            onClick={handleCreate}
+            disabled={creating || (mode === 'manual' ? !title.trim() : !aiBrief.trim())}
+            loading={creating}
+            icon={mode === 'ai' ? <Sparkles className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            className="shadow-lg shadow-brand-500/20"
+          >
+            {creating ? 'Creando...' : mode === 'ai' ? 'Generar video' : 'Crear video'}
+          </KButton>
+        </div>
+      </div>
+    </div>
+  );
+}

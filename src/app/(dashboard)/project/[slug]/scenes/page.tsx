@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { useParams } from 'next/navigation';
+import { useProject } from '@/contexts/ProjectContext';
 import { createClient } from '@/lib/supabase/client';
 import { CopyButton } from '@/components/ui/CopyButton';
 import { toast } from 'sonner';
@@ -50,8 +50,7 @@ const STATUS_BADGE_COLORS: Record<string, string> = {
 };
 
 export default function ScenesPage() {
-  const params = useParams();
-  const projectId = params.slug as string;
+  const { project, loading: projectLoading } = useProject();
 
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,7 +61,7 @@ export default function ScenesPage() {
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   useEffect(() => {
-    if (!projectId) return;
+    if (!project?.id) return;
     const supabase = createClient();
 
     async function fetchScenes() {
@@ -70,7 +69,7 @@ export default function ScenesPage() {
       const { data } = await supabase
         .from('scenes')
         .select('*')
-        .eq('project_id', projectId)
+        .eq('project_id', project!.id)
         .order('sort_order', { ascending: true });
 
       setScenes((data as Scene[]) ?? []);
@@ -79,7 +78,7 @@ export default function ScenesPage() {
     }
 
     fetchScenes();
-  }, [projectId]);
+  }, [project?.id]);
 
   const filteredScenes = useMemo(() => {
     return scenes.filter((scene) => {
@@ -90,13 +89,13 @@ export default function ScenesPage() {
   }, [scenes, activeTypeFilter, activeArcFilter]);
 
   async function handleImageUpload(sceneId: string, file: File) {
-    if (!projectId) return;
+    if (!project?.id) return;
     setUploadingId(sceneId);
 
     try {
       const supabase = createClient();
       const fileExt = file.name.split('.').pop();
-      const filePath = `${projectId}/generated/images/${sceneId}.${fileExt}`;
+      const filePath = `${project!.id}/generated/images/${sceneId}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from('project-assets')
@@ -136,7 +135,7 @@ export default function ScenesPage() {
   }
 
   async function handleImageDelete(sceneId: string, filePath: string) {
-    if (!projectId) return;
+    if (!project?.id) return;
 
     try {
       const supabase = createClient();
@@ -172,7 +171,7 @@ export default function ScenesPage() {
     }
   }
 
-  if (loading) {
+  if (loading || projectLoading) {
     return (
 
       <div className="space-y-6">

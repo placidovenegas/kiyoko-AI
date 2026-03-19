@@ -23,7 +23,9 @@ import { cn } from '@/lib/utils/cn';
 import { createClient } from '@/lib/supabase/client';
 import { useOrganizations } from '@/hooks/useOrganizations';
 import { useFavorites } from '@/hooks/useFavorites';
+// Video selector removed — video is now URL-based (/project/{slug}/video/{videoSlug})
 import { FeedbackDialog } from '@/components/shared/FeedbackDialog';
+import { NotificationBell } from '@/components/layout/NotificationBell';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -402,6 +404,16 @@ export function Header({ onToggleChat, chatOpen }: HeaderProps) {
               <Star size={16} fill={isFavorite(currentProject.id) ? 'currentColor' : 'none'} />
             </button>
           )}
+
+          {/* Video indicator — shown when inside a video route */}
+          {pathname.includes('/video/') && (
+            <>
+              <span className="mx-1.5 text-foreground/15 text-lg select-none">/</span>
+              <span className="text-sm font-medium text-foreground/60 truncate max-w-36">
+                {pathname.match(/\/video\/([^/]+)/)?.[1]?.replace(/-/g, ' ') ?? 'Video'}
+              </span>
+            </>
+          )}
         </div>
       )}
 
@@ -542,6 +554,9 @@ export function Header({ onToggleChat, chatOpen }: HeaderProps) {
             <p className="text-xs">{theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}</p>
           </TooltipContent>
         </Tooltip>
+
+        {/* Notifications */}
+        <NotificationBell />
 
         {/* Chat */}
         {onToggleChat && (

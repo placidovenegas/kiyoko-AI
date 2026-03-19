@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
+import { KiyokoLogo } from '@/components/shared/KiyokoLogo';
 import {
   SidebarHeader,
   SidebarMenu,
@@ -19,9 +20,7 @@ export function SidebarOrgHeader() {
       <SidebarMenu>
         <SidebarMenuItem>
           <SidebarMenuButton size="lg" tooltip="Kiyoko AI" render={<Link href="/dashboard" />}>
-            <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-xs font-bold">
-              K
-            </div>
+            <KiyokoLogo variant="dark" size={28} />
             <div className="grid flex-1 text-left text-sm leading-tight">
               <span className="truncate font-semibold">Kiyoko AI</span>
               <span className="truncate text-xs text-sidebar-foreground/50">{subtitle}</span>

@@ -32,6 +32,7 @@ import {
   AlertTriangle,
   CheckSquare,
 } from 'lucide-react';
+import { useActiveVideoStore } from '@/stores/useActiveVideoStore';
 import type { Project } from '@/types/project';
 import type { Scene, SceneType, ArcPhase, SceneImprovement } from '@/types/scene';
 import type { Character } from '@/types/character';
@@ -39,12 +40,37 @@ import type { Background } from '@/types/background';
 import { SceneSelectionBar } from '@/components/project/SceneSelectionBar';
 import { ChatStoryboard } from '@/components/storyboard/ChatStoryboard';
 import { HistoryPanel } from '@/components/storyboard/HistoryPanel';
+import { AudioMultiToggle } from '@/components/scene/AudioMultiToggle';
+import { LightingSelect } from '@/components/scene/LightingSelect';
+import { MoodSelect } from '@/components/scene/MoodSelect';
+import { SceneSelect } from '@/components/scene/SceneSelect';
+import { DurationInput } from '@/components/scene/DurationInput';
+import { PromptEditor } from '@/components/scene/PromptEditor';
+import {
+  CAMERA_ANGLE_OPTIONS,
+  CAMERA_MOVEMENT_OPTIONS,
+  AUDIO_FLAGS,
+  parseAudioFlags,
+  buildAudioNotes,
+} from '@/lib/constants/scene-options';
+import {
+  Users,
+  MapPin,
+  Video,
+  Lightbulb,
+  Volume2,
+  Mic,
+  Timer,
+  Layers,
+} from 'lucide-react';
+import { estimateTextDuration } from '@/lib/constants/scene-options';
+import { NarrationPlayer } from '@/components/narration/NarrationPlayer';
 
 // ==========================================================================
 // 1. Types & Constants
 // ==========================================================================
 
-type ViewMode = 'collapsed' | 'expanded';
+type ViewMode = 'collapsed' | 'expanded' | 'timeline' | 'arc';
 type AudioType = 'silent' | 'ambient' | 'music' | 'dialogue' | 'voiceover';
 type InsertMode = 'closed' | 'menu' | 'detail' | 'manual';
 type AISidebarMode = 'improve' | 'rewrite';
@@ -143,40 +169,7 @@ const ARC_FILTERS: { label: string; value: string }[] = [
   { label: 'Cierre', value: 'close' },
 ];
 
-const CAMERA_ANGLE_OPTIONS: { label: string; value: Scene['camera_angle'] }[] = [
-  { label: 'Wide', value: 'wide' },
-  { label: 'Medium', value: 'medium' },
-  { label: 'Close Up', value: 'close_up' },
-  { label: 'Extreme Close Up', value: 'extreme_close_up' },
-  { label: 'POV', value: 'pov' },
-  { label: 'Low Angle', value: 'low_angle' },
-  { label: 'High Angle', value: 'high_angle' },
-  { label: "Bird's Eye", value: 'birds_eye' },
-  { label: 'Dutch', value: 'dutch' },
-  { label: 'Over Shoulder', value: 'over_shoulder' },
-];
-
-const CAMERA_MOVEMENT_OPTIONS: { label: string; value: Scene['camera_movement'] }[] = [
-  { label: 'Static', value: 'static' },
-  { label: 'Dolly In', value: 'dolly_in' },
-  { label: 'Dolly Out', value: 'dolly_out' },
-  { label: 'Pan Left', value: 'pan_left' },
-  { label: 'Pan Right', value: 'pan_right' },
-  { label: 'Tilt Up', value: 'tilt_up' },
-  { label: 'Tilt Down', value: 'tilt_down' },
-  { label: 'Tracking', value: 'tracking' },
-  { label: 'Crane', value: 'crane' },
-  { label: 'Handheld', value: 'handheld' },
-  { label: 'Orbit', value: 'orbit' },
-];
-
-const AUDIO_TYPE_OPTIONS: { label: string; value: AudioType; emoji: string }[] = [
-  { label: 'Silente', value: 'silent', emoji: '\uD83D\uDD07' },
-  { label: 'Sonido ambiente', value: 'ambient', emoji: '\uD83C\uDF0A' },
-  { label: 'Musica de fondo', value: 'music', emoji: '\uD83C\uDFB5' },
-  { label: 'Dialogos', value: 'dialogue', emoji: '\uD83D\uDDE3\uFE0F' },
-  { label: 'Voz en off', value: 'voiceover', emoji: '\uD83C\uDF99\uFE0F' },
-];
+// Camera and audio options imported from @/lib/constants/scene-options
 
 const SCENE_TYPE_OPTIONS: { value: SceneType; label: string }[] = [
   { value: 'original', label: 'Original' },
@@ -225,10 +218,10 @@ function detectAudioType(scene: Scene): AudioType {
   return 'silent';
 }
 
-function getAudioBadge(scene: Scene): { emoji: string; label: string } {
+function getAudioBadge(scene: Scene): { label: string } {
   const t = detectAudioType(scene);
-  const opt = AUDIO_TYPE_OPTIONS.find((o) => o.value === t);
-  return opt ? { emoji: opt.emoji, label: opt.label } : { emoji: '\uD83D\uDD07', label: 'Silente' };
+  const flag = AUDIO_FLAGS.find((f) => f.key === t);
+  return { label: flag?.label ?? 'Silente' };
 }
 
 function resolveSceneCharacters(scene: Scene, characters: Character[]): Character[] {
@@ -1166,36 +1159,10 @@ function SceneCard({
 
   const [editMode, setEditMode] = useState(false);
   const [editData, setEditData] = useState<Partial<Scene>>({});
-  const [editAudioType, setEditAudioType] = useState<AudioType>('silent');
-
-  const enterEditMode = () => { setEditMode(true); setEditData({ ...scene }); setEditAudioType(detectAudioType(scene)); };
+  const enterEditMode = () => { setEditMode(true); setEditData({ ...scene }); };
   const cancelEdit = () => { setEditMode(false); setEditData({}); };
   const saveEdit = async () => { if (onUpdateScene) await onUpdateScene(scene.id, editData); setEditMode(false); setEditData({}); };
   const updateField = <K extends keyof Scene>(key: K, value: Scene[K]) => setEditData((prev) => ({ ...prev, [key]: value }));
-
-  const applyAudioType = (type: AudioType) => {
-    setEditAudioType(type);
-    const prefixes: Record<AudioType, string> = {
-      silent: 'SILENT SCENE. NO DIALOGUE. NO LIP MOVEMENT. ',
-      ambient: 'AMBIENT SOUND ONLY. No speech. ',
-      dialogue: 'DIALOGUE SCENE. ',
-      voiceover: 'VOICEOVER NARRATION. Characters do not speak on camera. ',
-      music: '',
-    };
-    const newEditData = { ...editData };
-    switch (type) {
-      case 'silent': newEditData.sound_notes = 'SILENT SCENE. NO DIALOGUE.'; newEditData.music_notes = ''; break;
-      case 'ambient': newEditData.sound_notes = 'Ambient sound only. No speech.'; newEditData.music_notes = ''; break;
-      case 'music': newEditData.sound_notes = ''; break;
-      case 'dialogue': newEditData.sound_notes = ''; newEditData.music_notes = ''; break;
-      case 'voiceover': newEditData.sound_notes = 'VOICEOVER NARRATION.'; newEditData.music_notes = ''; break;
-    }
-    const allPrefixes = Object.values(prefixes).filter(Boolean);
-    let currentVideo = (editData.prompt_video ?? scene.prompt_video) || '';
-    for (const p of allPrefixes) { if (currentVideo.startsWith(p)) currentVideo = currentVideo.slice(p.length); }
-    newEditData.prompt_video = (prefixes[type] || '') + currentVideo;
-    setEditData(newEditData);
-  };
 
   return (
     <div className={cn(
@@ -1246,10 +1213,10 @@ function SceneCard({
           <div className="mt-0.5 flex items-center gap-3 text-xs text-foreground-muted">
             <span className="min-w-0 truncate">{scene.description || 'Sin descripcion'}</span>
             <div className="ml-auto flex shrink-0 items-center gap-2 text-[11px]">
-              <span title="Personajes">{'\uD83D\uDC65'}{sceneCharacters.length}</span>
-              <span title="Fondo">{'\uD83C\uDFE0'}{sceneBackground?.code || '\u2014'}</span>
-              <span title="Camara">{'\uD83D\uDCF9'}{scene.camera_angle?.replace('_', ' ') || '\u2014'}</span>
-              <span title="Audio">{audioBadge.emoji}{audioBadge.label}</span>
+              <span title="Personajes" className="inline-flex items-center gap-0.5"><Users className="h-3 w-3" />{sceneCharacters.length}</span>
+              <span title="Fondo" className="inline-flex items-center gap-0.5"><MapPin className="h-3 w-3" />{sceneBackground?.code || '\u2014'}</span>
+              <span title="Camara" className="inline-flex items-center gap-0.5"><Video className="h-3 w-3" />{scene.camera_angle?.replace('_', ' ') || '\u2014'}</span>
+              <span title="Audio" className="inline-flex items-center gap-0.5"><Volume2 className="h-3 w-3" />{audioBadge.label}</span>
             </div>
           </div>
         </div>
@@ -1272,7 +1239,7 @@ function SceneCard({
           {!editMode && (
             <div className="mb-3 grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs">
               <div className="flex items-center gap-1.5 text-foreground-secondary">
-                <span className="w-4 text-center text-sm">{'\uD83D\uDC65'}</span>
+                <Users className="h-3.5 w-3.5 shrink-0 text-foreground-muted" />
                 {sceneCharacters.length > 0 ? (
                   <div className="flex flex-wrap items-center gap-1.5">{sceneCharacters.map((c) => <CharacterBadge key={c.id} character={c} />)}</div>
                 ) : (
@@ -1280,7 +1247,7 @@ function SceneCard({
                 )}
               </div>
               <div className="flex items-center gap-1.5 text-foreground-secondary">
-                <span className="w-4 text-center text-sm">{'\uD83C\uDFE0'}</span>
+                <MapPin className="h-3.5 w-3.5 shrink-0 text-foreground-muted" />
                 {sceneBackground ? (
                   <span>{sceneBackground.name} <span className="rounded bg-surface-tertiary px-1 py-0.5 text-[10px] font-mono text-foreground-muted">{sceneBackground.code}</span></span>
                 ) : (
@@ -1288,15 +1255,15 @@ function SceneCard({
                 )}
               </div>
               <div className="flex items-center gap-1.5 text-foreground-secondary">
-                <span className="w-4 text-center text-sm">{'\uD83D\uDCF9'}</span>
+                <Video className="h-3.5 w-3.5 shrink-0 text-foreground-muted" />
                 <span>{[scene.camera_angle?.replace('_', ' '), scene.camera_movement].filter(Boolean).join(' \u00b7 ') || '\u2014'}</span>
               </div>
               <div className="flex items-center gap-1.5 text-foreground-secondary">
-                <span className="w-4 text-center text-sm">{'\uD83D\uDCA1'}</span>
+                <Lightbulb className="h-3.5 w-3.5 shrink-0 text-foreground-muted" />
                 <span>{[scene.lighting, scene.mood].filter(Boolean).join(' \u00b7 ') || '\u2014'}</span>
               </div>
               <div className="flex items-center gap-1.5 text-foreground-secondary">
-                <span className="w-4 text-center text-sm">{audioBadge.emoji}</span>
+                <Volume2 className="h-3.5 w-3.5 shrink-0 text-foreground-muted" />
                 <span>{audioBadge.label}{scene.sound_notes ? ` - ${scene.sound_notes}` : ''}{scene.music_notes ? ` - ${scene.music_notes}` : ''}</span>
               </div>
             </div>
@@ -1308,81 +1275,184 @@ function SceneCard({
               {/* Title edit */}
               <div>
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground-muted">Titulo</span>
-                <input className="mt-1 w-full rounded-md border border-surface-tertiary bg-surface-secondary px-2 py-1 text-sm font-medium text-foreground outline-none focus:border-[#3B82F6]" value={editData.title ?? ''} onChange={(e) => updateField('title', e.target.value)} />
+                <input className="mt-1 w-full rounded-md border border-surface-tertiary bg-surface-secondary px-2 py-1 text-sm font-medium text-foreground outline-none focus:border-[#3B82F6]" value={editData.title ?? ''} onChange={(e) => updateField('title', e.target.value)} aria-label="Titulo de la escena" />
               </div>
-              {/* Camera grid */}
-              <div className="grid grid-cols-2 gap-2 rounded-lg bg-surface-tertiary/30 p-3">
-                <div className="flex flex-col gap-1">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground-muted">Angulo</span>
-                  <select className="rounded-md border border-surface-tertiary bg-surface px-2 py-1 text-xs text-foreground outline-none focus:border-[#3B82F6]" value={editData.camera_angle ?? ''} onChange={(e) => updateField('camera_angle', e.target.value as Scene['camera_angle'])}>
-                    <option value="">Seleccionar...</option>
-                    {CAMERA_ANGLE_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground-muted">Movimiento</span>
-                  <select className="rounded-md border border-surface-tertiary bg-surface px-2 py-1 text-xs text-foreground outline-none focus:border-[#3B82F6]" value={editData.camera_movement ?? ''} onChange={(e) => updateField('camera_movement', e.target.value as Scene['camera_movement'])}>
-                    <option value="">Seleccionar...</option>
-                    {CAMERA_MOVEMENT_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground-muted">Iluminacion</span>
-                  <input className="rounded-md border border-surface-tertiary bg-surface px-2 py-1 text-xs text-foreground outline-none focus:border-[#3B82F6]" value={editData.lighting ?? ''} onChange={(e) => updateField('lighting', e.target.value)} />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground-muted">Mood</span>
-                  <input className="rounded-md border border-surface-tertiary bg-surface px-2 py-1 text-xs text-foreground outline-none focus:border-[#3B82F6]" value={editData.mood ?? ''} onChange={(e) => updateField('mood', e.target.value)} />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground-muted">Duracion (s)</span>
-                  <input type="number" min={0} className="rounded-md border border-surface-tertiary bg-surface px-2 py-1 text-xs text-foreground outline-none focus:border-[#3B82F6]" value={editData.duration_seconds ?? 0} onChange={(e) => updateField('duration_seconds', Number(e.target.value))} />
+              {/* Camera + Lighting + Mood + Duration grid */}
+              <div className="grid grid-cols-2 gap-3 rounded-lg bg-surface-tertiary/30 p-3">
+                <SceneSelect
+                  label="Angulo"
+                  options={CAMERA_ANGLE_OPTIONS}
+                  value={editData.camera_angle ?? ''}
+                  onChange={(v) => updateField('camera_angle', v as Scene['camera_angle'])}
+                />
+                <SceneSelect
+                  label="Movimiento"
+                  options={CAMERA_MOVEMENT_OPTIONS}
+                  value={editData.camera_movement ?? ''}
+                  onChange={(v) => updateField('camera_movement', v as Scene['camera_movement'])}
+                />
+                <LightingSelect
+                  value={editData.lighting ?? ''}
+                  onChange={(v) => updateField('lighting', v)}
+                />
+                <MoodSelect
+                  value={editData.mood ?? ''}
+                  onChange={(v) => updateField('mood', v)}
+                />
+                <div className="col-span-2">
+                  <DurationInput
+                    value={editData.duration_seconds ?? 5}
+                    onChange={(v) => updateField('duration_seconds', v)}
+                  />
                 </div>
               </div>
-              {/* Audio */}
-              <div className="space-y-2 rounded-lg bg-surface-tertiary/30 p-3">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground-muted">Audio</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {AUDIO_TYPE_OPTIONS.map((opt) => (
-                    <button key={opt.value} onClick={() => applyAudioType(opt.value)} className={cn('inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors', editAudioType === opt.value ? 'bg-[#3B82F6] text-white' : 'bg-surface-tertiary text-foreground-secondary hover:bg-surface-secondary')}>
-                      {opt.emoji} {opt.label}
-                    </button>
-                  ))}
-                </div>
-                {editAudioType === 'music' && (
-                  <input className="w-full rounded-md border border-surface-tertiary bg-surface px-2 py-1 text-xs text-foreground outline-none focus:border-[#3B82F6]" placeholder="Notas de musica..." value={editData.music_notes ?? ''} onChange={(e) => updateField('music_notes', e.target.value)} />
-                )}
-                {editAudioType === 'dialogue' && (
-                  <input className="w-full rounded-md border border-surface-tertiary bg-surface px-2 py-1 text-xs text-foreground outline-none focus:border-[#3B82F6]" placeholder="Notas de dialogo..." value={editData.sound_notes ?? ''} onChange={(e) => updateField('sound_notes', e.target.value)} />
-                )}
+              {/* Audio multi-toggle */}
+              <div className="rounded-lg bg-surface-tertiary/30 p-3">
+                <AudioMultiToggle
+                  activeFlags={parseAudioFlags(editData.sound_notes ?? scene.sound_notes ?? '', editData.music_notes ?? scene.music_notes ?? '')}
+                  onChange={(flags) => {
+                    const notes = buildAudioNotes(flags, editData.music_notes ?? scene.music_notes ?? '', '');
+                    setEditData((prev) => ({ ...prev, sound_notes: notes.sound_notes, music_notes: notes.music_notes }));
+                  }}
+                  musicNotes={editData.music_notes ?? ''}
+                  onMusicNotesChange={(v) => updateField('music_notes', v)}
+                  ambientNotes=""
+                  onAmbientNotesChange={() => {}}
+                />
               </div>
             </div>
           )}
 
-          {/* Prompts */}
+          {/* Prompts — isolated edit (each prompt editable independently) */}
           <div className="space-y-3">
-            {editMode ? (
-              <PromptSection label="PROMPT IMAGEN" text={editData.prompt_image ?? ''} editMode editValue={editData.prompt_image ?? ''} onEditChange={(v) => updateField('prompt_image', v)} />
-            ) : scene.prompt_image ? (
-              <PromptSection label="PROMPT IMAGEN" text={scene.prompt_image} onImprove={() => onOpenAISidebar(scene.id, 'image', scene.prompt_image)} onEdit={enterEditMode} />
+            {scene.prompt_image ? (
+              <PromptEditor
+                label="PROMPT IMAGEN"
+                value={editMode ? (editData.prompt_image ?? scene.prompt_image) : scene.prompt_image}
+                onSave={async (newValue) => {
+                  if (editMode) {
+                    updateField('prompt_image', newValue);
+                  } else if (onUpdateScene) {
+                    await onUpdateScene(scene.id, { prompt_image: newValue });
+                  }
+                }}
+                onImprove={() => onOpenAISidebar(scene.id, 'image', scene.prompt_image)}
+              />
             ) : (
               <GeneratePromptButton label="Generar prompt imagen" loading={isGeneratingImage} onClick={() => onGeneratePrompt(scene.id, 'image')} />
             )}
 
-            {editMode ? (
-              <PromptSection label="PROMPT VIDEO" text={editData.prompt_video ?? ''} editMode editValue={editData.prompt_video ?? ''} onEditChange={(v) => updateField('prompt_video', v)} />
-            ) : scene.prompt_video ? (
-              <PromptSection label="PROMPT VIDEO" text={scene.prompt_video} onImprove={() => onOpenAISidebar(scene.id, 'video', scene.prompt_video)} onEdit={enterEditMode} />
+            {scene.prompt_video ? (
+              <PromptEditor
+                label="PROMPT VIDEO"
+                value={editMode ? (editData.prompt_video ?? scene.prompt_video) : scene.prompt_video}
+                onSave={async (newValue) => {
+                  if (editMode) {
+                    updateField('prompt_video', newValue);
+                  } else if (onUpdateScene) {
+                    await onUpdateScene(scene.id, { prompt_video: newValue });
+                  }
+                }}
+                onImprove={() => onOpenAISidebar(scene.id, 'video', scene.prompt_video)}
+              />
             ) : (
               <GeneratePromptButton label="Generar prompt video" loading={isGeneratingVideo} onClick={() => onGeneratePrompt(scene.id, 'video')} />
             )}
           </div>
 
-          {/* Narration (sound_notes with voiceover) */}
-          {!editMode && detectAudioType(scene) === 'voiceover' && scene.sound_notes && (
-            <div className="mt-3">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground-muted">{'\uD83C\uDF99\uFE0F'} Narracion</span>
-              <p className="mt-0.5 text-sm text-foreground-secondary">{scene.sound_notes}</p>
+          {/* Narration text field (always visible in expanded) */}
+          {!editMode && (
+            <div className="mt-3 rounded-lg border border-surface-tertiary/50 bg-surface-tertiary/20 p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Mic className="h-3.5 w-3.5 text-foreground-muted" />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground-muted">Narracion</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!onUpdateScene) return;
+                      const tid = toast.loading('Generando narracion...');
+                      try {
+                        const res = await fetch('/api/ai/generate-narration', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            mode: 'per_scene',
+                            scenes: [{
+                              id: scene.id, scene_number: scene.scene_number,
+                              title: scene.title, description: scene.description || '',
+                              duration_seconds: scene.duration_seconds || 5, arc_phase: scene.arc_phase,
+                            }],
+                            config: { styleId: 'pixar', language: 'es' },
+                          }),
+                        });
+                        if (!res.ok) throw new Error('API error');
+                        const data = await res.json();
+                        const result = (data.results as Array<{ sceneId: string; text: string }>)?.[0];
+                        if (result?.text) {
+                          await onUpdateScene(scene.id, { narration_text: result.text } as Partial<Scene>);
+                          toast.success('Narracion generada', { id: tid });
+                        } else {
+                          toast.info('Escena sin narracion', { id: tid });
+                        }
+                      } catch {
+                        toast.error('Error al generar narracion', { id: tid });
+                      }
+                    }}
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium text-scene-filler transition hover:bg-scene-filler/10"
+                    aria-label="Generar narracion con IA"
+                  >
+                    <Sparkles className="h-3 w-3" /> Generar IA
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => toast.info('Proximamente: generar audio TTS')}
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium text-foreground-muted transition hover:bg-surface-secondary"
+                    aria-label="Generar audio de voz"
+                  >
+                    <Volume2 className="h-3 w-3" /> Voz
+                  </button>
+                </div>
+              </div>
+              {(() => {
+                const narrationText = (scene as unknown as Record<string, string>).narration_text || '';
+                const audioUrl = (scene as unknown as Record<string, string>).narration_audio_url || '';
+                const estimate = narrationText ? estimateTextDuration(narrationText) : null;
+                return (
+                  <>
+                    <textarea
+                      value={narrationText}
+                      onChange={async (e) => {
+                        if (onUpdateScene) {
+                          await onUpdateScene(scene.id, { narration_text: e.target.value } as Partial<Scene>);
+                        }
+                      }}
+                      placeholder="Texto de narracion para esta escena..."
+                      rows={2}
+                      aria-label={`Narracion escena ${scene.scene_number}`}
+                      className="w-full rounded-md border border-surface-tertiary bg-surface px-2.5 py-1.5 text-xs text-foreground placeholder:text-foreground-muted focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                    />
+                    {estimate && (
+                      <div className="mt-1.5 flex items-center gap-3 text-[10px]">
+                        <span className="text-foreground-muted">~{estimate.durationSeconds}s ({estimate.wordCount} pal.)</span>
+                        {estimate.fitsInSeconds(scene.duration_seconds) ? (
+                          <span className="text-green-500">Cabe en {scene.duration_seconds}s</span>
+                        ) : (
+                          <span className="text-amber-500">Excede por {(estimate.durationSeconds - scene.duration_seconds).toFixed(1)}s</span>
+                        )}
+                      </div>
+                    )}
+                    {/* Audio player inline */}
+                    {audioUrl && (
+                      <div className="mt-2">
+                        <NarrationPlayer src={audioUrl} sceneLabel={scene.scene_number} compact />
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           )}
 
@@ -1464,8 +1534,8 @@ function DurationBar({ actual, target }: { actual: number; target: number }) {
   const barPct = Math.min(pct, 100);
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs tabular-nums text-foreground-muted">
-        {'\u23F1\uFE0F'} {formatDuration(actual)} / {formatDuration(target)} objetivo
+      <span className="inline-flex items-center gap-1 text-xs tabular-nums text-foreground-muted">
+        <Clock className="h-3 w-3" /> {formatDuration(actual)} / {formatDuration(target)} objetivo
       </span>
       <div className="h-2 w-28 overflow-hidden rounded-full bg-surface-tertiary">
         <div
@@ -1497,6 +1567,9 @@ export default function StoryboardPage() {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [backgrounds, setBackgrounds] = useState<Background[]>([]);
   const [loading, setLoading] = useState(true);
+  const [videoSceneIds, setVideoSceneIds] = useState<Set<string> | null>(null);
+
+  const { activeVideo } = useActiveVideoStore();
 
   const [viewMode, setViewMode] = useState<ViewMode>('collapsed');
   const [typeFilter, setTypeFilter] = useState('all');
@@ -1504,6 +1577,7 @@ export default function StoryboardPage() {
   const [search, setSearch] = useState('');
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
+  const [narrativeArcs, setNarrativeArcs] = useState<{ id: string; phase: string; title: string; start_second: number; end_second: number }[]>([]);
   const [chatOpen, setChatOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
 
@@ -1546,28 +1620,81 @@ export default function StoryboardPage() {
     const { data: proj } = await supabase.from('projects').select('*').eq('slug', projectId).single();
     if (!proj) { setLoading(false); return; }
     setProject(proj as Project);
-    const [scenesRes, charsRes, bgsRes] = await Promise.all([
+    const [scenesRes, charsRes, bgsRes, arcsRes] = await Promise.all([
       supabase.from('scenes').select('*').eq('project_id', proj.id).order('sort_order', { ascending: true }),
       supabase.from('characters').select('*').eq('project_id', proj.id).order('sort_order', { ascending: true }),
       supabase.from('backgrounds').select('*').eq('project_id', proj.id).order('sort_order', { ascending: true }),
+      supabase.from('narrative_arcs').select('id, phase, title, start_second, end_second').eq('project_id', proj.id).order('sort_order', { ascending: true }),
     ]);
     setScenes((scenesRes.data as Scene[]) ?? []);
     setCharacters((charsRes.data as Character[]) ?? []);
     setBackgrounds((bgsRes.data as Background[]) ?? []);
+    setNarrativeArcs(arcsRes.data ?? []);
     setLoading(false);
   }, [projectId]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
+  // ── Fetch scene IDs for active video ────────────────────
+  useEffect(() => {
+    if (!activeVideo) {
+      setVideoSceneIds(null);
+      return;
+    }
+    const supabase = createClient();
+    supabase
+      .from('video_cut_scenes')
+      .select('scene_id')
+      .eq('video_cut_id', activeVideo.id)
+      .then(({ data }) => {
+        if (data) {
+          setVideoSceneIds(new Set(data.map((r: { scene_id: string }) => r.scene_id)));
+        } else {
+          setVideoSceneIds(new Set());
+        }
+      });
+  }, [activeVideo?.id]);
+
+  // ── Realtime subscription ─────────────────────────────────
+  useEffect(() => {
+    if (!project?.id) return;
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`storyboard-${project.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'scenes', filter: `project_id=eq.${project.id}` }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          setScenes((prev) => [...prev, payload.new as Scene].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)));
+        } else if (payload.eventType === 'UPDATE') {
+          setScenes((prev) => prev.map((s) => s.id === payload.new.id ? { ...s, ...payload.new } as Scene : s));
+        } else if (payload.eventType === 'DELETE') {
+          setScenes((prev) => prev.filter((s) => s.id !== payload.old.id));
+        }
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'characters', filter: `project_id=eq.${project.id}` }, (payload) => {
+        if (payload.eventType === 'INSERT') setCharacters((prev) => [...prev, payload.new as Character]);
+        else if (payload.eventType === 'UPDATE') setCharacters((prev) => prev.map((c) => c.id === payload.new.id ? { ...c, ...payload.new } as Character : c));
+        else if (payload.eventType === 'DELETE') setCharacters((prev) => prev.filter((c) => c.id !== payload.old.id));
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'backgrounds', filter: `project_id=eq.${project.id}` }, (payload) => {
+        if (payload.eventType === 'INSERT') setBackgrounds((prev) => [...prev, payload.new as Background]);
+        else if (payload.eventType === 'UPDATE') setBackgrounds((prev) => prev.map((b) => b.id === payload.new.id ? { ...b, ...payload.new } as Background : b));
+        else if (payload.eventType === 'DELETE') setBackgrounds((prev) => prev.filter((b) => b.id !== payload.old.id));
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [project?.id]);
+
   // ── Filtering ───────────────────────────────────────────────
   const filteredScenes = useMemo(() => {
     return scenes.filter((s) => {
+      // Filter by active video (if a video is selected)
+      if (videoSceneIds !== null && !videoSceneIds.has(s.id)) return false;
       if (typeFilter !== 'all' && s.scene_type !== typeFilter) return false;
       if (arcFilter !== 'all' && s.arc_phase !== arcFilter) return false;
       if (search && !s.title.toLowerCase().includes(search.toLowerCase()) && !s.scene_number.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
-  }, [scenes, typeFilter, arcFilter, search]);
+  }, [scenes, videoSceneIds, typeFilter, arcFilter, search]);
 
   const totalDuration = useMemo(() => scenes.reduce((acc, s) => acc + Number(s.duration_seconds || 0), 0), [scenes]);
 
@@ -1768,7 +1895,7 @@ export default function StoryboardPage() {
 
               <span className="h-4 w-px bg-surface-tertiary" />
 
-              {/* View mode toggle */}
+              {/* View mode toggle — 4 modes */}
               <div className="flex items-center gap-0.5 rounded-md border border-surface-tertiary p-0.5">
                 <button onClick={() => setViewMode('collapsed')} className={cn('inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-medium transition', viewMode === 'collapsed' ? 'bg-surface-secondary text-foreground' : 'text-foreground-muted hover:text-foreground')}>
                   <List className="h-3 w-3" /> Compacto
@@ -1776,9 +1903,40 @@ export default function StoryboardPage() {
                 <button onClick={() => setViewMode('expanded')} className={cn('inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-medium transition', viewMode === 'expanded' ? 'bg-surface-secondary text-foreground' : 'text-foreground-muted hover:text-foreground')}>
                   <LayoutGrid className="h-3 w-3" /> Expandido
                 </button>
+                <button onClick={() => setViewMode('timeline')} className={cn('inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-medium transition', viewMode === 'timeline' ? 'bg-surface-secondary text-foreground' : 'text-foreground-muted hover:text-foreground')}>
+                  <Timer className="h-3 w-3" /> Timeline
+                </button>
+                <button onClick={() => setViewMode('arc')} className={cn('inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-medium transition', viewMode === 'arc' ? 'bg-surface-secondary text-foreground' : 'text-foreground-muted hover:text-foreground')}>
+                  <Layers className="h-3 w-3" /> Arco
+                </button>
               </div>
             </div>
           </div>
+
+          {/* ── Arc Bar (always visible) ── */}
+          {narrativeArcs.length > 0 && (
+            <div className="shrink-0 border-b border-foreground/[0.06] px-5 py-2">
+              <div className="flex h-7 overflow-hidden rounded-md">
+                {(() => {
+                  const arcTotal = Math.max(...narrativeArcs.map((a) => Number(a.end_second)), 1);
+                  const phaseColors: Record<string, string> = { hook: '#EF4444', build: '#F59E0B', peak: '#10B981', close: '#3B82F6' };
+                  return narrativeArcs.map((arc) => {
+                    const duration = Number(arc.end_second) - Number(arc.start_second);
+                    const widthPct = (duration / arcTotal) * 100;
+                    return (
+                      <div
+                        key={arc.id}
+                        className="flex items-center justify-center transition-opacity hover:opacity-90"
+                        style={{ width: `${widthPct}%`, backgroundColor: phaseColors[arc.phase] || '#6B7280' }}
+                      >
+                        <span className="text-[9px] font-semibold text-white">{arc.title}</span>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+          )}
 
           {/* ── Scene List ── */}
           <div className="flex-1 overflow-y-auto px-5 py-4">
@@ -1787,7 +1945,116 @@ export default function StoryboardPage() {
                 <h3 className="mb-1 text-lg font-semibold text-foreground">No hay escenas</h3>
                 <p className="text-sm text-foreground-muted">{scenes.length === 0 ? 'Aun no hay escenas en este proyecto' : 'No hay escenas que coincidan con los filtros'}</p>
               </div>
+            ) : viewMode === 'timeline' ? (
+              /* ── Timeline View — synced with arc bar ── */
+              <div className="space-y-3">
+                {/* Timeline bar */}
+                <div className="relative">
+                  {(() => {
+                    const timelineTotal = filteredScenes.reduce((acc, s) => acc + (s.duration_seconds || 1), 0);
+                    const phaseColors: Record<string, string> = { hook: '#EF4444', build: '#F59E0B', peak: '#10B981', close: '#3B82F6' };
+                    return (
+                      <div className="flex h-14 overflow-hidden rounded-lg border border-surface-tertiary">
+                        {filteredScenes.map((scene) => {
+                          const widthPct = ((scene.duration_seconds || 1) / timelineTotal) * 100;
+                          const isSelected = expandedIds.has(scene.id);
+                          const bgColor = phaseColors[scene.arc_phase] || '#6B7280';
+                          return (
+                            <button
+                              key={scene.id}
+                              onClick={() => toggleExpand(scene.id)}
+                              className={cn(
+                                'relative flex flex-col items-center justify-center border-r border-black/20 transition-all',
+                                isSelected
+                                  ? 'z-10 ring-2 ring-white ring-offset-1 ring-offset-black brightness-110'
+                                  : 'opacity-60 hover:opacity-100',
+                              )}
+                              style={{ width: `${widthPct}%`, backgroundColor: bgColor }}
+                              title={`${scene.scene_number} ${scene.title} (${scene.duration_seconds}s)`}
+                              aria-pressed={isSelected}
+                            >
+                              <span className="text-[9px] font-bold text-white drop-shadow">{scene.scene_number}</span>
+                              <span className="text-[7px] text-white/80">{scene.duration_seconds}s</span>
+                              {isSelected && (
+                                <div className="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 bg-surface" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                  {/* Time markers */}
+                  <div className="mt-1.5 flex justify-between text-[10px] text-foreground-muted">
+                    <span>0s</span>
+                    <span>{Math.round(totalDuration / 4)}s</span>
+                    <span>{Math.round(totalDuration / 2)}s</span>
+                    <span>{Math.round((totalDuration * 3) / 4)}s</span>
+                    <span>{totalDuration}s</span>
+                  </div>
+                </div>
+                {/* Selected scene cards below timeline */}
+                {filteredScenes.filter((s) => expandedIds.has(s.id)).length === 0 && (
+                  <div className="rounded-lg border border-dashed border-surface-tertiary p-6 text-center text-sm text-foreground-muted">
+                    Pulsa en una escena del timeline para ver sus detalles
+                  </div>
+                )}
+                {filteredScenes.filter((s) => expandedIds.has(s.id)).map((scene) => (
+                  <SceneCard
+                    key={scene.id}
+                    scene={scene} characters={characters} backgrounds={backgrounds}
+                    sortPosition={filteredScenes.indexOf(scene) + 1}
+                    isExpanded onToggleExpand={() => toggleExpand(scene.id)}
+                    onOpenAISidebar={handleOpenAISidebar} onGeneratePrompt={handleGeneratePrompt}
+                    generatingPrompts={generatingPrompts} onUpdateScene={handleUpdateScene}
+                    onDeleteScene={handleDeleteScene} selectionMode={selectionMode}
+                    isSelected={selectedSceneIds.includes(scene.id)} onToggleSelect={() => toggleSceneSelection(scene.id)}
+                  />
+                ))}
+              </div>
+            ) : viewMode === 'arc' ? (
+              /* ── Arc View — scenes grouped by phase ── */
+              <div className="space-y-6">
+                {(['hook', 'build', 'peak', 'close'] as const).map((phase) => {
+                  const phaseScenes = filteredScenes.filter((s) => s.arc_phase === phase);
+                  const phaseColors: Record<string, string> = { hook: '#EF4444', build: '#F59E0B', peak: '#10B981', close: '#3B82F6' };
+                  const phaseLabels: Record<string, string> = { hook: 'Gancho', build: 'Desarrollo', peak: 'Climax', close: 'Cierre' };
+                  const phaseDuration = phaseScenes.reduce((acc, s) => acc + (s.duration_seconds || 0), 0);
+                  if (phaseScenes.length === 0 && arcFilter !== 'all') return null;
+                  return (
+                    <div key={phase}>
+                      <div className="mb-2 flex items-center gap-2">
+                        <div className="h-3 w-3 rounded-full" style={{ backgroundColor: phaseColors[phase] }} />
+                        <h3 className="text-sm font-semibold text-foreground">{phaseLabels[phase]}</h3>
+                        <span className="text-xs text-foreground-muted">{phaseScenes.length} escenas</span>
+                        <span className="text-xs text-foreground-muted">{phaseDuration}s</span>
+                      </div>
+                      {phaseScenes.length === 0 ? (
+                        <div className="rounded-lg border border-dashed border-surface-tertiary p-4 text-center text-xs text-foreground-muted">
+                          No hay escenas en esta fase
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {phaseScenes.map((scene, idx) => (
+                            <SceneCard
+                              key={scene.id}
+                              scene={scene} characters={characters} backgrounds={backgrounds}
+                              sortPosition={filteredScenes.indexOf(scene) + 1}
+                              isExpanded={expandedIds.has(scene.id)} onToggleExpand={() => toggleExpand(scene.id)}
+                              onOpenAISidebar={handleOpenAISidebar} onGeneratePrompt={handleGeneratePrompt}
+                              generatingPrompts={generatingPrompts} onUpdateScene={handleUpdateScene}
+                              onDeleteScene={handleDeleteScene} selectionMode={selectionMode}
+                              isSelected={selectedSceneIds.includes(scene.id)} onToggleSelect={() => toggleSceneSelection(scene.id)}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             ) : (
+              /* ── Compact / Expanded View (default) ── */
               <div className="space-y-3">
                 {filteredScenes.map((scene, idx) => (
                   <div key={scene.id}>

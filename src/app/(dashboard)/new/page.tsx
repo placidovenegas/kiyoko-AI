@@ -7,18 +7,9 @@ import { slugify, generateProjectSlug } from '@/lib/utils/slugify';
 import { cn } from '@/lib/utils/cn';
 import { toast } from 'sonner';
 import {
-  IconSend,
-  IconPhoto,
-  IconSparkles,
-  IconArrowLeft,
-  IconLoader2,
-  IconMessageChatbot,
-  IconPalette,
-  IconUsers,
-  IconMapPin,
-  IconRocket,
-  IconForms,
-} from '@tabler/icons-react';
+  Send, ImagePlus, Sparkles, ArrowLeft, Loader2,
+  MessageSquare, Palette, Users, MapPin, Rocket, FileText,
+} from 'lucide-react';
 import Link from 'next/link';
 
 // ---------------------------------------------------------------------------
@@ -96,11 +87,11 @@ const PLATFORMS: { value: TargetPlatform; label: string }[] = [
 ];
 
 const STEP_CONFIG = [
-  { label: 'Brief', icon: IconMessageChatbot },
-  { label: 'Estilo', icon: IconPalette },
-  { label: 'Personajes', icon: IconUsers },
-  { label: 'Localizaciones', icon: IconMapPin },
-  { label: 'Crear', icon: IconRocket },
+  { label: 'Brief', icon: MessageSquare },
+  { label: 'Estilo', icon: Palette },
+  { label: 'Personajes', icon: Users },
+  { label: 'Localizaciones', icon: MapPin },
+  { label: 'Crear', icon: Rocket },
 ];
 
 const INITIAL_MESSAGE: ChatMessage = {
@@ -485,6 +476,24 @@ export default function NewProjectPage() {
 
       if (error) throw error;
 
+      // Auto-create "Video Principal"
+      const videoSlug = 'video-principal-' + Math.random().toString(36).slice(2, 8);
+      await supabase.from('video_cuts').insert({
+        project_id: project.id,
+        name: 'Video Principal',
+        slug: videoSlug,
+        platform: data.platform,
+        target_duration_seconds: data.duration,
+        aspect_ratio: data.platform === 'youtube' || data.platform === 'tv_commercial' || data.platform === 'web'
+          ? '16:9'
+          : data.platform === 'instagram_reels' || data.platform === 'tiktok'
+            ? '9:16'
+            : '16:9',
+        is_primary: true,
+        status: 'draft',
+        sort_order: 0,
+      });
+
       // Insert characters
       if (data.characters.length > 0) {
         const charInserts = data.characters.map((c, i) => ({
@@ -554,13 +563,13 @@ export default function NewProjectPage() {
           href="/dashboard"
           className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground-muted transition-colors duration-150 hover:bg-surface-secondary hover:text-foreground"
         >
-          <IconArrowLeft size={18} />
+          <ArrowLeft className="h-4.5 w-4.5" />
         </Link>
         <div className="flex-1">
           <h1 className="text-sm font-semibold text-foreground">Nuevo Proyecto</h1>
           <p className="text-xs text-foreground-muted">Asistente de creacion</p>
         </div>
-        <IconSparkles size={18} className="text-brand-500" />
+        <Sparkles className="h-4.5 w-4.5 text-brand-500" />
       </div>
 
       {/* ---- Step indicator with icons ---- */}
@@ -583,7 +592,7 @@ export default function NewProjectPage() {
                       : 'bg-surface-tertiary text-foreground-muted',
                 )}
               >
-                <StepIcon size={16} />
+                <StepIcon className="h-4 w-4" />
               </div>
               {/* Progress bar */}
               <div
@@ -727,7 +736,7 @@ export default function NewProjectPage() {
           {/* Creating indicator */}
           {isCreating && (
             <div className="flex items-center justify-center gap-2 py-6">
-              <IconLoader2 className="h-5 w-5 animate-spin text-brand-500" />
+              <Loader2 className="h-5 w-5 animate-spin text-brand-500" />
               <span className="text-sm font-medium text-foreground-muted">
                 Creando proyecto...
               </span>
@@ -761,7 +770,7 @@ export default function NewProjectPage() {
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-foreground-muted transition-colors duration-150 hover:bg-surface-tertiary hover:text-foreground"
             title="Subir imagen de referencia"
           >
-            <IconPhoto size={18} />
+            <ImagePlus className="h-4.5 w-4.5" />
           </button>
 
           {/* Text input */}
@@ -791,7 +800,7 @@ export default function NewProjectPage() {
             disabled={!input.trim() || isThinking || isCreating}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-500 text-white transition-all duration-150 hover:bg-brand-600 disabled:opacity-40"
           >
-            <IconSend size={16} />
+            <Send className="h-4 w-4" />
           </button>
         </div>
 
@@ -801,7 +810,7 @@ export default function NewProjectPage() {
             href="/new/manual"
             className="flex items-center gap-1.5 text-xs text-foreground-muted transition-colors duration-150 hover:text-brand-500"
           >
-            <IconForms size={14} />
+            <FileText className="h-3.5 w-3.5" />
             Crear manualmente (sin IA)
           </Link>
           <p className="text-[10px] text-foreground-muted">

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useParams } from 'next/navigation';
+import { useProject } from '@/contexts/ProjectContext';
 import { createClient } from '@/lib/supabase/client';
 import { CopyButton } from '@/components/ui/CopyButton';
 import { toast } from 'sonner';
@@ -24,8 +24,7 @@ const LOCATION_LABELS: Record<string, string> = {
 };
 
 export default function BackgroundsPage() {
-  const params = useParams();
-  const projectId = params.slug as string;
+  const { project, loading: projectLoading } = useProject();
 
   const [backgrounds, setBackgrounds] = useState<Background[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,7 +32,7 @@ export default function BackgroundsPage() {
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   useEffect(() => {
-    if (!projectId) return;
+    if (!project?.id) return;
     const supabase = createClient();
 
     async function fetchBackgrounds() {
@@ -41,7 +40,7 @@ export default function BackgroundsPage() {
       const { data } = await supabase
         .from('backgrounds')
         .select('*')
-        .eq('project_id', projectId)
+        .eq('project_id', project!.id)
         .order('sort_order', { ascending: true });
 
       setBackgrounds((data as Background[]) ?? []);
@@ -50,16 +49,16 @@ export default function BackgroundsPage() {
     }
 
     fetchBackgrounds();
-  }, [projectId]);
+  }, [project?.id]);
 
   async function handleImageUpload(backgroundId: string, file: File) {
-    if (!projectId) return;
+    if (!project?.id) return;
     setUploadingId(backgroundId);
 
     try {
       const supabase = createClient();
       const fileExt = file.name.split('.').pop();
-      const filePath = `${projectId}/references/backgrounds/${backgroundId}.${fileExt}`;
+      const filePath = `${project!.id}/references/backgrounds/${backgroundId}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from('project-assets')
@@ -99,7 +98,7 @@ export default function BackgroundsPage() {
   }
 
   async function handleImageDelete(backgroundId: string, filePath: string) {
-    if (!projectId) return;
+    if (!project?.id) return;
 
     try {
       const supabase = createClient();
@@ -135,7 +134,7 @@ export default function BackgroundsPage() {
     }
   }
 
-  if (loading) {
+  if (loading || projectLoading) {
     return (
 
       <div className="space-y-6">

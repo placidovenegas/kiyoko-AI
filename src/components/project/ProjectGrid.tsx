@@ -2,23 +2,19 @@
 
 import Link from 'next/link';
 import { ProjectCard, type Project } from './ProjectCard';
-import {
-  IconMovie,
-  IconSparkles,
-  IconPlus,
-} from '@tabler/icons-react';
+import { Film, Sparkles, Plus } from 'lucide-react';
+import { KButton } from '@/components/ui/kiyoko-button';
 
 export function ProjectGrid({ projects }: { projects: Project[] }) {
   if (projects.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-6 rounded-2xl border-2 border-dashed border-surface-tertiary py-20 text-center">
-        {/* Illustration area */}
         <div className="relative">
           <div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-brand-500/10">
-            <IconMovie size={40} className="text-brand-500" />
+            <Film className="h-10 w-10 text-brand-500" />
           </div>
           <div className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-brand-500 shadow-lg">
-            <IconSparkles size={16} className="text-white" />
+            <Sparkles className="h-4 w-4 text-white" />
           </div>
         </div>
 
@@ -27,17 +23,15 @@ export function ProjectGrid({ projects }: { projects: Project[] }) {
             Crea tu primer proyecto
           </h3>
           <p className="max-w-md text-sm leading-relaxed text-foreground-muted">
-            Empieza a disenar tu storyboard con ayuda de IA. Describe tu idea y
-            Kiyoko se encargara de generar escenas, personajes y fondos.
+            Empieza a diseñar tu storyboard con ayuda de IA. Describe tu idea y
+            Kiyoko se encargará de generar escenas, personajes y fondos.
           </p>
         </div>
 
-        <Link
-          href="/new"
-          className="mt-2 flex items-center gap-2 rounded-xl bg-brand-500 px-6 py-3 text-sm font-semibold text-white transition-all duration-150 hover:bg-brand-600 hover:shadow-lg"
-        >
-          <IconPlus size={18} />
-          Nuevo Proyecto
+        <Link href="/new">
+          <KButton size="lg" icon={<Plus className="h-4 w-4" />}>
+            Nuevo Proyecto
+          </KButton>
         </Link>
       </div>
     );
