@@ -413,3 +413,34 @@ body {
     max-width: 180px;
   }
 }
+
+/* ============================================= */
+/* Kiyoko AI — Logo draw animation for streaming */
+/* ============================================= */
+
+@keyframes draw-logo {
+  0% {
+    stroke-dashoffset: 2200;
+    opacity: 0.4;
+  }
+  10% {
+    opacity: 1;
+  }
+  50% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: -2200;
+    opacity: 0.4;
+  }
+}
+
+.animate-draw-logo {
+  stroke-dasharray: 2200;
+  stroke-dashoffset: 2200;
+  animation: draw-logo 3s ease-in-out infinite;
+}

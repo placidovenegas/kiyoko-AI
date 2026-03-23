@@ -98,8 +98,11 @@ export async function POST(request: Request) {
       ]);
 
       const agent = agentRes.data;
+      // creativity_level can be 0-1 (decimal) or 0-10 (integer scale)
+      // If <= 1, use directly; if > 1, divide by 10
       if (agent?.creativity_level != null) {
-        agentTemperature = Number(agent.creativity_level) / 10; // 0-10 → 0-1
+        const raw = Number(agent.creativity_level);
+        agentTemperature = raw > 1 ? raw / 10 : raw;
       }
 
       if (!projectRes.data) {
@@ -223,33 +226,54 @@ export async function POST(request: Request) {
             activeSceneId: sceneId,
           });
 
-          systemPrompt = selected.systemPrompt;
+          // Append custom agent prompt as additional context, never replace
+          systemPrompt = agent?.system_prompt
+            ? `${selected.systemPrompt}\n\n=== INSTRUCCIONES ADICIONALES ===\n${agent.system_prompt}`
+            : selected.systemPrompt;
           agentTemperature = selected.temperature;
           activeAgent = selected.agentName;
           preferredProviderIds = selected.preferredProviders;
         } else {
           // project level → specialized project assistant prompt
-          if (agent?.system_prompt) {
-            // Custom agent prompt overrides everything
-            systemPrompt = agent.system_prompt;
-          } else {
-            systemPrompt = buildProjectAssistantPrompt({
-              project,
-              videos,
-              characters,
-              backgrounds,
-              agentTone: agent?.tone ?? undefined,
-            });
-          }
+          // Custom agent system_prompt is APPENDED as additional context, never replaces
+          const basePrompt = buildProjectAssistantPrompt({
+            project,
+            videos,
+            characters,
+            backgrounds,
+            agentTone: agent?.tone ?? undefined,
+          });
+          systemPrompt = agent?.system_prompt
+            ? `${basePrompt}\n\n=== INSTRUCCIONES ADICIONALES DEL PROYECTO ===\n${agent.system_prompt}`
+            : basePrompt;
           agentTemperature = 0.3;
           preferredProviderIds = ['groq', 'gemini', 'mistral'];
         }
       }
     }
 
-    // 3. Preparar mensajes — las imágenes ya vienen incrustadas en el content del mensaje
-    //    por el hook useKiyokoChat (como "[Imagenes adjuntas: url1, url2]")
-    const aiMessages = [...messages];
+    // 3. Preparar mensajes — convertir URLs de imagenes a bloques multimodal
+    //    para que modelos con vision (Gemini, Claude, GPT-4o) puedan analizarlas
+    const IMAGE_URL_REGEX = /\[Imagenes adjuntas: ([^\]]+)\]/;
+    let hasImages = false;
+
+    const aiMessages = messages.map((m) => {
+      const imageMatch = m.content.match(IMAGE_URL_REGEX);
+      if (!imageMatch) return m;
+
+      hasImages = true;
+      const urls = imageMatch[1].split(', ').map((u) => u.trim()).filter(Boolean);
+      const textWithoutImages = m.content.replace(IMAGE_URL_REGEX, '').trim();
+
+      // Build multimodal content array for AI SDK
+      const content: Array<{ type: 'text'; text: string } | { type: 'image'; image: string }> = [];
+      if (textWithoutImages) content.push({ type: 'text', text: textWithoutImages });
+      for (const url of urls) {
+        content.push({ type: 'image', image: url });
+      }
+
+      return { ...m, content: content as never };
+    });
 
     // 4. Resolver cadena de proveedores
     let availableModels = getAllAvailableModels();
@@ -283,8 +307,21 @@ export async function POST(request: Request) {
       }
     } catch { /* continuar con claves del servidor */ }
 
+    // If images are present, prioritize vision-capable models (Gemini, Claude, OpenAI)
+    const VISION_PROVIDERS: string[] = ['gemini', 'claude', 'openai'];
+    if (hasImages) {
+      const visionFirst: ResolvedModel[] = [];
+      const rest: ResolvedModel[] = [];
+      for (const m of availableModels) {
+        if (VISION_PROVIDERS.includes(m.providerId)) visionFirst.push(m);
+        else rest.push(m);
+      }
+      availableModels = [...visionFirst, ...rest];
+      console.log(`[chat] Images detected — vision models prioritized: [${visionFirst.map((m) => m.providerId).join(', ')}]`);
+    }
+
     // Reordenar según preferencias del agente (si hay)
-    if (preferredProviderIds.length > 0) {
+    if (preferredProviderIds.length > 0 && !hasImages) {
       const reordered: ResolvedModel[] = [];
       for (const pid of preferredProviderIds) {
         const found = availableModels.find((m) => m.providerId === pid);
@@ -325,7 +362,8 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log(`[chat] level=${level} agent=${activeAgent} providers=[${availableModels.map((m) => m.providerId).join(', ')}]`);
+    console.log(`[chat] level=${level} agent=${activeAgent} temp=${agentTemperature} prompt_len=${systemPrompt.length} providers=[${availableModels.map((m) => m.providerId).join(', ')}]`);
+    console.log(`[chat] prompt_start: ${systemPrompt.slice(0, 150)}...`);
 
     // 5. Stream con fallback
     let lastError: Error | null = null;

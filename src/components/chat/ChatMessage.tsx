@@ -1,8 +1,28 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
-import { Copy, Check, RotateCcw, Volume2, Send } from 'lucide-react';
+import { useState, useMemo, useCallback, Component } from 'react';
+import type { ReactNode, ErrorInfo } from 'react';
+import { Copy, Check, RotateCcw, Volume2, Send, AlertCircle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { StreamingWave, BlockSkeleton } from '@/components/chat/StreamingWave';
+
+// ---- Error boundary for chat blocks ----
+class BlockErrorBoundary extends Component<{ children: ReactNode }, { error: string | null }> {
+  state = { error: null as string | null };
+  static getDerivedStateFromError(err: Error) { return { error: err.message }; }
+  componentDidCatch(err: Error, info: ErrorInfo) { console.warn('[ChatBlock]', err, info); }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="mt-1 px-3 py-2 rounded-md bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/30 text-xs text-red-600 dark:text-red-400 flex items-center gap-2">
+          <AlertCircle size={12} className="shrink-0" />
+          Error al renderizar componente
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 import remarkGfm from 'remark-gfm';
 import type { Components } from 'react-markdown';
 import { cn } from '@/lib/utils/cn';
@@ -29,7 +49,6 @@ import type { ResourceListData } from '@/components/chat/ResourceListCard';
 import { VideoSummaryCard } from '@/components/chat/VideoSummaryCard';
 import type { VideoSummaryData } from '@/components/chat/VideoSummaryCard';
 import type { SelectableEntity } from '@/components/chat/EntitySelector';
-import { KiyokoIcon } from '@/components/ui/logo';
 import type { KiyokoMessage } from '@/hooks/useKiyokoChat';
 import type { AiActionPlan } from '@/types/ai-actions';
 import { parseAiMessage } from '@/lib/ai/parse-ai-message';
@@ -39,23 +58,12 @@ import type { ScenePlanItem } from '@/components/chat/ScenePlanTimeline';
 // Types
 // ---------------------------------------------------------------------------
 
-import { GitMerge, Clapperboard, Camera, Pencil as PencilIcon } from 'lucide-react';
-
-// Agent badge config — Lucide icons (matches KiyokoHeader)
-const AGENT_BADGE: Record<string, {
-  label: string;
-  Icon: React.ComponentType<{ size?: number; className?: string }>;
-}> = {
-  router:  { label: 'Router',  Icon: GitMerge },
-  scenes:  { label: 'Escenas', Icon: Clapperboard },
-  prompts: { label: 'Prompts', Icon: Camera },
-  editor:  { label: 'Editor',  Icon: PencilIcon },
-};
-
 interface ChatMessageProps {
   message: KiyokoMessage;
   activeAgent?: string;
   projectId?: string;
+  isLastMessage?: boolean;
+  isStreaming?: boolean;
   onExecute: (messageId: string, plan: AiActionPlan) => void;
   onCancel: (messageId: string) => void;
   onModify: (text: string) => void;
@@ -129,6 +137,16 @@ function extractTextContent(content: string): string {
     .replace(/\[SUGERENCIAS\][\s\S]*?(?:\[\/SUGERENCIAS\]|$)/g, '')
     .replace(/\[WORKFLOW:[^\]]*\]/g, '')
     .replace(/\[AUDIO:[^\]]*\]/g, '')
+    // Bloques sin cierre (LLMs a veces omiten [/TAG])
+    .replace(/\[OPTIONS\]\s*\[[\s\S]*?\]/g, '')
+    .replace(/\[SUGGESTIONS\]\s*\[[\s\S]*?\]/g, '')
+    .replace(/\[CREATE:\w+\]\s*\{[\s\S]*?\}/g, '')
+    .replace(/\[SCENE_DETAIL\]\s*\{[\s\S]*?\}/g, '')
+    .replace(/\[PROJECT_SUMMARY\]\s*\{[\s\S]*?\}/g, '')
+    .replace(/\[VIDEO_SUMMARY\]\s*\{[\s\S]*?\}/g, '')
+    .replace(/\[RESOURCE_LIST\]\s*\{[\s\S]*?\}/g, '')
+    // Bloques a medio escribir durante streaming (sin cerrar JSON ni tag)
+    .replace(/\[(ACTION_PLAN|OPTIONS|SUGGESTIONS|CREATE:\w+|SCENE_PLAN|SCENE_DETAIL|PROJECT_SUMMARY|VIDEO_SUMMARY|RESOURCE_LIST|DIFF|PROMPT_PREVIEW|PREVIEW:\w+)\][\s\S]*$/g, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
@@ -519,7 +537,7 @@ function AudioPlayer({ url }: { url: string }) {
 // ChatMessage
 // ---------------------------------------------------------------------------
 
-export function ChatMessage({ message, activeAgent, projectId, onExecute, onCancel, onModify, onSend, onUndo, onWorkflowAction, contextEntities }: ChatMessageProps) {
+export function ChatMessage({ message, activeAgent, projectId, isLastMessage, isStreaming: parentStreaming, onExecute, onCancel, onModify, onSend, onUndo, onWorkflowAction, contextEntities }: ChatMessageProps) {
   const isUser = message.role === 'user';
 
   // Parsear todos los bloques especiales del mensaje del asistente
@@ -572,6 +590,21 @@ export function ChatMessage({ message, activeAgent, projectId, onExecute, onCanc
   );
   const hasChoices = contentSegments?.some((s) => s.type === 'choices') ?? false;
 
+  // Detect partial block being streamed — only show skeleton when:
+  // 1. This IS the last message (currently being written)
+  // 2. Parent IS streaming
+  // 3. Content has an opening block tag WITHOUT a matching closing tag
+  const hasPartialBlock = useMemo(() => {
+    if (isUser || !message.content || !isLastMessage || !parentStreaming) return false;
+    const openTags = message.content.match(/\[(PROJECT_SUMMARY|VIDEO_SUMMARY|SCENE_DETAIL|RESOURCE_LIST|CREATE:\w+)\]/g);
+    if (!openTags) return false;
+    // Check if LAST opening tag has a closing tag
+    const lastTag = openTags[openTags.length - 1];
+    const baseTag = lastTag.replace(/[\[\]]/g, '').split(':')[0];
+    const closePattern = new RegExp(`\\[\\/${baseTag}(:\\w+)?\\]`);
+    return !closePattern.test(message.content.slice(message.content.lastIndexOf(lastTag)));
+  }, [isUser, message.content, isLastMessage, parentStreaming]);
+
   const handleChoiceConfirm = useCallback((items: string[]) => {
     const text = items.join(', ');
     if (onSend) {
@@ -590,75 +623,39 @@ export function ChatMessage({ message, activeAgent, projectId, onExecute, onCanc
     );
   }, [textContent, hasChoices]);
 
-  const agentBadge = !isUser && activeAgent ? AGENT_BADGE[activeAgent] : null;
-
   return (
     <div className={cn('group', isUser ? 'flex flex-col items-end' : '')}>
-      {/* ---- Message header line: avatar + name + agent + time ---- */}
-      <div className={cn('flex items-center gap-1.5 mb-1', isUser ? 'flex-row-reverse' : '')}>
-        {!isUser ? (
-          <>
-            <div className="flex items-center justify-center size-5 rounded-md bg-teal-600 shrink-0">
-              <KiyokoIcon size={10} className="text-white" />
-            </div>
-            <span className="text-[11px] font-semibold text-foreground">Kiyoko</span>
-            {agentBadge && (
-              <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
-                · <agentBadge.Icon size={9} /> {agentBadge.label}
-              </span>
-            )}
-          </>
-        ) : (
-          <span className="text-[11px] font-semibold text-foreground">Tú</span>
-        )}
-        <span className="text-[10px] text-muted-foreground/60">· {formatTime(message.timestamp)}</span>
-      </div>
-
-      {/* ---- Message body (NO bubble — clean flat style per Section 23.9) ---- */}
-      <div className={cn('space-y-1.5 min-w-0', isUser ? 'max-w-[85%] text-right' : 'flex-1 pl-6.5')}>
-        {/* User message — no bubble */}
+      {/* ---- Message body ---- */}
+      <div className={cn('space-y-1.5 min-w-0', isUser ? 'max-w-[80%]' : 'flex-1')}>
+        {/* User message — bubble style like Notion */}
         {isUser ? (
-          <div className="text-[13px] leading-relaxed text-foreground">
-            {/* Image thumbnails (uploaded) */}
+          <div>
+            {/* Image thumbnails */}
             {message.images && message.images.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-2 justify-end">
                 {message.images.map((url, i) => (
-                  <a
-                    key={i}
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block rounded-lg overflow-hidden border border-border hover:border-teal-500/40 transition-colors"
-                  >
-                    <img
-                      src={url}
-                      alt={`Imagen adjunta ${i + 1}`}
-                      className="w-40 h-32 object-cover"
-                      loading="lazy"
-                    />
+                  <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                    className="block rounded-lg overflow-hidden border border-border hover:border-teal-500/40 transition-colors">
+                    <img src={url} alt={`Imagen ${i + 1}`} className="w-40 h-32 object-cover" loading="lazy" />
                   </a>
                 ))}
               </div>
             )}
-            {message.content && <span>{message.content}</span>}
+            {message.content && (
+              <div className="inline-block px-3.5 py-2 rounded-2xl rounded-br-sm bg-muted text-[13px] leading-relaxed text-foreground">
+                {message.content}
+              </div>
+            )}
           </div>
         ) : (
           <>
-            {/* Assistant text content — no bubble background */}
+            {/* Assistant text — clean, no bubble */}
             {(() => {
-              if (!textContent && !actionPlan) {
-                return (
-                  <div className="flex items-center gap-2 text-muted-foreground py-1">
-                    <div className="flex gap-1">
-                      <span className="size-1.5 rounded-full bg-teal-500/60 animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <span className="size-1.5 rounded-full bg-teal-500/60 animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <span className="size-1.5 rounded-full bg-teal-500/60 animate-bounce" style={{ animationDelay: '300ms' }} />
-                    </div>
-                    <span className="text-xs">Kiyoko pensando...</span>
-                  </div>
-                );
+              const hasBlocks = specialBlocks.length > 0;
+              if (!textContent && !actionPlan && !hasBlocks) {
+                return <StreamingWave />;
               }
-              if (textContent || hasChoices) {
+              if (textContent || hasChoices || hasBlocks) {
                 return (
                   <div className="text-[13px] leading-relaxed text-foreground overflow-hidden">
                     {/* Interactive choices or plain markdown */}
@@ -666,6 +663,9 @@ export function ChatMessage({ message, activeAgent, projectId, onExecute, onCanc
                       ? <ChoiceSelector segments={contentSegments} onConfirm={handleChoiceConfirm} />
                       : renderedMarkdown
                     }
+
+                    {/* Skeleton while block is streaming */}
+                    {hasPartialBlock && <BlockSkeleton />}
 
                     {/* Audio player */}
                     {audioUrl && <AudioPlayer url={audioUrl} />}
@@ -738,8 +738,8 @@ export function ChatMessage({ message, activeAgent, projectId, onExecute, onCanc
                       const d = typeof b.data === 'object' && b.data !== null
                         ? b.data as ProjectSummaryData
                         : null;
-                      if (!d) return null;
-                      return <ProjectSummaryCard key={i} data={d} />;
+                      if (!d || !d.title) return null;
+                      return <BlockErrorBoundary key={`ps-${i}`}><ProjectSummaryCard data={d} /></BlockErrorBoundary>;
                     })}
 
                     {/* [CREATE:character] / [CREATE:background] — Interactive creation forms */}
@@ -751,53 +751,56 @@ export function ChatMessage({ message, activeAgent, projectId, onExecute, onCanc
 
                       if (entityType === 'character') {
                         return (
-                          <CharacterCreationCard
-                            key={`create-char-${i}`}
-                            projectId={projectId}
-                            prefill={{
-                              name: prefillData.name,
-                              role: prefillData.role,
-                              description: prefillData.description,
-                              personality: prefillData.personality,
-                              visual_description: prefillData.visual_description,
-                            }}
-                            onCreated={(msg) => onSend ? onSend(msg) : onModify(msg)}
-                            onCancel={() => {}}
-                          />
+                          <BlockErrorBoundary key={`cc-${i}`}>
+                            <CharacterCreationCard
+                              projectId={projectId}
+                              prefill={{
+                                name: prefillData.name,
+                                role: prefillData.role,
+                                description: prefillData.description,
+                                personality: prefillData.personality,
+                                visual_description: prefillData.visual_description,
+                              }}
+                              onCreated={(msg) => onSend ? onSend(msg) : onModify(msg)}
+                              onCancel={() => onSend?.('Cancelado')}
+                            />
+                          </BlockErrorBoundary>
                         );
                       }
 
                       if (entityType === 'background') {
                         return (
-                          <BackgroundCreationCard
-                            key={`create-bg-${i}`}
-                            projectId={projectId}
-                            prefill={{
-                              name: prefillData.name,
-                              location_type: prefillData.location_type,
-                              time_of_day: prefillData.time_of_day,
-                              description: prefillData.description,
-                            }}
-                            onCreated={(msg) => onSend ? onSend(msg) : onModify(msg)}
-                            onCancel={() => {}}
-                          />
+                          <BlockErrorBoundary key={`cb-${i}`}>
+                            <BackgroundCreationCard
+                              projectId={projectId}
+                              prefill={{
+                                name: prefillData.name,
+                                location_type: prefillData.location_type,
+                                time_of_day: prefillData.time_of_day,
+                                description: prefillData.description,
+                              }}
+                              onCreated={(msg) => onSend ? onSend(msg) : onModify(msg)}
+                              onCancel={() => onSend?.('Cancelado')}
+                            />
+                          </BlockErrorBoundary>
                         );
                       }
 
                       if (entityType === 'video') {
                         return (
-                          <VideoCreationCard
-                            key={`create-vid-${i}`}
-                            projectId={projectId}
-                            prefill={{
-                              title: prefillData.title,
-                              platform: prefillData.platform,
-                              target_duration_seconds: prefillData.target_duration_seconds ? Number(prefillData.target_duration_seconds) : undefined,
-                              description: prefillData.description,
-                            }}
-                            onCreated={(msg) => onSend ? onSend(msg) : onModify(msg)}
-                            onCancel={() => {}}
-                          />
+                          <BlockErrorBoundary key={`cv-${i}`}>
+                            <VideoCreationCard
+                              projectId={projectId}
+                              prefill={{
+                                title: prefillData.title,
+                                platform: prefillData.platform,
+                                target_duration_seconds: prefillData.target_duration_seconds ? Number(prefillData.target_duration_seconds) : undefined,
+                                description: prefillData.description,
+                              }}
+                              onCreated={(msg) => onSend ? onSend(msg) : onModify(msg)}
+                              onCancel={() => onSend?.('Cancelado')}
+                            />
+                          </BlockErrorBoundary>
                         );
                       }
 
@@ -811,11 +814,9 @@ export function ChatMessage({ message, activeAgent, projectId, onExecute, onCanc
                         : null;
                       if (!d) return null;
                       return (
-                        <SceneDetailCard
-                          key={`scene-detail-${i}`}
-                          data={d}
-                          onAction={(action) => onSend ? onSend(action) : onModify(action)}
-                        />
+                        <BlockErrorBoundary key={`sd-${i}`}>
+                          <SceneDetailCard data={d} onAction={(action) => onSend ? onSend(action) : onModify(action)} />
+                        </BlockErrorBoundary>
                       );
                     })}
 
@@ -826,11 +827,9 @@ export function ChatMessage({ message, activeAgent, projectId, onExecute, onCanc
                         : null;
                       if (!d) return null;
                       return (
-                        <ResourceListCard
-                          key={`resource-${i}`}
-                          data={d}
-                          onAction={(action) => onSend ? onSend(action) : onModify(action)}
-                        />
+                        <BlockErrorBoundary key={`rl-${i}`}>
+                          <ResourceListCard data={d} onAction={(action) => onSend ? onSend(action) : onModify(action)} />
+                        </BlockErrorBoundary>
                       );
                     })}
 
@@ -838,7 +837,11 @@ export function ChatMessage({ message, activeAgent, projectId, onExecute, onCanc
                     {videoSummaryBlocks.map((b, i) => {
                       const d = typeof b.data === 'object' && b.data !== null ? b.data as VideoSummaryData : null;
                       if (!d) return null;
-                      return <VideoSummaryCard key={`vid-sum-${i}`} data={d} onAction={(a) => onSend ? onSend(a) : onModify(a)} />;
+                      return (
+                        <BlockErrorBoundary key={`vs-${i}`}>
+                          <VideoSummaryCard data={d} onAction={(a) => onSend ? onSend(a) : onModify(a)} />
+                        </BlockErrorBoundary>
+                      );
                     })}
 
                     {/* Workflow action buttons */}
@@ -904,24 +907,24 @@ export function ChatMessage({ message, activeAgent, projectId, onExecute, onCanc
           </>
         )}
 
-        {/* Bottom row: action buttons (time is in header now) */}
+        {/* Hover actions — time + edit + copy */}
         <div className={cn(
-          'flex items-center gap-1 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity',
-          isUser ? 'justify-end' : 'justify-start pl-6.5',
+          'flex items-center gap-1.5 mt-1 h-5 opacity-0 group-hover:opacity-100 transition-opacity',
+          isUser ? 'justify-end' : 'justify-start',
         )}>
-          {/* Copy button (assistant messages) */}
-          {!isUser && textContent && <CopyMessageButton text={textContent} />}
-
-          {/* Retry button (user messages) */}
+          <span className="text-[10px] text-muted-foreground/50 tabular-nums">
+            {formatTime(message.timestamp)}
+          </span>
+          {/* Edit — only last user message */}
           {isUser && message.content && (
-            <button
-              type="button"
-              onClick={() => onModify(message.content)}
-              title="Editar y reenviar"
-              className="flex items-center justify-center size-5 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            >
-              <RotateCcw size={11} />
+            <button type="button" onClick={() => onModify(message.content)} title="Editar"
+              className="flex items-center justify-center size-5 rounded text-muted-foreground/50 hover:text-foreground hover:bg-accent transition-colors">
+              <RotateCcw size={10} />
             </button>
+          )}
+          {/* Copy */}
+          {(isUser ? message.content : textContent) && (
+            <CopyMessageButton text={isUser ? message.content : (textContent ?? '')} />
           )}
         </div>
       </div>

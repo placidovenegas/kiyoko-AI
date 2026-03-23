@@ -38,6 +38,11 @@ interface AIState {
   // ---- Last image analysis result ----
   lastImageAnalysis: Record<string, unknown> | null;
   setLastImageAnalysis: (analysis: Record<string, unknown> | null) => void;
+
+  // ---- Creation in progress (blocks input while creating) ----
+  isCreating: boolean;
+  creatingLabel: string | null;
+  setCreating: (creating: boolean, label?: string) => void;
 }
 
 const SIDEBAR_WIDTH_MIN = 320;
@@ -77,6 +82,10 @@ export const useAIStore = create<AIState>()(
 
       lastImageAnalysis: null,
       setLastImageAnalysis: (analysis) => set({ lastImageAnalysis: analysis }),
+
+      isCreating: false,
+      creatingLabel: null,
+      setCreating: (creating, label) => set({ isCreating: creating, creatingLabel: label ?? null }),
     }),
     {
       name: 'kiyoko-ai-store',

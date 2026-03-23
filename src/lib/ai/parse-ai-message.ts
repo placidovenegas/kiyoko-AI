@@ -169,9 +169,55 @@ export function parseAiMessage(content: string): ParsedMessage {
     }
   }
 
-  // ---- 4. Limpiar texto residual ----
+  // ---- 4. Fallback: [OPTIONS] o [SUGGESTIONS] sin tag de cierre ----
+  // LLMs a veces generan [OPTIONS]["a","b"] sin [/OPTIONS]
+  const UNCLOSED_OPTIONS = /\[OPTIONS\]\s*(\[[\s\S]*?\])/g;
+  const UNCLOSED_SUGGESTIONS = /\[SUGGESTIONS\]\s*(\[[\s\S]*?\])/g;
+  const UNCLOSED_CREATE = /\[CREATE:(\w+)\]\s*(\{[\s\S]*?\})/g;
+
+  if (!blocks.some((b) => b.type === 'OPTIONS')) {
+    UNCLOSED_OPTIONS.lastIndex = 0;
+    const optMatch = UNCLOSED_OPTIONS.exec(textContent);
+    if (optMatch) {
+      try {
+        const parsed = JSON.parse(optMatch[1]);
+        if (Array.isArray(parsed)) {
+          blocks.push({ type: 'OPTIONS', data: parsed, raw: optMatch[1] });
+          textContent = textContent.replace(optMatch[0], '');
+        }
+      } catch { /* no es JSON valido */ }
+    }
+  }
+
+  if (suggestions.length === 0) {
+    UNCLOSED_SUGGESTIONS.lastIndex = 0;
+    const sugMatch = UNCLOSED_SUGGESTIONS.exec(textContent);
+    if (sugMatch) {
+      try {
+        const parsed = JSON.parse(sugMatch[1]);
+        if (Array.isArray(parsed)) {
+          suggestions.push(...(parsed as string[]));
+          textContent = textContent.replace(sugMatch[0], '');
+        }
+      } catch { /* no es JSON valido */ }
+    }
+  }
+
+  if (!blocks.some((b) => b.type === 'CREATE')) {
+    UNCLOSED_CREATE.lastIndex = 0;
+    let createMatch: RegExpExecArray | null;
+    while ((createMatch = UNCLOSED_CREATE.exec(textContent)) !== null) {
+      try {
+        const parsed = JSON.parse(createMatch[2]);
+        blocks.push({ type: 'CREATE', subtype: createMatch[1], data: parsed, raw: createMatch[2] });
+        textContent = textContent.replace(createMatch[0], '');
+      } catch { /* no es JSON valido */ }
+    }
+  }
+
+  // ---- 5. Limpiar texto residual ----
   textContent = textContent
-    .replace(/\n{3,}/g, '\n\n')  // máximo 2 saltos de línea
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 
   return { text: textContent, blocks, suggestions, actionPlan };

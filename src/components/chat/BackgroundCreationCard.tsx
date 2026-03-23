@@ -15,6 +15,7 @@ import {
 import { cn } from '@/lib/utils/cn';
 import { createClient } from '@/lib/supabase/client';
 import { useAiAssist } from '@/hooks/useAiAssist';
+import { useAIStore } from '@/stores/ai-store';
 import { toast } from 'sonner';
 
 const LOCATION_TYPES = ['interior', 'exterior', 'mixto'] as const;
@@ -83,19 +84,24 @@ export function BackgroundCreationCard({ prefill, projectId, onCreated, onCancel
   }, []);
 
   const handleSave = useCallback(async () => {
-    if (!name.trim() || !projectId) return;
+    if (!name.trim()) { toast.error('Escribe un nombre para el fondo'); return; }
+    if (!projectId) { toast.error('No se pudo detectar el proyecto. Recarga la pagina.'); return; }
     setSaving(true);
+    useAIStore.getState().setCreating(true, `Creando fondo "${name.trim()}"...`);
 
     try {
       const supabase = createClient();
 
       let referenceImageUrl: string | null = null;
+      let referenceImagePath: string | null = null;
       if (imageFile) {
         const ext = imageFile.name.split('.').pop() || 'png';
-        const path = `backgrounds/${projectId}/${crypto.randomUUID()}.${ext}`;
-        const { error: upErr } = await supabase.storage.from('chat-attachments').upload(path, imageFile, { contentType: imageFile.type });
-        if (!upErr) {
-          const { data: urlData } = supabase.storage.from('chat-attachments').getPublicUrl(path);
+        referenceImagePath = `backgrounds/${projectId}/${crypto.randomUUID()}.${ext}`;
+        const { error: upErr } = await supabase.storage.from('project-assets').upload(referenceImagePath, imageFile, { contentType: imageFile.type });
+        if (upErr) {
+          toast.error(`Error al subir imagen: ${upErr.message}`);
+        } else {
+          const { data: urlData } = supabase.storage.from('project-assets').getPublicUrl(referenceImagePath);
           referenceImageUrl = urlData?.publicUrl || null;
         }
       }
@@ -113,6 +119,7 @@ export function BackgroundCreationCard({ prefill, projectId, onCreated, onCancel
         description: description.trim() || null,
         prompt_snippet: description.trim() || null,
         reference_image_url: referenceImageUrl,
+        reference_image_path: referenceImagePath,
       } as never).select('id, name').single();
 
       if (error) throw error;
@@ -124,6 +131,7 @@ export function BackgroundCreationCard({ prefill, projectId, onCreated, onCancel
       toast.error(`Error: ${err instanceof Error ? err.message : 'Error desconocido'}`);
     } finally {
       setSaving(false);
+      useAIStore.getState().setCreating(false);
     }
   }, [name, projectId, locationType, timeOfDay, description, imageFile, onCreated]);
 

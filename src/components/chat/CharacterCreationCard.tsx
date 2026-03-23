@@ -16,6 +16,7 @@ import {
 import { cn } from '@/lib/utils/cn';
 import { createClient } from '@/lib/supabase/client';
 import { useAiAssist } from '@/hooks/useAiAssist';
+import { useAIStore } from '@/stores/ai-store';
 import { toast } from 'sonner';
 
 const ROLES = ['protagonista', 'secundario', 'extra', 'narrador'] as const;
@@ -96,20 +97,25 @@ export function CharacterCreationCard({ prefill, projectId, onCreated, onCancel 
 
   // ---- Save to Supabase ----
   const handleSave = useCallback(async () => {
-    if (!name.trim() || !projectId) return;
+    if (!name.trim()) { toast.error('Escribe un nombre para el personaje'); return; }
+    if (!projectId) { toast.error('No se pudo detectar el proyecto. Recarga la pagina.'); return; }
     setSaving(true);
+    useAIStore.getState().setCreating(true, `Creando personaje "${name.trim()}"...`);
 
     try {
       const supabase = createClient();
 
-      // Upload image if provided
+      // Upload image to public bucket
       let referenceImageUrl: string | null = null;
+      let referenceImagePath: string | null = null;
       if (imageFile) {
         const ext = imageFile.name.split('.').pop() || 'png';
-        const path = `characters/${projectId}/${crypto.randomUUID()}.${ext}`;
-        const { error: upErr } = await supabase.storage.from('chat-attachments').upload(path, imageFile, { contentType: imageFile.type });
-        if (!upErr) {
-          const { data: urlData } = supabase.storage.from('chat-attachments').getPublicUrl(path);
+        referenceImagePath = `characters/${projectId}/${crypto.randomUUID()}.${ext}`;
+        const { error: upErr } = await supabase.storage.from('project-assets').upload(referenceImagePath, imageFile, { contentType: imageFile.type });
+        if (upErr) {
+          toast.error(`Error al subir imagen: ${upErr.message}`);
+        } else {
+          const { data: urlData } = supabase.storage.from('project-assets').getPublicUrl(referenceImagePath);
           referenceImageUrl = urlData?.publicUrl || null;
         }
       }
@@ -127,6 +133,7 @@ export function CharacterCreationCard({ prefill, projectId, onCreated, onCancel 
         visual_description: visualDesc.trim() || null,
         prompt_snippet: visualDesc.trim() || null,
         reference_image_url: referenceImageUrl,
+        reference_image_path: referenceImagePath,
       } as never).select('id, name').single();
 
       if (error) throw error;
@@ -138,6 +145,7 @@ export function CharacterCreationCard({ prefill, projectId, onCreated, onCancel 
       toast.error(`Error: ${err instanceof Error ? err.message : 'Error desconocido'}`);
     } finally {
       setSaving(false);
+      useAIStore.getState().setCreating(false);
     }
   }, [name, projectId, role, description, personality, visualDesc, imageFile, onCreated]);
 

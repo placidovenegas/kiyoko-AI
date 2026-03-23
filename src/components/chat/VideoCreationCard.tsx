@@ -5,6 +5,7 @@ import { Film, Sparkles, Loader2, Check } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { createClient } from '@/lib/supabase/client';
 import { useAiAssist } from '@/hooks/useAiAssist';
+import { useAIStore } from '@/stores/ai-store';
 import { toast } from 'sonner';
 
 const PLATFORMS = [
@@ -75,8 +76,10 @@ export function VideoCreationCard({ prefill, projectId, onCreated, onCancel }: V
 
   // ---- Save directly to Supabase ----
   const handleSave = useCallback(async () => {
-    if (!isValid || !projectId) return;
+    if (!title.trim()) { toast.error('Escribe un titulo para el video'); return; }
+    if (!projectId) { toast.error('No se pudo detectar el proyecto. Recarga la pagina.'); return; }
     setSaving(true);
+    useAIStore.getState().setCreating(true, `Creando video "${title.trim()}"...`);
 
     try {
       const supabase = createClient();
@@ -85,15 +88,26 @@ export function VideoCreationCard({ prefill, projectId, onCreated, onCancel }: V
         .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
         .replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').slice(0, 50);
 
+      // Map platform to video_type
+      const VIDEO_TYPE_MAP: Record<string, string> = {
+        instagram_reels: 'reel',
+        tiktok: 'short',
+        youtube: 'long',
+        tv_commercial: 'ad',
+        web: 'long',
+      };
+      const videoType = VIDEO_TYPE_MAP[platform] || 'custom';
+
       const { data, error } = await supabase.from('videos').insert({
         project_id: projectId,
         title: title.trim(),
         short_id: shortId,
         slug: `${slug}-${shortId}`,
         platform: platform as never,
+        video_type: videoType as never,
         target_duration_seconds: duration,
         description: description.trim() || null,
-        status: 'draft',
+        status: 'draft' as never,
         aspect_ratio: selectedPlatform.aspect,
       } as never).select('id, title, short_id').single();
 
@@ -107,6 +121,7 @@ export function VideoCreationCard({ prefill, projectId, onCreated, onCancel }: V
       toast.error(`Error al crear video: ${msg}`);
     } finally {
       setSaving(false);
+      useAIStore.getState().setCreating(false);
     }
   }, [isValid, projectId, title, platform, duration, description, selectedPlatform.aspect, onCreated]);
 

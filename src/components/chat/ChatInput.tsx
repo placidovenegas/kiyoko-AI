@@ -409,21 +409,7 @@ export function ChatInput({
   return (
     <div className="px-3 pb-3 pt-1.5 shrink-0">
 
-      {/* Streaming indicator (above the box) */}
-      {isStreaming && (
-        <div className="flex items-center gap-2 px-1 pb-1.5">
-          <div className="flex gap-0.5">
-            <span className="size-1 rounded-full bg-teal-500 animate-bounce" style={{ animationDelay: '0ms' }} />
-            <span className="size-1 rounded-full bg-teal-500 animate-bounce" style={{ animationDelay: '150ms' }} />
-            <span className="size-1 rounded-full bg-teal-500 animate-bounce" style={{ animationDelay: '300ms' }} />
-          </div>
-          <span className="text-[11px] text-muted-foreground leading-none">
-            {activeProvider
-              ? `${activeProvider.charAt(0).toUpperCase() + activeProvider.slice(1)} respondiendo...`
-              : 'Kiyoko pensando...'}
-          </span>
-        </div>
-      )}
+      {/* Streaming indicator removed — shown inline in chat via StreamingWave */}
 
       {/* Main input box */}
       <div
