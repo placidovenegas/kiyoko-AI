@@ -11,7 +11,7 @@ export function AuthCard({ children, className }: AuthCardProps) {
     <div
       className={cn(
         'rounded-2xl border border-white/10 bg-white/3 p-8 shadow-2xl backdrop-blur-xl',
-        'lg:border-surface-tertiary lg:bg-surface lg:backdrop-blur-none',
+        'lg:border-border lg:bg-card lg:backdrop-blur-none',
         className,
       )}
     >
@@ -29,7 +29,7 @@ export function AuthHeader({ title, subtitle }: { title: string; subtitle: strin
       <h1 className="text-xl font-bold text-foreground lg:text-foreground">
         <span className="text-white lg:text-foreground">{title}</span>
       </h1>
-      <p className="mt-1 text-sm text-white/50 lg:text-foreground-muted">{subtitle}</p>
+      <p className="mt-1 text-sm text-white/50 lg:text-muted-foreground">{subtitle}</p>
     </div>
   );
 }

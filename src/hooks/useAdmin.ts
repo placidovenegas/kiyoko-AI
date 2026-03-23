@@ -16,7 +16,7 @@ export function useAdmin() {
       .from('profiles')
       .select('*')
       .order('created_at', { ascending: false });
-    setUsers((data || []) as Profile[]);
+    setUsers((data || []) as unknown as Profile[]);
     setLoading(false);
   }, [supabase]);
 

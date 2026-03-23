@@ -143,15 +143,15 @@ export default function RegisterPage() {
           type="submit"
           size="lg"
           loading={loading}
-          className="w-full shadow-lg shadow-brand-500/25"
+          className="w-full shadow-lg shadow-primary/25"
         >
           Crear cuenta
         </KButton>
       </form>
 
-      <p className="mt-6 text-center text-sm text-white/40 lg:text-foreground-muted">
+      <p className="mt-6 text-center text-sm text-white/40 lg:text-muted-foreground">
         ¿Ya tienes cuenta?{' '}
-        <Link href="/login" className="font-medium text-brand-400 hover:text-brand-300 lg:text-brand-500 lg:hover:text-brand-600">
+        <Link href="/login" className="font-medium text-brand-400 hover:text-brand-300 lg:text-primary lg:hover:text-primary/90">
           Iniciar sesión
         </Link>
       </p>

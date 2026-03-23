@@ -1,7 +1,11 @@
 import { create } from 'zustand';
 import { createClient } from '@/lib/supabase/client';
-import { executeActionPlan as execPlan, undoBatch as undoActionBatch } from '@/lib/ai/action-executor';
-import type { AiActionPlan, AiActionResult } from '@/types/ai-actions';
+import { executeActionPlan as execPlan, executeNewActionPlan, undoBatch as undoActionBatch } from '@/lib/ai/action-executor';
+import type { AiActionPlan, AiActionResult, ActionPlan } from '@/types/ai-actions';
+import { parseAiMessage } from '@/lib/ai/parse-ai-message';
+import type { ContextLevel } from '@/types/ai-context';
+import { useAIStore } from '@/stores/ai-store';
+import type { KiyokoActiveAgent } from '@/stores/ai-store';
 import { toast } from 'sonner';
 
 // ---------------------------------------------------------------------------
@@ -20,6 +24,7 @@ export interface KiyokoMessage {
   content: string;
   timestamp: Date;
   images?: string[]; // URLs of attached images
+  audioUrl?: string; // URL of generated audio (TTS)
   actionPlan?: AiActionPlan;
   executionResults?: AiActionResult[];
   executedBatchId?: string;
@@ -35,13 +40,12 @@ interface Conversation {
 
 export interface VideoCut {
   id: string;
-  name: string;
-  slug: string;
+  title: string;
+  short_id: string;
   platform: string;
   target_duration_seconds: number;
   is_primary: boolean;
   status: string;
-  color: string;
 }
 
 interface KiyokoChatState {
@@ -57,10 +61,15 @@ interface KiyokoChatState {
   suggestions: string[];
   activeProvider: string | null;
   videoCuts: VideoCut[];
-  activeVideoCutId: string | null; // which video cut we're working on
+  activeVideoCutId: string | null;
+  // Contexto de navegación (v5)
+  contextLevel: ContextLevel;
+  videoId: string | null;         // UUID del video activo (distinto de activeVideoCutId que es legado)
+  sceneId: string | null;         // UUID de la escena activa
 
   // Methods
   setProject: (id: string | null, slug: string | null) => void;
+  setContext: (level: ContextLevel, videoId?: string | null, sceneId?: string | null) => void;
   sendMessage: (text: string, images?: ImageAttachment[]) => Promise<void>;
   stopStreaming: () => void;
   executeActionPlan: (messageId: string, plan: AiActionPlan) => Promise<void>;
@@ -68,6 +77,8 @@ interface KiyokoChatState {
   undoBatch: (batchId: string) => Promise<void>;
   loadConversation: (convId: string) => Promise<void>;
   loadConversations: () => Promise<void>;
+  deleteConversation: (id: string) => Promise<void>;
+  renameConversation: (id: string, title: string) => Promise<void>;
   startNewConversation: () => void;
   toggleExpanded: () => void;
   setExpanded: (expanded: boolean) => void;
@@ -118,7 +129,15 @@ function generateId(): string {
   return crypto.randomUUID();
 }
 
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
+
 async function uploadImage(file: File, projectId: string | null): Promise<string | null> {
+  // Validate file size
+  if (file.size > MAX_IMAGE_SIZE) {
+    toast.error(`La imagen "${file.name}" supera los 10MB`);
+    return null;
+  }
+
   const supabase = createClient();
   const ext = file.name.split('.').pop() || 'png';
   const path = `${projectId || 'general'}/${generateId()}.${ext}`;
@@ -129,6 +148,7 @@ async function uploadImage(file: File, projectId: string | null): Promise<string
 
   if (error) {
     console.error('Upload error:', error);
+    toast.error(`Error al subir "${file.name}": ${error.message}`);
     return null;
   }
 
@@ -159,6 +179,16 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
   activeProvider: null,
   videoCuts: [],
   activeVideoCutId: null,
+  // v5 context
+  contextLevel: 'dashboard',
+  videoId: null,
+  sceneId: null,
+
+  // ---- Context (v5) -------------------------------------------------------
+
+  setContext(level, videoId = null, sceneId = null) {
+    set({ contextLevel: level, videoId, sceneId });
+  },
 
   // ---- Video cuts ---------------------------------------------------------
 
@@ -172,8 +202,8 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
 
     const supabase = createClient();
     const { data } = await supabase
-      .from('video_cuts')
-      .select('id, name, slug, platform, target_duration_seconds, is_primary, status, color')
+      .from('videos')
+      .select('id, title, short_id, platform, target_duration_seconds, is_primary, status')
       .eq('project_id', projectId)
       .order('sort_order', { ascending: true });
 
@@ -206,32 +236,22 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
         videoCuts: [],
         activeVideoCutId: null,
       });
+      // Load video cuts for this project (if any)
       if (id) {
         const supabase = createClient();
-        // Load conversations + video cuts in parallel
-        Promise.all([
-          supabase
-            .from('ai_conversations')
-            .select('id, title, created_at, message_count')
-            .eq('project_id', id)
-            .order('updated_at', { ascending: false })
-            .limit(50),
-          supabase
-            .from('video_cuts')
-            .select('id, name, slug, platform, target_duration_seconds, is_primary, status, color')
-            .eq('project_id', id)
-            .order('sort_order', { ascending: true }),
-        ]).then(([convsRes, cutsRes]) => {
-          const convs = (convsRes.data ?? []) as Conversation[];
-          const cuts = (cutsRes.data ?? []) as VideoCut[];
-          const primary = cuts.find((c) => c.is_primary);
-          set({
-            conversations: convs,
-            videoCuts: cuts,
-            activeVideoCutId: primary?.id ?? cuts[0]?.id ?? null,
+        supabase
+          .from('videos')
+          .select('id, title, short_id, platform, target_duration_seconds, is_primary, status')
+          .eq('project_id', id)
+          .order('sort_order', { ascending: true })
+          .then(({ data }) => {
+            const cuts = (data ?? []) as VideoCut[];
+            const primary = cuts.find((c) => c.is_primary);
+            set({ videoCuts: cuts, activeVideoCutId: primary?.id ?? cuts[0]?.id ?? null });
           });
-        });
       }
+      // Reload all user conversations (not filtered by project)
+      get().loadConversations();
     }
   },
 
@@ -296,7 +316,7 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
     }
     currentAbortController = new AbortController();
 
-    const { messages, projectId, conversationId, attachedImages: storeImages, activeVideoCutId } = get();
+    const { messages, projectId, conversationId, attachedImages: storeImages, activeVideoCutId, contextLevel, videoId, sceneId } = get();
     const imagesToUpload = images || storeImages;
 
     // 1. Upload images if any
@@ -327,10 +347,12 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
       storeImages.forEach((img) => URL.revokeObjectURL(img.previewUrl));
     }
 
-    // 3. Build history for the API
+    // 3. Build history for the API — include image references in content
     const history = [...messages, userMessage].map((m) => ({
       role: m.role,
-      content: m.content,
+      content: m.images?.length
+        ? `${m.content}\n\n[Imagenes adjuntas: ${m.images.join(', ')}]`
+        : m.content,
     }));
 
     // 4. Prepare assistant message placeholder
@@ -338,9 +360,9 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
     let accumulated = '';
 
     try {
-      // Read user's preferred provider from localStorage (set by Header dropdown)
+      // Read user's preferred provider from localStorage (set by ChatInput)
       const preferredProvider = typeof window !== 'undefined'
-        ? localStorage.getItem('kiyoko-ai-provider')
+        ? localStorage.getItem('kiyoko-preferred-provider')
         : null;
 
       const res = await fetch('/api/ai/chat', {
@@ -348,10 +370,13 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: history,
+          // Contexto v5 — el servidor usa esto para cargar los datos correctos
+          contextLevel,
           projectId,
+          videoId: videoId ?? activeVideoCutId ?? undefined,
+          sceneId: sceneId ?? undefined,
           images: imageUrls.length > 0 ? imageUrls : undefined,
           preferredProvider: preferredProvider || undefined,
-          videoCutId: activeVideoCutId || undefined,
         }),
         signal: currentAbortController?.signal,
       });
@@ -361,10 +386,14 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
         throw new Error(errBody || `HTTP ${res.status}`);
       }
 
-      // Read which provider is responding
+      // Read which provider and agent is responding
       const respondingProvider = res.headers.get('X-AI-Provider');
       if (respondingProvider) {
         set({ activeProvider: respondingProvider });
+      }
+      const respondingAgent = res.headers.get('X-Active-Agent') as KiyokoActiveAgent | null;
+      if (respondingAgent) {
+        useAIStore.getState().setActiveAgent(respondingAgent);
       }
 
       // 5. Read SSE stream
@@ -383,6 +412,49 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
         buffer = lines.pop() ?? '';
 
         for (const line of lines) {
+          if (!line) continue;
+
+          // Vercel AI SDK Data Stream Protocol: `<type>:<JSON-value>`
+          if (line.startsWith('0:')) {
+            // Text delta
+            try {
+              const text = JSON.parse(line.slice(2));
+              if (typeof text === 'string') accumulated += text;
+            } catch { /* ignore */ }
+            // Update the message bubble in real-time during streaming
+            set((state) => {
+              const existing = state.messages.find((m) => m.id === assistantId);
+              if (existing) {
+                return {
+                  messages: state.messages.map((m) =>
+                    m.id === assistantId ? { ...m, content: accumulated } : m,
+                  ),
+                };
+              }
+              // First chunk: add the placeholder
+              return {
+                messages: [
+                  ...state.messages,
+                  { id: assistantId, role: 'assistant' as const, content: accumulated, timestamp: new Date() },
+                ],
+              };
+            });
+            continue;
+          }
+          if (line.startsWith('3:')) {
+            // Error event
+            try {
+              const errorMsg = JSON.parse(line.slice(2));
+              throw new Error(typeof errorMsg === 'string' ? errorMsg : 'AI error');
+            } catch (parseErr) {
+              if (parseErr instanceof Error && parseErr.message !== 'AI error') throw parseErr;
+            }
+            continue;
+          }
+          // Skip other events: f: (start), d: (finish), 2: (data), e: (stream error)
+          if (/^[a-zA-Z0-9]+:/.test(line)) continue;
+
+          // Legacy SSE format fallback: `data: {"text": "..."}` (old server format)
           if (!line.startsWith('data: ')) continue;
           const payload = line.slice(6).trim();
           if (payload === '[DONE]') continue;
@@ -396,7 +468,7 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
               accumulated += parsed.content;
             }
           } catch {
-            // Non-JSON lines (AI SDK metadata) — skip
+            // Non-JSON lines — skip
           }
 
           set((state) => {
@@ -421,9 +493,17 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
         accumulated = decoder.decode();
       }
 
-      // 6. Parse action plan and suggestions from final response
-      const actionPlan = parseActionPlan(accumulated);
-      const suggestions = parseSuggestions(accumulated);
+      // 6. Parse bloques especiales del mensaje final
+      const parsed = parseAiMessage(accumulated);
+      // Compatibilidad: convertir ActionPlanBlock al formato legacy AiActionPlan si es necesario
+      const legacyPlan = parsed.actionPlan
+        ? {
+            summary_es: parsed.actionPlan.description,
+            actions: parsed.actionPlan.actions as unknown as AiActionPlan['actions'],
+            total_scenes_affected: 0,
+            warnings: [],
+          }
+        : parseActionPlan(accumulated); // fallback al parser legacy
 
       // Final update to assistant message
       set((state) => {
@@ -436,10 +516,10 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
               role: 'assistant' as const,
               content: accumulated,
               timestamp: new Date(),
-              actionPlan: actionPlan ?? undefined,
+              actionPlan: legacyPlan ?? undefined,
             },
           ],
-          suggestions,
+          suggestions: parsed.suggestions,
         };
       });
 
@@ -490,8 +570,11 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
       return;
     }
 
-    const { projectId } = get();
-    if (!projectId) {
+    const { projectId, conversationId } = get();
+    const requiresProject = plan.actions.some(
+      (a) => !['create_project'].includes((a as { type: string }).type),
+    );
+    if (!projectId && requiresProject) {
       toast.error('No hay proyecto seleccionado');
       return;
     }
@@ -504,15 +587,19 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
     }));
 
     try {
-      const { results, batchId } = await execPlan(plan.actions, projectId, user.id);
+      // Detect new ActionPlan format (Action[] has `table` + `data`, legacy has `target` + `changes`)
+      const isNewFormat = plan.actions.length > 0 && 'table' in plan.actions[0];
+      const { results, batchId } = isNewFormat
+        ? await executeNewActionPlan(plan as unknown as ActionPlan, projectId, user.id, conversationId ?? undefined)
+        : await execPlan(plan.actions, projectId ?? '', user.id);
 
       const successCount = results.filter((r) => r.success).length;
       const failCount = results.length - successCount;
 
-      set((state) => ({
+      set((state: KiyokoChatState) => ({
         messages: state.messages.map((m) =>
           m.id === messageId
-            ? { ...m, executionResults: results, executedBatchId: batchId, isExecuting: false }
+            ? { ...m, executionResults: results as AiActionResult[], executedBatchId: batchId, isExecuting: false }
             : m,
         ),
         suggestions: [
@@ -520,12 +607,14 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
           'Genera nuevos prompts de imagen para las escenas modificadas',
           'Analiza si hay inconsistencias tras los cambios',
         ],
-      }));
+      }) as Partial<KiyokoChatState>);
 
       if (failCount === 0) {
-        toast.success(`${successCount} acciones ejecutadas correctamente`);
+        toast.success(`${successCount === 1 ? 'Creado' : `${successCount} acciones ejecutadas`} correctamente`);
       } else {
-        toast.warning(`${successCount} ejecutadas, ${failCount} fallaron`);
+        const firstError = (results as Array<{ success: boolean; error?: string }>)
+          .find((r) => !r.success)?.error ?? 'Error desconocido';
+        toast.error(`Error: ${firstError}`);
       }
 
       // Save conversation after execution
@@ -576,20 +665,45 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
   // ---- Load conversations ------------------------------------------------
 
   async loadConversations() {
-    const { projectId } = get();
-    if (!projectId) return;
-
     const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
     const { data } = await supabase
       .from('ai_conversations')
       .select('id, title, created_at, message_count')
-      .eq('project_id', projectId)
+      .eq('user_id', user.id)
       .order('updated_at', { ascending: false })
       .limit(50);
 
     if (data) {
       set({ conversations: data as Conversation[] });
     }
+  },
+
+  // ---- Delete a conversation ---------------------------------------------
+
+  async deleteConversation(id) {
+    const supabase = createClient();
+    await supabase.from('ai_conversations').delete().eq('id', id);
+    set((state) => ({
+      conversations: state.conversations.filter((c) => c.id !== id),
+      ...(state.conversationId === id
+        ? { conversationId: null, messages: [], suggestions: [] }
+        : {}),
+    }));
+  },
+
+  // ---- Rename a conversation ---------------------------------------------
+
+  async renameConversation(id, title) {
+    const supabase = createClient();
+    await supabase.from('ai_conversations').update({ title }).eq('id', id);
+    set((state) => ({
+      conversations: state.conversations.map((c) =>
+        c.id === id ? { ...c, title } : c,
+      ),
+    }));
   },
 
   // ---- Load a specific conversation --------------------------------------
@@ -607,7 +721,7 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
       return;
     }
 
-    const rawMessages = data.messages as Array<{
+    const rawMessages = data.messages as unknown as Array<{
       id: string;
       role: 'user' | 'assistant';
       content: string;
@@ -645,7 +759,7 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
 
 async function saveConversation(
   get: () => KiyokoChatState,
-  set: (partial: Partial<KiyokoChatState>) => void,
+  set: (partial: Partial<KiyokoChatState> | ((state: KiyokoChatState) => Partial<KiyokoChatState>)) => void,
   existingConvId: string | null,
   projectId: string | null,
 ) {
@@ -678,7 +792,7 @@ async function saveConversation(
     await supabase
       .from('ai_conversations')
       .update({
-        messages: serialized,
+        messages: serialized as any,
         title,
         message_count: messages.length,
       })
@@ -690,15 +804,26 @@ async function saveConversation(
         user_id: user.id,
         project_id: projectId,
         title,
-        messages: serialized,
+        messages: serialized as any,
         message_count: messages.length,
         conversation_type: 'chat',
-      })
+      } as any)
       .select('id')
       .single();
 
     if (data) {
-      set({ conversationId: data.id });
+      set((state: KiyokoChatState) => ({
+        conversationId: data.id,
+        conversations: [
+          {
+            id: data.id,
+            title,
+            created_at: new Date().toISOString(),
+            message_count: messages.length,
+          },
+          ...state.conversations,
+        ],
+      }));
     }
   }
 }

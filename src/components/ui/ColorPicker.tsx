@@ -22,7 +22,7 @@ export const ColorPicker = forwardRef<HTMLInputElement, ColorPickerProps>(
         <div className="flex items-center gap-3">
           <div className="relative">
             <div
-              className="h-10 w-10 rounded-lg border border-foreground-muted/30 shadow-sm"
+              className="h-10 w-10 rounded-lg border border-muted-foreground/30 shadow-sm"
               style={{ backgroundColor: (value as string) || '#000000' }}
             />
             <input
@@ -35,7 +35,7 @@ export const ColorPicker = forwardRef<HTMLInputElement, ColorPickerProps>(
             />
           </div>
           {showHex && (
-            <span className="font-mono text-sm text-foreground-secondary">
+            <span className="font-mono text-sm text-muted-foreground">
               {(value as string)?.toUpperCase() || '#000000'}
             </span>
           )}

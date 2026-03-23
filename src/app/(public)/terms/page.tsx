@@ -2,7 +2,7 @@ export default function TermsPage() {
   return (
     <article className="prose prose-sm prose-invert max-w-none">
       <h1>Términos de Servicio</h1>
-      <p className="text-foreground-secondary">Última actualización: 19 de marzo de 2026</p>
+      <p className="text-muted-foreground">Última actualización: 19 de marzo de 2026</p>
 
       <h2>1. Aceptación de los Términos</h2>
       <p>

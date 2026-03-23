@@ -1,4 +1,4 @@
-import { AI_PROVIDERS, TEXT_PROVIDER_CHAIN, IMAGE_PROVIDER_CHAIN } from './providers';
+import { AI_PROVIDERS, TEXT_PROVIDER_CHAIN, IMAGE_PROVIDER_CHAIN } from './providers/index';
 import { GeminiProvider } from './providers/gemini';
 import { ClaudeProvider } from './providers/claude';
 import { OpenAIProvider } from './providers/openai';

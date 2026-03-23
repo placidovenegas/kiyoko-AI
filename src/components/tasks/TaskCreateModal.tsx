@@ -55,7 +55,7 @@ export function TaskCreateModal({ open, onClose, projectId, onCreated }: TaskCre
         status: 'pending',
         created_by: 'manual',
         sort_order: Math.floor(Date.now() / 1000) % 100000,
-      });
+      } as never);
       if (error) throw error;
       toast.success(`Tarea "${title}" creada`);
       setTitle('');
@@ -76,11 +76,11 @@ export function TaskCreateModal({ open, onClose, projectId, onCreated }: TaskCre
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="mx-4 w-full max-w-md rounded-2xl border border-surface-tertiary bg-surface p-6 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+      <div className="mx-4 w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-bold text-foreground">Nueva Tarea</h3>
-          <button type="button" onClick={onClose} className="rounded-md p-1 text-foreground-muted hover:bg-surface-secondary hover:text-foreground">
+          <button type="button" onClick={onClose} className="rounded-md p-1 text-muted-foreground hover:bg-card hover:text-foreground">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -88,7 +88,7 @@ export function TaskCreateModal({ open, onClose, projectId, onCreated }: TaskCre
         <div className="space-y-4">
           {/* Title */}
           <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-foreground-muted">Titulo</label>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Titulo</label>
             <input
               type="text"
               value={title}
@@ -96,26 +96,26 @@ export function TaskCreateModal({ open, onClose, projectId, onCreated }: TaskCre
               placeholder="Ej: Generar imagenes para E1-E5..."
               autoFocus
               aria-label="Titulo de la tarea"
-              className="w-full rounded-lg border border-surface-tertiary bg-surface-secondary px-3 py-2 text-sm text-foreground placeholder:text-foreground-muted focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
           {/* Description */}
           <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-foreground-muted">Descripcion (opcional)</label>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Descripcion (opcional)</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Detalles adicionales..."
               rows={2}
               aria-label="Descripcion de la tarea"
-              className="w-full rounded-lg border border-surface-tertiary bg-surface-secondary px-3 py-2 text-sm text-foreground placeholder:text-foreground-muted focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
           {/* Category */}
           <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-foreground-muted">Categoria</label>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Categoria</label>
             <div className="flex flex-wrap gap-1.5">
               {CATEGORIES.map((c) => (
                 <button
@@ -124,7 +124,7 @@ export function TaskCreateModal({ open, onClose, projectId, onCreated }: TaskCre
                   onClick={() => setCategory(c.value)}
                   className={cn(
                     'rounded-lg px-2.5 py-1 text-xs font-medium transition',
-                    category === c.value ? 'bg-brand-500 text-white' : 'bg-surface-tertiary text-foreground-secondary hover:bg-surface-secondary',
+                    category === c.value ? 'bg-primary text-white' : 'bg-secondary text-muted-foreground hover:bg-card',
                   )}
                 >
                   {c.label}
@@ -135,7 +135,7 @@ export function TaskCreateModal({ open, onClose, projectId, onCreated }: TaskCre
 
           {/* Priority */}
           <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-foreground-muted">Prioridad</label>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Prioridad</label>
             <div className="flex gap-1.5">
               {PRIORITIES.map((p) => (
                 <button
@@ -144,7 +144,7 @@ export function TaskCreateModal({ open, onClose, projectId, onCreated }: TaskCre
                   onClick={() => setPriority(p.value)}
                   className={cn(
                     'rounded-lg px-3 py-1 text-xs font-medium transition',
-                    priority === p.value ? p.color + ' ring-1 ring-current' : 'bg-surface-tertiary text-foreground-secondary hover:bg-surface-secondary',
+                    priority === p.value ? p.color + ' ring-1 ring-current' : 'bg-secondary text-muted-foreground hover:bg-card',
                   )}
                 >
                   {p.label}
@@ -155,13 +155,13 @@ export function TaskCreateModal({ open, onClose, projectId, onCreated }: TaskCre
 
           {/* Due date */}
           <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-foreground-muted">Fecha limite (opcional)</label>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Fecha limite (opcional)</label>
             <input
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
               aria-label="Fecha limite"
-              className="w-full rounded-lg border border-surface-tertiary bg-surface-secondary px-3 py-2 text-sm text-foreground focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
@@ -171,7 +171,7 @@ export function TaskCreateModal({ open, onClose, projectId, onCreated }: TaskCre
               type="button"
               onClick={handleCreate}
               disabled={creating || !title.trim()}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600 disabled:opacity-50"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white transition hover:bg-primary/90 disabled:opacity-50"
             >
               {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               {creating ? 'Creando...' : 'Crear tarea'}
@@ -179,7 +179,7 @@ export function TaskCreateModal({ open, onClose, projectId, onCreated }: TaskCre
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-surface-tertiary px-4 py-2.5 text-sm text-foreground-muted transition hover:bg-surface-secondary"
+              className="rounded-lg border border-border px-4 py-2.5 text-sm text-muted-foreground transition hover:bg-card"
             >
               Cancelar
             </button>

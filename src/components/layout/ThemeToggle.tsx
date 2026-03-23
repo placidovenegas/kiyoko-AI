@@ -16,11 +16,11 @@ const STORAGE_KEY = 'kiyoko-theme';
 
 function applyTheme(theme: Theme) {
   const root = document.documentElement;
-  if (theme === 'system') {
-    root.removeAttribute('data-theme');
-  } else {
-    root.setAttribute('data-theme', theme);
-  }
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const isDark = theme === 'dark' || (theme === 'system' && prefersDark);
+
+  root.classList.toggle('dark', isDark);
+  root.setAttribute('data-theme', isDark ? 'dark' : 'light');
 }
 
 export function ThemeToggle() {
@@ -30,11 +30,18 @@ export function ThemeToggle() {
 
   // Hydrate from localStorage
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
-    if (stored && ['light', 'dark', 'system'].includes(stored)) {
-      setTheme(stored);
-      applyTheme(stored);
-    }
+    const stored = (localStorage.getItem(STORAGE_KEY) ?? 'system') as Theme;
+    setTheme(stored);
+    applyTheme(stored);
+
+    // Re-apply when system preference changes (only relevant when theme === 'system')
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const listener = () => {
+      const current = (localStorage.getItem(STORAGE_KEY) ?? 'system') as Theme;
+      if (current === 'system') applyTheme('system');
+    };
+    mq.addEventListener('change', listener);
+    return () => mq.removeEventListener('change', listener);
   }, []);
 
   // Close on outside click
@@ -64,7 +71,7 @@ export function ThemeToggle() {
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
           'flex items-center justify-center size-9 rounded-md',
-          'text-foreground-muted hover:text-foreground hover:bg-surface-tertiary',
+          'text-muted-foreground hover:text-foreground hover:bg-secondary',
           'transition-colors',
         )}
         aria-label={`Tema: ${currentOption.label}`}
@@ -76,7 +83,7 @@ export function ThemeToggle() {
         <div
           className={cn(
             'absolute right-0 top-full mt-1 z-50 w-40',
-            'bg-surface border border-foreground/10 rounded-lg shadow-card-hover',
+            'bg-card border border-foreground/10 rounded-lg shadow-card-hover',
             'py-1',
           )}
         >
@@ -88,8 +95,8 @@ export function ThemeToggle() {
               className={cn(
                 'flex items-center gap-2.5 w-full px-3 py-2 text-sm transition-colors',
                 theme === option.value
-                  ? 'text-brand-600 bg-brand-500/10 font-medium'
-                  : 'text-foreground-secondary hover:text-foreground hover:bg-surface-tertiary',
+                  ? 'text-primary/90 bg-primary/10 font-medium'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary',
               )}
             >
               {option.icon}

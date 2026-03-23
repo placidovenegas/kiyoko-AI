@@ -30,12 +30,12 @@ export function PasswordStrength({ password }: { password: string }) {
             key={i}
             className={cn(
               'h-1 flex-1 rounded-full transition-colors',
-              i <= score ? color : 'bg-surface-tertiary',
+              i <= score ? color : 'bg-secondary',
             )}
           />
         ))}
       </div>
-      <p className="text-xs text-foreground-muted">{label}</p>
+      <p className="text-xs text-muted-foreground">{label}</p>
     </div>
   );
 }

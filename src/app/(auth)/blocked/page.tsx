@@ -23,7 +23,7 @@ export default function BlockedPage() {
       <h1 className="text-xl font-semibold text-foreground">
         Cuenta bloqueada
       </h1>
-      <p className="mt-3 text-sm text-foreground-secondary">
+      <p className="mt-3 text-sm text-muted-foreground">
         Tu cuenta ha sido bloqueada por un administrador. Si crees que esto
         es un error, contacta al soporte.
       </p>

@@ -19,7 +19,7 @@ export const AuthInput = forwardRef<HTMLInputElement, AuthInputProps>(
       <div className="space-y-1.5">
         <label
           htmlFor={inputId}
-          className="block text-sm font-medium text-white/70 lg:text-foreground-secondary"
+          className="block text-sm font-medium text-white/70 lg:text-muted-foreground"
         >
           {label}
         </label>
@@ -30,12 +30,12 @@ export const AuthInput = forwardRef<HTMLInputElement, AuthInputProps>(
             type={isPassword && showPassword ? 'text' : type}
             className={cn(
               'w-full rounded-lg border px-4 py-2.5 text-sm outline-none transition',
-              'placeholder:text-white/30 lg:placeholder:text-foreground-muted',
+              'placeholder:text-white/30 lg:placeholder:text-muted-foreground',
               // Mobile/dark auth: glassmorphism inputs
               'border-white/10 bg-white/5 text-white',
-              'focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20',
+              'focus:border-primary focus:ring-2 focus:ring-primary/20',
               // Desktop: standard inputs
-              'lg:border-surface-tertiary lg:bg-surface lg:text-foreground',
+              'lg:border-border lg:bg-card lg:text-foreground',
               'disabled:cursor-not-allowed disabled:opacity-50',
               error && 'border-red-500 focus:border-red-500 focus:ring-red-500/20',
               isPassword && 'pr-10',
@@ -48,7 +48,7 @@ export const AuthInput = forwardRef<HTMLInputElement, AuthInputProps>(
               type="button"
               tabIndex={-1}
               onClick={() => setShowPassword((v) => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 transition hover:text-white/70 lg:text-foreground-muted lg:hover:text-foreground"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 transition hover:text-white/70 lg:text-muted-foreground lg:hover:text-foreground"
             >
               {showPassword ? (
                 <EyeOff className="h-4 w-4" />

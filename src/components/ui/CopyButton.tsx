@@ -25,9 +25,9 @@ export function CopyButton({ text, className, children, ...props }: CopyButtonPr
       type="button"
       className={cn(
         'inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium',
-        'text-foreground-muted transition-colors duration-150',
-        'hover:bg-surface-secondary hover:text-foreground',
-        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500',
+        'text-muted-foreground transition-colors duration-150',
+        'hover:bg-card hover:text-foreground',
+        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
         className,
       )}
       onClick={handleCopy}

@@ -112,21 +112,21 @@ export default function LoginPage() {
           type="submit"
           size="lg"
           loading={loading}
-          className="w-full shadow-lg shadow-brand-500/25"
+          className="w-full shadow-lg shadow-primary/25"
         >
           Iniciar sesión
         </KButton>
       </form>
 
-      <div className="mt-6 space-y-2 text-center text-sm text-white/40 lg:text-foreground-muted">
+      <div className="mt-6 space-y-2 text-center text-sm text-white/40 lg:text-muted-foreground">
         <p>
           ¿No tienes cuenta?{' '}
-          <Link href="/register" className="font-medium text-brand-400 hover:text-brand-300 lg:text-brand-500 lg:hover:text-brand-600">
+          <Link href="/register" className="font-medium text-brand-400 hover:text-brand-300 lg:text-primary lg:hover:text-primary/90">
             Regístrate
           </Link>
         </p>
         <p>
-          <Link href="/forgot-password" className="text-white/40 hover:text-white/60 lg:text-foreground-muted lg:hover:text-foreground">
+          <Link href="/forgot-password" className="text-white/40 hover:text-white/60 lg:text-muted-foreground lg:hover:text-foreground">
             ¿Olvidaste tu contraseña?
           </Link>
         </p>

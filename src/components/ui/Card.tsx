@@ -14,20 +14,20 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
       <div
         ref={ref}
         className={cn(
-          'rounded-xl bg-surface shadow-card transition-shadow duration-200 hover:shadow-card-hover',
-          'border border-foreground-muted/10',
+          'rounded-xl bg-card shadow-card transition-shadow duration-200 hover:shadow-card-hover',
+          'border border-muted-foreground/10',
           className,
         )}
         {...props}
       >
         {header && (
-          <div className="border-b border-foreground-muted/10 px-6 py-4">
+          <div className="border-b border-muted-foreground/10 px-6 py-4">
             {header}
           </div>
         )}
         <div className="px-6 py-4">{children}</div>
         {footer && (
-          <div className="border-t border-foreground-muted/10 px-6 py-4">
+          <div className="border-t border-muted-foreground/10 px-6 py-4">
             {footer}
           </div>
         )}

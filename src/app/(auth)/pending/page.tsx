@@ -50,11 +50,11 @@ export default function PendingPage() {
       <h1 className="text-xl font-semibold text-foreground">
         Cuenta pendiente de aprobación
       </h1>
-      <p className="mt-3 text-sm text-foreground-secondary">
+      <p className="mt-3 text-sm text-muted-foreground">
         Un administrador revisará tu solicitud pronto. Recibirás un email
         cuando tu cuenta sea activada.
       </p>
-      <div className="mt-2 text-xs text-foreground-muted">
+      <div className="mt-2 text-xs text-muted-foreground">
         Comprobando estado automáticamente...
       </div>
       <KButton

@@ -1,103 +1,100 @@
 'use client';
 
-import { useCallback, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useProjectStore } from '@/stores/useProjectStore';
-import type { Project, ProjectCreateInput } from '@/types';
-import { generateProjectSlug } from '@/lib/utils/slugify';
+import type { Project } from '@/types';
 
-export function useProject(slug?: string) {
+export function useProject(shortId: string | undefined) {
   const store = useProjectStore();
-  const supabase = createClient();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchProject = useCallback(async () => {
-    if (!slug) return;
-    store.setLoading(true);
+    if (!shortId) return;
+    setLoading(true);
+    setError(null);
+
     try {
-      const { data, error } = await supabase
+      const supabase = createClient();
+
+      // Fetch project by short_id
+      const { data: project, error: projErr } = await supabase
         .from('projects')
         .select('*')
-        .eq('slug', slug)
+        .eq('short_id', shortId)
         .single();
 
-      if (error) throw error;
-      store.setCurrentProject(data as Project);
+      if (projErr) throw projErr;
+      store.setProject(project as unknown as Project);
 
-      // Fetch related data
-      const [scenes, characters, backgrounds] = await Promise.all([
-        supabase.from('scenes').select('*').eq('project_id', data.id).order('sort_order'),
-        supabase.from('characters').select('*').eq('project_id', data.id).order('sort_order'),
-        supabase.from('backgrounds').select('*').eq('project_id', data.id).order('sort_order'),
-      ]);
+      // Fetch videos
+      const { data: videos } = await supabase
+        .from('videos')
+        .select('*')
+        .eq('project_id', project.id)
+        .order('sort_order');
+      store.setVideos((videos ?? []) as unknown as import('@/types').Video[]);
 
-      store.setScenes((scenes.data || []) as typeof store.scenes);
-      store.setCharacters((characters.data || []) as typeof store.characters);
-      store.setBackgrounds((backgrounds.data || []) as typeof store.backgrounds);
+      // Fetch characters
+      const { data: characters } = await supabase
+        .from('characters')
+        .select('*')
+        .eq('project_id', project.id)
+        .order('sort_order');
+      store.setCharacters((characters ?? []) as unknown as import('@/types').Character[]);
+
+      // Fetch backgrounds
+      const { data: backgrounds } = await supabase
+        .from('backgrounds')
+        .select('*')
+        .eq('project_id', project.id)
+        .order('sort_order');
+      store.setBackgrounds((backgrounds ?? []) as unknown as import('@/types').Background[]);
+
+      // Fetch style presets
+      const { data: presets } = await supabase
+        .from('style_presets')
+        .select('*')
+        .eq('project_id', project.id)
+        .order('sort_order');
+      store.setStylePresets((presets ?? []) as unknown as import('@/types').StylePreset[]);
+
     } catch (err) {
-      store.setError(err instanceof Error ? err.message : 'Error loading project');
+      setError(err instanceof Error ? err.message : 'Error loading project');
     } finally {
-      store.setLoading(false);
+      setLoading(false);
     }
-  }, [slug, supabase, store]);
+  }, [shortId, store]);
 
   useEffect(() => {
-    fetchProject();
+    if (shortId) {
+      fetchProject();
+    }
     return () => store.reset();
-  }, [fetchProject, store]);
+  }, [shortId]);
 
-  async function createProject(input: ProjectCreateInput): Promise<Project> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Not authenticated');
-
-    const projectSlug = generateProjectSlug(input.title);
-    const { data, error } = await supabase
+  const updateProject = useCallback(async (data: Partial<Project>) => {
+    if (!store.project) return;
+    const supabase = createClient();
+    const { error: err } = await supabase
       .from('projects')
-      .insert({
-        ...input,
-        slug: projectSlug,
-        owner_id: user.id,
-      })
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data as Project;
-  }
-
-  async function updateProject(updates: Partial<Project>) {
-    if (!store.currentProject) throw new Error('No project loaded');
-
-    const { error } = await supabase
-      .from('projects')
-      .update(updates)
-      .eq('id', store.currentProject.id);
-
-    if (error) throw error;
-    store.setCurrentProject({ ...store.currentProject, ...updates });
-  }
-
-  async function deleteProject() {
-    if (!store.currentProject) throw new Error('No project loaded');
-
-    const { error } = await supabase
-      .from('projects')
-      .delete()
-      .eq('id', store.currentProject.id);
-
-    if (error) throw error;
-    store.reset();
-  }
+      .update(data as Record<string, unknown>)
+      .eq('id', store.project.id);
+    if (!err) {
+      store.setProject({ ...store.project, ...data });
+    }
+  }, [store]);
 
   return {
-    project: store.currentProject,
-    scenes: store.scenes,
+    project: store.project,
+    videos: store.videos,
     characters: store.characters,
     backgrounds: store.backgrounds,
-    loading: store.loading,
-    error: store.error,
-    createProject,
+    stylePresets: store.stylePresets,
+    loading,
+    error,
+    fetchProject,
     updateProject,
-    deleteProject,
-    refetch: fetchProject,
   };
 }

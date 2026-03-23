@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generateText } from 'ai';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
-import { getModelWithFallback } from '@/lib/ai/sdk-router';
+import { getUserModel } from '@/lib/ai/get-user-model';
 import { SYSTEM_SCENE_IMPROVER } from '@/lib/ai/prompts/system-scene-improver';
 
 interface SceneContext {
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { model, providerId } = getModelWithFallback();
+    const { model, providerId } = await getUserModel(user.id);
 
     // Build context information from sceneContext
     let contextInfo = '';

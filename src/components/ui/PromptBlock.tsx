@@ -21,11 +21,11 @@ export function PromptBlock({
   return (
     <div
       className={cn(
-        'relative overflow-hidden rounded-lg border border-foreground-muted/10 bg-gray-950',
+        'relative overflow-hidden rounded-lg border border-muted-foreground/10 bg-gray-950',
         className,
       )}
     >
-      <div className="flex items-center justify-between border-b border-foreground-muted/10 px-4 py-2">
+      <div className="flex items-center justify-between border-b border-muted-foreground/10 px-4 py-2">
         {language && (
           <span className="text-xs font-medium text-gray-400">{language}</span>
         )}

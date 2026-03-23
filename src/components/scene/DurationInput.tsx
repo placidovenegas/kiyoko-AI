@@ -25,10 +25,10 @@ export function DurationInput({
   return (
     <div className={cn('flex flex-col gap-1', className)}>
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground-muted">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
           Duracion
         </span>
-        <span className="rounded-full bg-surface-tertiary px-2 py-0.5 text-[11px] font-bold tabular-nums text-foreground">
+        <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-bold tabular-nums text-foreground">
           {value}s
         </span>
       </div>
@@ -42,7 +42,7 @@ export function DurationInput({
         aria-label={`Duracion de la escena: ${value} segundos`}
         className="w-full"
       />
-      <div className="flex justify-between text-[10px] text-foreground-muted">
+      <div className="flex justify-between text-[10px] text-muted-foreground">
         <span>{min}s</span>
         <span>{max}s</span>
       </div>

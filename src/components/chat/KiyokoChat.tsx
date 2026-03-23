@@ -1,29 +1,16 @@
 'use client';
 
-import { useRef, useEffect, useCallback, useState } from 'react';
-import {
-  Bot,
-  Plus,
-  MessageSquare,
-  Maximize2,
-  Minimize2,
-  X,
-  Sparkles,
-  Scissors,
-  Clock,
-  Users,
-  BookOpen,
-  Database,
-  Palette,
-  FileText,
-  Film,
-  ChevronDown,
-} from 'lucide-react';
-import { cn } from '@/lib/utils/cn';
+import { useRef, useEffect, useCallback, useState, useMemo } from 'react';
+import { usePathname } from 'next/navigation';
+import { Sparkles } from 'lucide-react';
 import { useKiyokoChat } from '@/hooks/useKiyokoChat';
+import type { KiyokoMessage } from '@/hooks/useKiyokoChat';
+import { useAIStore } from '@/stores/ai-store';
 import { ChatMessage } from '@/components/chat/ChatMessage';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { ChatHistorySidebar } from '@/components/chat/ChatHistorySidebar';
+import { KiyokoHeader } from '@/components/kiyoko/KiyokoHeader';
+import { KiyokoEmptyState } from '@/components/kiyoko/KiyokoEmptyState';
 import { createClient } from '@/lib/supabase/client';
 import type { AiActionPlan } from '@/types/ai-actions';
 
@@ -34,41 +21,37 @@ import type { AiActionPlan } from '@/types/ai-actions';
 interface KiyokoChatProps {
   mode: 'panel' | 'expanded';
   onClose?: () => void;
-  onToggleExpand?: () => void;
   projectSlug?: string;
 }
 
-// ---------------------------------------------------------------------------
-// Quick actions
-// ---------------------------------------------------------------------------
-
-const QUICK_ACTIONS = [
-  { label: 'Revisar personajes', icon: Users, prompt: 'Revisa los personajes y dime si hay inconsistencias o mejoras posibles. Analiza sus descripciones visuales, reglas y apariciones.' },
-  { label: 'Reducir escenas', icon: Scissors, prompt: 'Analiza todas las escenas y sugiere cuales eliminar, fusionar o acortar. Justifica cada sugerencia.' },
-  { label: 'Ordenar timeline', icon: Clock, prompt: 'Revisa el orden de las escenas, los arcos narrativos y el timeline. Sugiere mejoras en la estructura.' },
-  { label: 'Explicar proyecto', icon: BookOpen, prompt: 'Explicame el proyecto completo: la historia, las escenas, los personajes, los fondos y el flujo narrativo.' },
-  { label: 'Generar prompts', icon: Sparkles, prompt: 'Genera prompts de imagen profesionales en ingles para todas las escenas que no tengan prompt. Incluye estilo, composicion y detalles.' },
-  { label: 'Estado de la DB', icon: Database, prompt: 'Dame un resumen del estado actual de la base de datos: cuantas escenas, personajes, fondos, problemas detectados y que falta por completar.' },
-  { label: 'Mejorar paleta', icon: Palette, prompt: 'Analiza la paleta de colores del proyecto y sugiere mejoras basadas en el estilo visual y la plataforma objetivo.' },
-  { label: 'Revisar issues', icon: FileText, prompt: 'Revisa los problemas detectados en el proyecto (project_issues) y dame un plan para resolverlos.' },
-] as const;
+const LAST_CONVERSATION_KEY = 'kiyoko-last-conversation-id';
+const HISTORY_WIDTH_KEY = 'kiyoko-history-width';
 
 // ---------------------------------------------------------------------------
 // KiyokoChat
 // ---------------------------------------------------------------------------
 
-export function KiyokoChat({ mode, onClose, onToggleExpand, projectSlug }: KiyokoChatProps) {
+export function KiyokoChat({ mode, onClose }: KiyokoChatProps) {
+  const pathname = usePathname();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [projectTitle, setProjectTitle] = useState<string | null>(null);
-  const [showHistoryDropdown, setShowHistoryDropdown] = useState(false);
+  const [videoTitle, setVideoTitle] = useState<string | null>(null);
+  const [historyWidth, setHistoryWidth] = useState(() => {
+    if (typeof window === 'undefined') return 240;
+    const saved = localStorage.getItem(HISTORY_WIDTH_KEY);
+    if (saved) {
+      const w = parseInt(saved, 10);
+      if (!isNaN(w) && w >= 180 && w <= 480) return w;
+    }
+    return 240;
+  });
+  const hasRestoredRef = useRef(false);
 
   const {
     messages,
     isStreaming,
     conversationId,
     conversations,
-    isExpanded,
-    attachedImages,
     suggestions,
     sendMessage,
     stopStreaming,
@@ -80,339 +63,444 @@ export function KiyokoChat({ mode, onClose, onToggleExpand, projectSlug }: Kiyok
     loadConversations,
     startNewConversation,
     setProject,
-    addImages,
-    removeImage,
+    setContext,
     clearSuggestions,
-    videoCuts,
-    activeVideoCutId,
-    setActiveVideoCut,
+    projectId: chatProjectId,
   } = useKiyokoChat();
 
-  // ---- Fetch project info & set project context ----
+  const isExpandedMode = mode === 'expanded';
+  const activeAgent = useAIStore((s) => s.activeAgent);
+
+  // ---- Parse URL context ----
+  const projectShortId = useMemo(() => {
+    const m = pathname.match(/\/project\/([^/]+)/);
+    return m ? m[1] : null;
+  }, [pathname]);
+
+  const videoShortId = useMemo(() => {
+    const m = pathname.match(/\/video\/([^/]+)/);
+    return m ? m[1] : null;
+  }, [pathname]);
+
+  const sceneShortId = useMemo(() => {
+    const m = pathname.match(/\/scene\/([^/]+)/);
+    return m ? m[1] : null;
+  }, [pathname]);
+
+  const isOrgRoute = pathname.startsWith('/organizations/');
+
+  // ---- Context label + type ----
+  const contextLabel = useMemo(() => {
+    if (videoTitle) return videoTitle;
+    if (projectTitle) return projectTitle;
+    if (isOrgRoute) return 'Organización';
+    return 'Dashboard';
+  }, [videoTitle, projectTitle, isOrgRoute]);
+
+  const contextType = useMemo((): 'dashboard' | 'organization' | 'project' | 'video' | 'scene' => {
+    if (sceneShortId && videoShortId) return 'scene';
+    if (videoShortId) return 'video';
+    if (projectShortId) return 'project';
+    if (isOrgRoute) return 'organization';
+    return 'dashboard';
+  }, [sceneShortId, videoShortId, projectShortId, isOrgRoute]);
+
+  // ---- Persist historyWidth ----
   useEffect(() => {
-    if (!projectSlug) return;
+    localStorage.setItem(HISTORY_WIDTH_KEY, historyWidth.toString());
+  }, [historyWidth]);
+
+  // ---- Fetch project info from URL ----
+  useEffect(() => {
     const supabase = createClient();
-    supabase
-      .from('projects')
-      .select('id, title')
-      .eq('slug', projectSlug)
-      .single()
-      .then(({ data }) => {
-        if (data) {
-          setProjectTitle(data.title as string);
-          setProject(data.id as string, projectSlug);
+    const query = projectShortId
+      ? supabase.from('projects').select('id, title, slug').eq('short_id', projectShortId).single()
+      : Promise.resolve({ data: null });
+
+    query.then(({ data }) => {
+      setProjectTitle(data ? (data.title as string) : null);
+      if (data) {
+        setProject(data.id as string, data.slug as string);
+        // Only set project-level context if we're not in a video (video effect will override)
+        if (!videoShortId) setContext('project', null, null);
+      } else {
+        setProject(null, null);
+        if (!videoShortId) setContext('dashboard', null, null);
+      }
+    });
+  }, [projectShortId, videoShortId, setProject, setContext]);
+
+  // ---- Fetch video info from URL + update context level ----
+  // RULE (Section 16): New conversation every time user enters a video.
+  // Context is always fresh — old conversations are saved but NOT restored.
+  const prevVideoRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const supabase = createClient();
+    const videoQuery = videoShortId
+      ? supabase.from('videos').select('id, title').eq('short_id', videoShortId).single()
+      : Promise.resolve({ data: null });
+
+    videoQuery.then(async ({ data: videoData }) => {
+      setVideoTitle(videoData ? (videoData.title as string) : null);
+
+      if (videoData) {
+        // Start fresh conversation when entering a different video (Section 16)
+        if (prevVideoRef.current !== videoShortId) {
+          prevVideoRef.current = videoShortId;
+          startNewConversation();
         }
-      });
-  }, [projectSlug, setProject]);
+
+        // If we have a scene in the URL, resolve its ID and set scene context
+        if (sceneShortId) {
+          const { data: sceneData } = await supabase
+            .from('scenes')
+            .select('id')
+            .eq('short_id', sceneShortId)
+            .single();
+          setContext('scene', videoData.id as string, sceneData?.id as string ?? null);
+        } else {
+          setContext('video', videoData.id as string, null);
+        }
+      } else if (!projectShortId) {
+        prevVideoRef.current = null;
+        setContext('dashboard', null, null);
+      }
+    });
+  }, [videoShortId, sceneShortId, projectShortId, setContext, startNewConversation]);
 
   // ---- Load conversations on mount ----
   useEffect(() => {
     loadConversations();
   }, [loadConversations]);
 
-  // ---- Auto scroll to bottom ----
+  // ---- Restore last conversation on mount ----
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (hasRestoredRef.current) return;
+    const lastId = localStorage.getItem(LAST_CONVERSATION_KEY);
+    if (lastId) {
+      hasRestoredRef.current = true;
+      loadConversation(lastId);
+    }
+  }, [loadConversation]);
+
+  // ---- Persist active conversationId ----
+  useEffect(() => {
+    if (conversationId) {
+      localStorage.setItem(LAST_CONVERSATION_KEY, conversationId);
+    }
+  }, [conversationId]);
+
+  // ---- Auto scroll ----
+  const prevMessageCountRef = useRef(0);
+  useEffect(() => {
+    const isNewMessage = messages.length > prevMessageCountRef.current;
+    prevMessageCountRef.current = messages.length;
+    if (!messagesEndRef.current) return;
+    messagesEndRef.current.scrollIntoView({
+      behavior: isNewMessage ? 'smooth' : 'instant',
+    });
   }, [messages]);
 
-  // ---- Send message handler ----
+  // ---- Handlers ----
   const handleSend = useCallback(
-    (text: string) => {
-      sendMessage(text);
-    },
+    (text: string) => { sendMessage(text); },
     [sendMessage],
   );
 
-  // ---- Quick action handler ----
   const handleQuickAction = useCallback(
-    (prompt: string) => {
-      sendMessage(prompt);
-    },
+    (prompt: string) => { sendMessage(prompt); },
     [sendMessage],
   );
 
-  // ---- Suggestion click handler ----
   const handleSuggestionClick = useCallback(
-    (suggestion: string) => {
-      sendMessage(suggestion);
-      clearSuggestions();
-    },
+    (suggestion: string) => { sendMessage(suggestion); clearSuggestions(); },
     [sendMessage, clearSuggestions],
   );
 
-  // ---- Action plan handlers ----
   const handleExecute = useCallback(
-    (messageId: string, plan: AiActionPlan) => {
-      executeActionPlan(messageId, plan);
-    },
+    (messageId: string, plan: AiActionPlan) => { executeActionPlan(messageId, plan); },
     [executeActionPlan],
   );
 
   const handleCancel = useCallback(
-    (messageId: string) => {
-      cancelActionPlan(messageId);
-    },
+    (messageId: string) => { cancelActionPlan(messageId); },
     [cancelActionPlan],
   );
 
-  const handleModify = useCallback(
-    (prefill: string) => {
-      // The ChatInput doesn't expose setInput, so we send the prefill as a suggestion
-      // In practice, this would focus the input and prefill it
-    },
-    [],
+  const [prefillText, setPrefillText] = useState<string | null>(null);
+  const handleModify = useCallback((text: string) => { setPrefillText(text); }, []);
+  const handlePrefillConsumed = useCallback(() => { setPrefillText(null); }, []);
+
+  const handleWorkflowAction = useCallback(
+    (_actionId: string, label: string) => { sendMessage(label); },
+    [sendMessage],
   );
 
   const handleHistorySelect = useCallback(
-    (convId: string) => {
-      loadConversation(convId);
-      setShowHistoryDropdown(false);
-    },
+    (convId: string) => { loadConversation(convId); },
     [loadConversation],
   );
 
   const handleNewChat = useCallback(() => {
     startNewConversation();
-    setShowHistoryDropdown(false);
+    localStorage.removeItem(LAST_CONVERSATION_KEY);
   }, [startNewConversation]);
 
-  const isExpandedMode = mode === 'expanded';
+  // ---- Resize handler (expanded history) ----
+  const handleHistoryResizeMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = historyWidth;
+    const onMove = (ev: MouseEvent) => {
+      const newW = Math.max(180, Math.min(480, startW + (ev.clientX - startX)));
+      setHistoryWidth(newW);
+    };
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, [historyWidth]);
+
+  // ---- Placeholder ----
+  const placeholder = projectTitle
+    ? `Pregúntale a Kiyoko sobre "${projectTitle}"...`
+    : 'Escribe un mensaje a Kiyoko...';
 
   return (
-    <div className={cn('flex flex-col bg-background h-full', isExpandedMode && 'flex-row')}>
-      {/* ---- History sidebar (expanded mode only) ---- */}
-      {isExpandedMode && (
-        <ChatHistorySidebar
-          conversations={conversations}
-          activeConversationId={conversationId}
-          onSelect={handleHistorySelect}
-          onNewChat={handleNewChat}
-        />
-      )}
+    <div className="flex flex-col h-full bg-background text-foreground relative overflow-hidden">
 
-      {/* ---- Main chat area ---- */}
-      <div className="flex flex-col flex-1 min-w-0 h-full">
-        {/* ---- Header ---- */}
-        <div className="flex items-center gap-2 h-11 px-3 shrink-0 border-b border-border bg-card/50">
-          <div className="flex items-center justify-center size-7 rounded-lg bg-primary/10">
-            <Bot size={15} className="text-primary" />
+      {/* ================================================================
+          Expanded mode layout: LEFT history sidebar (always) + RIGHT main
+          ================================================================ */}
+      {isExpandedMode ? (
+        <div className="flex flex-1 min-h-0">
+          {/* History sidebar — always visible when expanded, resizable */}
+          <div
+            className="shrink-0 h-full overflow-hidden"
+            style={{ width: historyWidth }}
+          >
+            <ChatHistorySidebar
+              conversations={conversations}
+              activeConversationId={conversationId}
+              onSelect={handleHistorySelect}
+              onNewChat={handleNewChat}
+            />
           </div>
-          <div className="flex-1 min-w-0">
-            <span className="text-xs font-semibold text-foreground">Kiyoko AI</span>
-            {projectTitle && (
-              <span className="text-[11px] text-muted-foreground ml-1.5 truncate">
-                — {projectTitle}
-              </span>
-            )}
-            {isStreaming && !videoCuts.length && (
-              <span className="text-[10px] text-primary ml-2 animate-pulse">
-                respondiendo...
-              </span>
-            )}
+
+          {/* Resize handle */}
+          <div
+            className="w-1 shrink-0 cursor-col-resize bg-transparent hover:bg-teal-500/40 active:bg-teal-500/60 relative group"
+            onMouseDown={handleHistoryResizeMouseDown}
+          >
+            <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-px bg-border group-hover:bg-teal-500/40 transition-colors" />
           </div>
-          <div className="flex items-center gap-0.5">
-            {/* History toggle (panel mode — dropdown) */}
-            {!isExpandedMode && (
-              <button
-                type="button"
-                onClick={() => setShowHistoryDropdown(!showHistoryDropdown)}
-                className={cn(
-                  'flex items-center justify-center size-7 rounded-md transition-colors',
-                  showHistoryDropdown
-                    ? 'text-primary bg-primary/10'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-accent',
-                )}
-                title="Historial"
-              >
-                <MessageSquare size={14} />
-              </button>
-            )}
-            {/* New chat */}
-            <button
-              type="button"
-              onClick={handleNewChat}
-              className="flex items-center justify-center size-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-              title="Nuevo chat"
-            >
-              <Plus size={14} />
-            </button>
-            {/* Expand / Minimize */}
-            {onToggleExpand && (
-              <button
-                type="button"
-                onClick={onToggleExpand}
-                className="flex items-center justify-center size-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                title={isExpandedMode ? 'Minimizar' : 'Expandir'}
-              >
-                {isExpandedMode ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-              </button>
-            )}
-            {/* Close */}
-            {onClose && !isExpandedMode && (
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex items-center justify-center size-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                title="Cerrar"
-              >
-                <X size={14} />
-              </button>
-            )}
+
+          {/* Main chat */}
+          <div className="flex flex-col flex-1 min-w-0 h-full">
+            <KiyokoHeader
+              contextLabel={contextLabel}
+              isStreaming={isStreaming}
+              onNewChat={handleNewChat}
+            />
+            <ChatBody
+              messages={messages}
+              suggestions={suggestions}
+              isStreaming={isStreaming}
+              activeAgent={activeAgent}
+              projectId={chatProjectId}
+              handleQuickAction={handleQuickAction}
+              handleSuggestionClick={handleSuggestionClick}
+              handleExecute={handleExecute}
+              handleCancel={handleCancel}
+              handleModify={handleModify}
+              handleWorkflowAction={handleWorkflowAction}
+              undoBatch={undoBatch}
+              messagesEndRef={messagesEndRef}
+              handleSend={handleSend}
+              stopStreaming={stopStreaming}
+              onClearConversation={handleNewChat}
+              activeProvider={activeProvider}
+              placeholder={placeholder}
+              isExpandedMode
+              contextLabel={contextLabel}
+              contextType={contextType}
+              prefillText={prefillText}
+              onPrefillConsumed={handlePrefillConsumed}
+            />
           </div>
         </div>
 
-        {/* ---- History dropdown (panel mode) ---- */}
-        {!isExpandedMode && showHistoryDropdown && (
-          <div className="border-b border-border bg-card max-h-52 overflow-y-auto shrink-0">
-            {conversations.length === 0 ? (
-              <p className="px-3 py-4 text-center text-xs text-muted-foreground">
-                Sin conversaciones previas
-              </p>
-            ) : (
-              conversations.map((conv) => (
-                <button
-                  key={conv.id}
-                  type="button"
-                  onClick={() => handleHistorySelect(conv.id)}
-                  className={cn(
-                    'flex items-center gap-2.5 w-full px-3 py-2 text-left transition-colors hover:bg-accent',
-                    conversationId === conv.id && 'bg-accent',
-                  )}
-                >
-                  <MessageSquare size={12} className="shrink-0 text-muted-foreground" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-foreground truncate">{conv.title}</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {new Date(conv.created_at).toLocaleDateString('es-ES', {
-                        day: 'numeric',
-                        month: 'short',
-                      })}
-                      {' · '}
-                      {conv.message_count} msgs
-                    </p>
-                  </div>
-                </button>
-              ))
-            )}
+      ) : (
+        /* ================================================================
+           Panel mode layout: chat + history side by side (flex row)
+           ================================================================ */
+        <div className="flex flex-1 min-h-0">
+          {/* Main chat */}
+          <div className="flex flex-col flex-1 min-w-0 min-h-0">
+            <KiyokoHeader
+              contextLabel={contextLabel}
+              isStreaming={isStreaming}
+              onNewChat={handleNewChat}
+              onHistoryToggle={() => {}}
+            />
+            <ChatBody
+              messages={messages}
+              suggestions={suggestions}
+              isStreaming={isStreaming}
+              activeAgent={activeAgent}
+              projectId={chatProjectId}
+              handleQuickAction={handleQuickAction}
+              handleSuggestionClick={handleSuggestionClick}
+              handleExecute={handleExecute}
+              handleCancel={handleCancel}
+              handleModify={handleModify}
+              handleWorkflowAction={handleWorkflowAction}
+              undoBatch={undoBatch}
+              messagesEndRef={messagesEndRef}
+              handleSend={handleSend}
+              stopStreaming={stopStreaming}
+              onClearConversation={handleNewChat}
+              activeProvider={activeProvider}
+              placeholder={placeholder}
+              isExpandedMode={false}
+              contextLabel={contextLabel}
+              contextType={contextType}
+              prefillText={prefillText}
+              onPrefillConsumed={handlePrefillConsumed}
+            />
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ChatBody (internal)
+// ---------------------------------------------------------------------------
+
+interface ChatBodyProps {
+  messages: KiyokoMessage[];
+  suggestions: string[];
+  isStreaming: boolean;
+  activeAgent: string;
+  projectId: string | null;
+  handleQuickAction: (prompt: string) => void;
+  handleSuggestionClick: (suggestion: string) => void;
+  handleExecute: (messageId: string, plan: AiActionPlan) => void;
+  handleCancel: (messageId: string) => void;
+  handleModify: (prefill: string) => void;
+  handleWorkflowAction: (actionId: string, label: string) => void;
+  undoBatch: (batchId: string) => void;
+  messagesEndRef: React.RefObject<HTMLDivElement | null>;
+  handleSend: (text: string, files?: File[]) => void;
+  stopStreaming: () => void;
+  onClearConversation: () => void;
+  activeProvider: string | null;
+  placeholder: string;
+  isExpandedMode: boolean;
+  contextLabel: string;
+  contextType: 'dashboard' | 'organization' | 'project' | 'video' | 'scene';
+  prefillText: string | null;
+  onPrefillConsumed: () => void;
+}
+
+function ChatBody({
+  messages,
+  suggestions,
+  isStreaming,
+  activeAgent,
+  projectId,
+  handleQuickAction,
+  handleSuggestionClick,
+  handleExecute,
+  handleCancel,
+  handleModify,
+  handleWorkflowAction,
+  undoBatch,
+  messagesEndRef,
+  handleSend,
+  stopStreaming,
+  onClearConversation,
+  activeProvider,
+  placeholder,
+  contextLabel,
+  contextType,
+  prefillText,
+  onPrefillConsumed,
+}: ChatBodyProps) {
+  return (
+    <div className="flex flex-col flex-1 min-h-0">
+      {/* Messages area */}
+      <div className="flex-1 overflow-y-auto min-h-0 px-4 py-4 space-y-4 overscroll-contain">
+        {/* Empty state — contextual quick actions (Section 23.8) */}
+        {messages.length === 0 && (
+          <KiyokoEmptyState
+            contextLevel={contextType}
+            contextLabel={contextLabel}
+            onQuickAction={handleQuickAction}
+          />
         )}
 
-        {/* ---- Video cut selector ---- */}
-        {videoCuts.length > 0 && (
-          <div className="shrink-0 px-3 py-1.5 border-b border-border bg-card/30 flex items-center gap-1.5 overflow-x-auto">
-            <Film size={12} className="text-muted-foreground shrink-0" />
-            {videoCuts.map((cut) => (
+        {/* Message list */}
+        {messages.map((message) => (
+          <ChatMessage
+            key={message.id}
+            message={message}
+            activeAgent={activeAgent}
+            projectId={projectId ?? undefined}
+            onExecute={handleExecute}
+            onCancel={handleCancel}
+            onModify={handleModify}
+            onSend={handleSend}
+            onUndo={undoBatch}
+            onWorkflowAction={handleWorkflowAction}
+          />
+        ))}
+
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Suggestions — above input */}
+      {suggestions.length > 0 && !isStreaming && (
+        <div className="shrink-0 px-3 pb-1.5 pt-2 border-t border-border">
+          <div className="flex flex-wrap gap-1.5">
+            {suggestions.map((suggestion, i) => (
               <button
-                key={cut.id}
+                key={i}
                 type="button"
-                onClick={() => setActiveVideoCut(cut.id)}
-                className={cn(
-                  'flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium whitespace-nowrap transition-colors',
-                  activeVideoCutId === cut.id
-                    ? 'bg-primary/15 text-primary border border-primary/30'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-accent border border-transparent',
-                )}
+                onClick={() => handleSuggestionClick(suggestion)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-muted-foreground bg-muted border border-border hover:border-teal-500/30 hover:text-teal-400 transition-colors duration-150"
               >
-                <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: cut.color }} />
-                {cut.name}
-                <span className="text-[9px] opacity-60">{cut.target_duration_seconds}s</span>
+                <Sparkles size={10} />
+                {suggestion}
               </button>
             ))}
           </div>
-        )}
-
-        {/* ---- Messages area ---- */}
-        <div className="flex-1 overflow-y-auto min-h-0 px-4 py-4 space-y-4">
-          {/* Empty state */}
-          {messages.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-full text-center">
-              <div className="flex items-center justify-center size-16 rounded-2xl bg-primary/10 mb-4">
-                <Bot size={32} className="text-primary" />
-              </div>
-              <p className="text-base font-semibold text-foreground mb-1">
-                Kiyoko AI
-              </p>
-              <p className="text-sm text-muted-foreground max-w-sm mb-6">
-                Tu directora creativa. Puedo analizar, modificar y mejorar cualquier parte de tu proyecto.
-              </p>
-
-              {/* Quick actions grid */}
-              <div className="grid grid-cols-2 gap-2 max-w-md w-full">
-                {QUICK_ACTIONS.map((action) => (
-                  <button
-                    key={action.label}
-                    type="button"
-                    onClick={() => handleQuickAction(action.prompt)}
-                    className={cn(
-                      'flex items-center gap-2 px-3 py-2.5 rounded-xl text-left',
-                      'text-xs font-medium text-muted-foreground',
-                      'bg-card border border-border',
-                      'hover:border-primary/30 hover:text-primary hover:bg-primary/5',
-                      'transition-all duration-150',
-                    )}
-                  >
-                    <action.icon size={14} className="shrink-0" />
-                    <span>{action.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Message list */}
-          {messages.map((message) => (
-            <ChatMessage
-              key={message.id}
-              message={message}
-              onExecute={handleExecute}
-              onCancel={handleCancel}
-              onModify={handleModify}
-              onUndo={undoBatch}
-            />
-          ))}
-
-          <div ref={messagesEndRef} />
         </div>
+      )}
 
-        {/* ---- Suggestions bar ---- */}
-        {suggestions.length > 0 && !isStreaming && (
-          <div className="shrink-0 px-3 py-2 border-t border-border bg-card/50">
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-              Sugerencias
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {suggestions.map((suggestion, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => handleSuggestionClick(suggestion)}
-                  className={cn(
-                    'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg',
-                    'text-xs font-medium text-muted-foreground',
-                    'bg-background border border-border',
-                    'hover:border-primary/30 hover:text-primary',
-                    'transition-colors duration-150',
-                  )}
-                >
-                  <Sparkles size={10} />
-                  {suggestion}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ---- Input area ---- */}
+      {/* Input */}
+      <div className="shrink-0">
         <ChatInput
           onSend={handleSend}
           onStop={stopStreaming}
+          onClearConversation={onClearConversation}
           isStreaming={isStreaming}
           activeProvider={activeProvider}
-          placeholder={
-            projectTitle
-              ? `Preguntale a Kiyoko sobre "${projectTitle}"...`
-              : 'Escribe un mensaje...'
-          }
+          allowFiles
+          placeholder={placeholder}
+          contextLabel={contextLabel}
+          contextType={contextType}
+          prefillText={prefillText}
+          onPrefillConsumed={onPrefillConsumed}
         />
       </div>
     </div>

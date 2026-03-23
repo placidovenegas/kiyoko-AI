@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Key, Plus, Trash2, Eye, EyeOff, Check, X, Loader2, ExternalLink, Shield, Zap,
 } from 'lucide-react';
@@ -59,28 +60,28 @@ interface ServerProvider {
 // ---------------------------------------------------------------------------
 
 export default function ApiKeysPage() {
-  const [userKeys, setUserKeys] = useState<UserKey[]>([]);
-  const [serverProviders, setServerProviders] = useState<ServerProvider[]>([]);
-  const [loading, setLoading] = useState(true);
   const [addingProvider, setAddingProvider] = useState<string | null>(null);
   const [newKeyValue, setNewKeyValue] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [testing, setTesting] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const queryClient = useQueryClient();
 
-  // Fetch user keys and server status
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    const [keysRes, statusRes] = await Promise.all([
-      fetch('/api/user/api-keys').then((r) => r.ok ? r.json() : { keys: [] }),
-      fetch('/api/ai/providers/status').then((r) => r.ok ? r.json() : { providers: [] }),
-    ]);
-    setUserKeys(keysRes.keys ?? []);
-    setServerProviders(statusRes.providers ?? []);
-    setLoading(false);
-  }, []);
+  const { data: apiKeysData, isLoading: loading } = useQuery({
+    queryKey: ['api-keys-data'],
+    queryFn: async () => {
+      const [keysRes, statusRes] = await Promise.all([
+        fetch('/api/user/api-keys').then((r) => r.ok ? r.json() : { keys: [] }),
+        fetch('/api/ai/providers/status').then((r) => r.ok ? r.json() : { providers: [] }),
+      ]);
+      return {
+        userKeys: (keysRes.keys ?? []) as UserKey[],
+        serverProviders: (statusRes.providers ?? []) as ServerProvider[],
+      };
+    },
+  });
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const userKeys = apiKeysData?.userKeys ?? [];
+  const serverProviders = apiKeysData?.serverProviders ?? [];
 
   // Test a key
   const handleTest = useCallback(async (provider: string, apiKey: string) => {
@@ -105,45 +106,54 @@ export default function ApiKeysPage() {
   }, []);
 
   // Save a key
-  const handleSave = useCallback(async (provider: string) => {
-    if (!newKeyValue.trim()) return;
-    setSaving(true);
-    try {
+  const saveMutation = useMutation({
+    mutationFn: async ({ provider, apiKey }: { provider: string; apiKey: string }) => {
       const res = await fetch('/api/user/api-keys', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider, apiKey: newKeyValue.trim() }),
+        body: JSON.stringify({ provider, apiKey }),
       });
-      if (res.ok) {
-        toast.success('API key guardada');
-        setAddingProvider(null);
-        setNewKeyValue('');
-        fetchData();
-      } else {
+      if (!res.ok) {
         const err = await res.json();
-        toast.error(err.error || 'Error al guardar');
+        throw new Error(err.error || 'Error al guardar');
       }
-    } catch {
-      toast.error('Error al guardar la key');
-    } finally {
-      setSaving(false);
-    }
-  }, [newKeyValue, fetchData]);
+    },
+    onSuccess: () => {
+      toast.success('API key guardada');
+      setAddingProvider(null);
+      setNewKeyValue('');
+      queryClient.invalidateQueries({ queryKey: ['api-keys-data'] });
+    },
+    onError: (err: Error) => {
+      toast.error(err.message);
+    },
+  });
 
   // Delete a key
-  const handleDelete = useCallback(async (id: string) => {
-    try {
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
       const res = await fetch(`/api/user/api-keys/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        toast.success('API key eliminada');
-        fetchData();
-      } else {
-        toast.error('Error al eliminar');
-      }
-    } catch {
+      if (!res.ok) throw new Error('Error al eliminar');
+    },
+    onSuccess: () => {
+      toast.success('API key eliminada');
+      queryClient.invalidateQueries({ queryKey: ['api-keys-data'] });
+    },
+    onError: () => {
       toast.error('Error al eliminar');
-    }
-  }, [fetchData]);
+    },
+  });
+
+  const handleSave = useCallback((provider: string) => {
+    if (!newKeyValue.trim()) return;
+    saveMutation.mutate({ provider, apiKey: newKeyValue.trim() });
+  }, [newKeyValue, saveMutation]);
+
+  const handleDelete = useCallback((id: string) => {
+    deleteMutation.mutate(id);
+  }, [deleteMutation]);
+
+  const saving = saveMutation.isPending;
 
   // Get server status for a provider
   function getServerStatus(providerId: string): ServerProvider | undefined {
@@ -156,10 +166,10 @@ export default function ApiKeysPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-8 p-6">
+    <div className="mx-auto max-w-2xl h-full overflow-y-auto space-y-8 p-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+        <h1 className="text-lg font-semibold text-foreground flex items-center gap-2">
           <Key size={22} />
           Proveedores de IA
         </h1>
@@ -278,7 +288,7 @@ export default function ApiKeysPage() {
                         className={cn(
                           'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
                           isAdding
-                            ? 'bg-muted text-muted-foreground'
+                            ? 'bg-secondary text-muted-foreground'
                             : 'bg-primary/10 text-primary hover:bg-primary/20',
                         )}
                       >

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateText, Output } from 'ai';
 import { createClient } from '@/lib/supabase/server';
-import { getModelWithFallback, logUsage } from '@/lib/ai/sdk-router';
+import { logUsage } from '@/lib/ai/sdk-router';
+import { getUserModel } from '@/lib/ai/get-user-model';
 import { SYSTEM_PROJECT_GENERATOR } from '@/lib/ai/prompts/system-project-generator';
 import { projectOutputSchema } from '@/lib/ai/schemas/project-output';
 
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { model, providerId } = getModelWithFallback();
+    const { model, providerId } = await getUserModel(user.id);
     const startTime = Date.now();
 
     const userPrompt = `Generate a complete storyboard project with the following details:

@@ -465,23 +465,21 @@ export default function NewProjectPage() {
           description: data.description.trim(),
           client_name: data.clientName.trim(),
           style: data.style,
-          target_platform: data.platform,
-          target_duration_seconds: data.duration,
           owner_id: user.id,
           status: 'draft',
           ai_brief: data.aiBrief,
-        })
+        } as never)
         .select()
         .single();
 
       if (error) throw error;
 
       // Auto-create "Video Principal"
-      const videoSlug = 'video-principal-' + Math.random().toString(36).slice(2, 8);
-      await supabase.from('video_cuts').insert({
+      const videoShortId = 'video-principal-' + Math.random().toString(36).slice(2, 8);
+      await supabase.from('videos').insert({
         project_id: project.id,
-        name: 'Video Principal',
-        slug: videoSlug,
+        title: 'Video Principal',
+        short_id: videoShortId,
         platform: data.platform,
         target_duration_seconds: data.duration,
         aspect_ratio: data.platform === 'youtube' || data.platform === 'tv_commercial' || data.platform === 'web'
@@ -492,7 +490,7 @@ export default function NewProjectPage() {
         is_primary: true,
         status: 'draft',
         sort_order: 0,
-      });
+      } as never);
 
       // Insert characters
       if (data.characters.length > 0) {
@@ -558,18 +556,18 @@ export default function NewProjectPage() {
   return (
     <div className="mx-auto flex h-[calc(100vh-4rem)] max-w-3xl flex-col">
       {/* ---- Header ---- */}
-      <div className="flex items-center gap-3 border-b border-surface-tertiary px-4 py-3">
+      <div className="flex items-center gap-3 border-b border-border px-4 py-3">
         <Link
           href="/dashboard"
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground-muted transition-colors duration-150 hover:bg-surface-secondary hover:text-foreground"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors duration-150 hover:bg-card hover:text-foreground"
         >
           <ArrowLeft className="h-4.5 w-4.5" />
         </Link>
         <div className="flex-1">
           <h1 className="text-sm font-semibold text-foreground">Nuevo Proyecto</h1>
-          <p className="text-xs text-foreground-muted">Asistente de creacion</p>
+          <p className="text-xs text-muted-foreground">Asistente de creacion</p>
         </div>
-        <Sparkles className="h-4.5 w-4.5 text-brand-500" />
+        <Sparkles className="h-4.5 w-4.5 text-primary" />
       </div>
 
       {/* ---- Step indicator with icons ---- */}
@@ -586,10 +584,10 @@ export default function NewProjectPage() {
                 className={cn(
                   'flex h-8 w-8 items-center justify-center rounded-full transition-all duration-150',
                   isCompleted
-                    ? 'bg-brand-500 text-white'
+                    ? 'bg-primary text-white'
                     : isActive
-                      ? 'bg-brand-500/20 text-brand-500 ring-2 ring-brand-500/30'
-                      : 'bg-surface-tertiary text-foreground-muted',
+                      ? 'bg-primary/20 text-primary ring-2 ring-primary/30'
+                      : 'bg-secondary text-muted-foreground',
                 )}
               >
                 <StepIcon className="h-4 w-4" />
@@ -599,16 +597,16 @@ export default function NewProjectPage() {
                 className={cn(
                   'h-1 w-full rounded-full transition-colors duration-150',
                   isCompleted
-                    ? 'bg-brand-500'
+                    ? 'bg-primary'
                     : isActive
-                      ? 'bg-brand-500/50'
-                      : 'bg-surface-tertiary',
+                      ? 'bg-primary/50'
+                      : 'bg-secondary',
                 )}
               />
               <span
                 className={cn(
                   'text-[10px] font-medium transition-colors duration-150',
-                  isActive || isCompleted ? 'text-brand-500' : 'text-foreground-muted',
+                  isActive || isCompleted ? 'text-primary' : 'text-muted-foreground',
                 )}
               >
                 {cfg.label}
@@ -634,7 +632,7 @@ export default function NewProjectPage() {
               >
                 {/* AI avatar */}
                 {msg.role === 'assistant' && (
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-500 text-[11px] font-bold text-white">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-white">
                     AI
                   </div>
                 )}
@@ -643,8 +641,8 @@ export default function NewProjectPage() {
                   className={cn(
                     'max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed',
                     msg.role === 'user'
-                      ? 'rounded-br-md bg-brand-500 text-white'
-                      : 'rounded-bl-md bg-surface-secondary text-foreground',
+                      ? 'rounded-br-md bg-primary text-white'
+                      : 'rounded-bl-md bg-card text-foreground',
                   )}
                 >
                   {msg.content.split('\n').map((line, i) => (
@@ -669,10 +667,10 @@ export default function NewProjectPage() {
                         'transition-all duration-150',
                         'min-h-11',
                         data.style === action.value && action.group === 'style'
-                          ? 'border-brand-500 bg-brand-500/10 text-brand-500'
+                          ? 'border-primary bg-primary/10 text-primary'
                           : data.platform === action.value && action.group === 'platform'
-                            ? 'border-brand-500 bg-brand-500/10 text-brand-500'
-                            : 'border-surface-tertiary text-foreground-secondary hover:border-brand-400 hover:text-brand-500',
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'border-border text-muted-foreground hover:border-brand-400 hover:text-primary',
                       )}
                     >
                       {action.emoji && <span className="text-lg">{action.emoji}</span>}
@@ -685,9 +683,9 @@ export default function NewProjectPage() {
               {/* Duration slider */}
               {msg.durationSlider && (
                 <div className="mt-3 ml-11 max-w-xs space-y-3">
-                  <div className="flex items-center justify-between text-xs text-foreground-muted">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span>15s</span>
-                    <span className="text-base font-bold text-brand-500">
+                    <span className="text-base font-bold text-primary">
                       {sliderValue}s
                     </span>
                     <span>180s</span>
@@ -699,7 +697,7 @@ export default function NewProjectPage() {
                     step={5}
                     value={sliderValue}
                     onChange={(e) => setSliderValue(Number(e.target.value))}
-                    className="w-full accent-brand-500"
+                    className="w-full accent-primary"
                   />
                   <button
                     onClick={() =>
@@ -710,7 +708,7 @@ export default function NewProjectPage() {
                       })
                     }
                     disabled={isThinking || isCreating}
-                    className="min-h-11 rounded-xl bg-brand-500 px-5 py-2.5 text-sm font-medium text-white transition-all duration-150 hover:bg-brand-600"
+                    className="min-h-11 rounded-xl bg-primary px-5 py-2.5 text-sm font-medium text-white transition-all duration-150 hover:bg-primary/90"
                   >
                     Confirmar duracion
                   </button>
@@ -722,13 +720,13 @@ export default function NewProjectPage() {
           {/* Typing indicator */}
           {isThinking && (
             <div className="flex gap-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-500 text-[11px] font-bold text-white">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-white">
                 AI
               </div>
-              <div className="flex items-center gap-1.5 rounded-2xl rounded-bl-md bg-surface-secondary px-4 py-3">
-                <span className="inline-block h-2 w-2 animate-bounce rounded-full bg-foreground-muted [animation-delay:0ms]" />
-                <span className="inline-block h-2 w-2 animate-bounce rounded-full bg-foreground-muted [animation-delay:150ms]" />
-                <span className="inline-block h-2 w-2 animate-bounce rounded-full bg-foreground-muted [animation-delay:300ms]" />
+              <div className="flex items-center gap-1.5 rounded-2xl rounded-bl-md bg-card px-4 py-3">
+                <span className="inline-block h-2 w-2 animate-bounce rounded-full bg-muted-foreground [animation-delay:0ms]" />
+                <span className="inline-block h-2 w-2 animate-bounce rounded-full bg-muted-foreground [animation-delay:150ms]" />
+                <span className="inline-block h-2 w-2 animate-bounce rounded-full bg-muted-foreground [animation-delay:300ms]" />
               </div>
             </div>
           )}
@@ -736,8 +734,8 @@ export default function NewProjectPage() {
           {/* Creating indicator */}
           {isCreating && (
             <div className="flex items-center justify-center gap-2 py-6">
-              <Loader2 className="h-5 w-5 animate-spin text-brand-500" />
-              <span className="text-sm font-medium text-foreground-muted">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              <span className="text-sm font-medium text-muted-foreground">
                 Creando proyecto...
               </span>
             </div>
@@ -748,8 +746,8 @@ export default function NewProjectPage() {
       </div>
 
       {/* ---- Input area ---- */}
-      <div className="border-t border-surface-tertiary px-4 py-3">
-        <div className="flex items-end gap-2 rounded-xl border border-surface-tertiary bg-surface-secondary p-2 transition-colors duration-150 focus-within:border-brand-500">
+      <div className="border-t border-border px-4 py-3">
+        <div className="flex items-end gap-2 rounded-xl border border-border bg-card p-2 transition-colors duration-150 focus-within:border-primary">
           {/* Photo upload */}
           <input
             ref={fileInputRef}
@@ -767,7 +765,7 @@ export default function NewProjectPage() {
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-foreground-muted transition-colors duration-150 hover:bg-surface-tertiary hover:text-foreground"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors duration-150 hover:bg-secondary hover:text-foreground"
             title="Subir imagen de referencia"
           >
             <ImagePlus className="h-4.5 w-4.5" />
@@ -790,7 +788,7 @@ export default function NewProjectPage() {
             }
             rows={1}
             disabled={isCreating}
-            className="max-h-32 min-h-10 flex-1 resize-none bg-transparent py-2 text-sm text-foreground outline-none placeholder:text-foreground-muted disabled:opacity-50"
+            className="max-h-32 min-h-10 flex-1 resize-none bg-transparent py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground disabled:opacity-50"
           />
 
           {/* Send */}
@@ -798,7 +796,7 @@ export default function NewProjectPage() {
             type="button"
             onClick={() => handleSend()}
             disabled={!input.trim() || isThinking || isCreating}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-500 text-white transition-all duration-150 hover:bg-brand-600 disabled:opacity-40"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-white transition-all duration-150 hover:bg-primary/90 disabled:opacity-40"
           >
             <Send className="h-4 w-4" />
           </button>
@@ -808,12 +806,12 @@ export default function NewProjectPage() {
         <div className="mt-2 flex items-center justify-between">
           <Link
             href="/new/manual"
-            className="flex items-center gap-1.5 text-xs text-foreground-muted transition-colors duration-150 hover:text-brand-500"
+            className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors duration-150 hover:text-primary"
           >
             <FileText className="h-3.5 w-3.5" />
             Crear manualmente (sin IA)
           </Link>
-          <p className="text-[10px] text-foreground-muted">
+          <p className="text-[10px] text-muted-foreground">
             Kiyoko AI puede cometer errores.
           </p>
         </div>

@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 export async function generateHtmlExport(projectId: string): Promise<string> {
   const supabase = await createClient();
 
-  const [project, scenes, characters, backgrounds, arcs, timeline, issues] =
+  const [project, scenes, characters, backgrounds, arcs, timeline] =
     await Promise.all([
       supabase.from('projects').select('*').eq('id', projectId).single(),
       supabase.from('scenes').select('*').eq('project_id', projectId).order('sort_order'),
@@ -11,26 +11,27 @@ export async function generateHtmlExport(projectId: string): Promise<string> {
       supabase.from('backgrounds').select('*').eq('project_id', projectId).order('sort_order'),
       supabase.from('narrative_arcs').select('*').eq('project_id', projectId).order('sort_order'),
       supabase.from('timeline_entries').select('*').eq('project_id', projectId).order('sort_order'),
-      supabase.from('project_issues').select('*').eq('project_id', projectId).order('sort_order'),
     ]);
 
-  const p = project.data;
+  const p = project.data as Record<string, unknown> | null;
   if (!p) throw new Error('Project not found');
 
   const scenesHtml = (scenes.data || [])
     .map(
-      (s) => `
+      (s) => {
+        const sc = s as Record<string, unknown>;
+        return `
     <div class="scene-card">
-      <h3>${s.scene_number} — ${s.title}</h3>
+      <h3>${sc.scene_number} — ${sc.title}</h3>
       <div class="scene-meta">
-        <span class="badge badge-${s.scene_type}">${s.scene_type}</span>
-        <span class="badge badge-${s.arc_phase}">${s.arc_phase}</span>
-        <span>${s.duration_seconds}s</span>
+        <span class="badge badge-${sc.scene_type}">${sc.scene_type}</span>
+        <span class="badge badge-${sc.arc_phase}">${sc.arc_phase}</span>
+        <span>${sc.duration_seconds}s</span>
       </div>
-      ${s.description ? `<p>${s.description}</p>` : ''}
-      ${s.prompt_image ? `<div class="prompt"><h4>Prompt Imagen</h4><pre>${escapeHtml(s.prompt_image)}</pre></div>` : ''}
-      ${s.prompt_video ? `<div class="prompt"><h4>Prompt Vídeo</h4><pre>${escapeHtml(s.prompt_video)}</pre></div>` : ''}
-    </div>`
+      ${sc.description ? `<p>${sc.description}</p>` : ''}
+      ${sc.image_prompt ? `<div class="prompt"><h4>Prompt Imagen</h4><pre>${escapeHtml(String(sc.image_prompt))}</pre></div>` : ''}
+    </div>`;
+      }
     )
     .join('\n');
 
@@ -41,7 +42,7 @@ export async function generateHtmlExport(projectId: string): Promise<string> {
       <h3>${c.name} [${c.initials}]</h3>
       <p><strong>${c.role}</strong></p>
       <p>${c.visual_description}</p>
-      <pre>${escapeHtml(c.prompt_snippet)}</pre>
+      <pre>${escapeHtml(c.prompt_snippet ?? '')}</pre>
     </div>`
     )
     .join('\n');
@@ -51,7 +52,7 @@ export async function generateHtmlExport(projectId: string): Promise<string> {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${escapeHtml(p.title)} — Storyboard</title>
+<title>${escapeHtml(String(p.title))} — Storyboard</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Inter', system-ui, sans-serif; background: #0F1117; color: #F9FAFB; line-height: 1.6; }
@@ -78,14 +79,13 @@ export async function generateHtmlExport(projectId: string): Promise<string> {
 </head>
 <body>
 <div class="container">
-  <h1>${escapeHtml(p.title)}</h1>
-  <p style="color:#9CA3AF">${p.client_name || ''} · ${p.style} · ${p.target_platform} · ~${p.target_duration_seconds}s</p>
+  <h1>${escapeHtml(String(p.title))}</h1>
+  <p style="color:#9CA3AF">${p.client_name || ''} · ${p.style} · ${p.target_platform ?? ''} · ~${p.target_duration_seconds ?? ''}s</p>
 
   <div class="stats">
-    <div class="stat"><div class="stat-value">${p.total_scenes}</div><div class="stat-label">Escenas</div></div>
-    <div class="stat"><div class="stat-value">${p.total_characters}</div><div class="stat-label">Personajes</div></div>
-    <div class="stat"><div class="stat-value">${p.total_backgrounds}</div><div class="stat-label">Fondos</div></div>
-    <div class="stat"><div class="stat-value">~${p.estimated_duration_seconds}s</div><div class="stat-label">Duración</div></div>
+    <div class="stat"><div class="stat-value">${(scenes.data || []).length}</div><div class="stat-label">Escenas</div></div>
+    <div class="stat"><div class="stat-value">${(characters.data || []).length}</div><div class="stat-label">Personajes</div></div>
+    <div class="stat"><div class="stat-value">${(backgrounds.data || []).length}</div><div class="stat-label">Fondos</div></div>
   </div>
 
   ${charsHtml ? `<h2>Personajes</h2>${charsHtml}` : ''}

@@ -1,11 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { generateText } from 'ai';
 import { getAllAvailableModels } from '@/lib/ai/sdk-router';
+import { getUserModel } from '@/lib/ai/get-user-model';
 import { getStyleById } from '@/lib/constants/narration-styles';
 
-/** Try generateText with fallback across all available models */
-async function generateTextWithFallback(params: { system: string; prompt: string }) {
+/** Try generateText with user model first, then fallback across all available system models */
+async function generateTextWithFallback(params: { system: string; prompt: string; userId: string }) {
+  // Try user's own key first
+  try {
+    const { model, providerId } = await getUserModel(params.userId);
+    const result = await generateText({ model, system: params.system, prompt: params.prompt });
+    return { text: result.text, providerId };
+  } catch {
+    // Fall through to system fallback chain
+  }
+
   const models = getAllAvailableModels();
   if (models.length === 0) throw new Error('No AI providers available');
 
@@ -72,6 +83,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json() as {
       mode: 'per_scene' | 'continuous';
+      videoId?: string;
       scenes: Array<{
         id: string;
         scene_number: string;
@@ -89,7 +101,7 @@ export async function POST(request: NextRequest) {
       };
     };
 
-    const { mode, scenes, config } = body;
+    const { mode, scenes, config, videoId } = body;
     const style = getStyleById(config?.styleId || 'pixar');
     const styleInstruction = style.id === 'custom'
       ? (config?.customInstructions || 'Tono profesional y calido.')
@@ -111,6 +123,7 @@ export async function POST(request: NextRequest) {
       const maxWords = Math.floor(totalSeconds * 2.3);
 
       const { text: rawText, providerId } = await generateTextWithFallback({
+        userId: user.id,
         system: `Eres el narrador de un video publicitario. Vas a leer en voz alta el texto que escribas.
 
 IMPORTANTE — FORMATO DE RESPUESTA:
@@ -137,6 +150,45 @@ Escribe la narracion:`,
 
       const text = cleanNarrationText(rawText);
 
+      // Save narration to video_narrations if videoId is provided
+      if (videoId) {
+        try {
+          const admin = createAdminClient();
+          const db = admin ?? supabase;
+
+          // Set previous narrations for this video to is_current = false
+          await db
+            .from('video_narrations')
+            .update({ is_current: false })
+            .eq('video_id', videoId)
+            .eq('is_current', true);
+
+          // Get next version number
+          const { data: lastNarration } = await db
+            .from('video_narrations')
+            .select('version')
+            .eq('video_id', videoId)
+            .order('version', { ascending: false })
+            .limit(1)
+            .single();
+
+          const nextVersion = (lastNarration?.version ?? 0) + 1;
+
+          await db
+            .from('video_narrations')
+            .insert({
+              video_id: videoId,
+              narration_text: text,
+              source: 'ai',
+              version: nextVersion,
+              is_current: true,
+              status: 'draft',
+            });
+        } catch (saveError) {
+          console.error('[generate-narration] Error saving narration to DB:', saveError);
+        }
+      }
+
       return NextResponse.json({ mode: 'continuous', text, provider: providerId });
 
     } else {
@@ -146,6 +198,7 @@ Escribe la narracion:`,
       ).join('\n');
 
       const { text: rawText } = await generateTextWithFallback({
+        userId: user.id,
         system: `Eres el narrador de un video publicitario. Escribe el texto de voz en off para CADA escena.
 
 IMPORTANTE — FORMATO DE RESPUESTA:
@@ -180,6 +233,47 @@ ${sceneList}`,
           results.push({ sceneId: scene.id, text: narration });
         } else {
           results.push({ sceneId: scene.id, text: '' });
+        }
+      }
+
+      // Save concatenated narration to video_narrations if videoId is provided
+      if (videoId) {
+        try {
+          const admin = createAdminClient();
+          const db = admin ?? supabase;
+
+          const fullText = results.map(r => r.text).filter(Boolean).join('\n');
+
+          // Set previous narrations for this video to is_current = false
+          await db
+            .from('video_narrations')
+            .update({ is_current: false })
+            .eq('video_id', videoId)
+            .eq('is_current', true);
+
+          // Get next version number
+          const { data: lastNarration } = await db
+            .from('video_narrations')
+            .select('version')
+            .eq('video_id', videoId)
+            .order('version', { ascending: false })
+            .limit(1)
+            .single();
+
+          const nextVersion = (lastNarration?.version ?? 0) + 1;
+
+          await db
+            .from('video_narrations')
+            .insert({
+              video_id: videoId,
+              narration_text: fullText,
+              source: 'ai',
+              version: nextVersion,
+              is_current: true,
+              status: 'draft',
+            });
+        } catch (saveError) {
+          console.error('[generate-narration] Error saving per-scene narration to DB:', saveError);
         }
       }
 

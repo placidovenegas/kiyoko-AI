@@ -64,7 +64,7 @@ export function AudioMultiToggle({
 
   return (
     <div className={cn('space-y-2', className)}>
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground-muted">
+      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
         Audio
       </span>
       <div className="flex flex-wrap gap-1.5" role="group" aria-label="Configuracion de audio">
@@ -85,8 +85,8 @@ export function AudioMultiToggle({
                       'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
                       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
                       isActive
-                        ? 'bg-[#3B82F6] text-white'
-                        : 'bg-surface-tertiary text-foreground-secondary hover:bg-surface-secondary',
+                        ? 'bg-primary text-white'
+                        : 'bg-secondary text-muted-foreground hover:bg-card',
                       disabled && 'cursor-not-allowed opacity-50',
                     )}
                   />
@@ -112,7 +112,7 @@ export function AudioMultiToggle({
           placeholder="Describe la musica de fondo..."
           disabled={disabled}
           aria-label="Notas de musica de fondo"
-          className="w-full rounded-md border border-surface-tertiary bg-surface px-2.5 py-1.5 text-xs text-foreground outline-none placeholder:text-foreground-muted focus:border-[#3B82F6] focus:ring-1 focus:ring-[#3B82F6]"
+          className="w-full rounded-md border border-border bg-card px-2.5 py-1.5 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary"
         />
       )}
       {activeFlags.includes('ambient') && onAmbientNotesChange && (
@@ -123,7 +123,7 @@ export function AudioMultiToggle({
           placeholder="Describe los sonidos ambiente..."
           disabled={disabled}
           aria-label="Notas de sonido ambiente"
-          className="w-full rounded-md border border-surface-tertiary bg-surface px-2.5 py-1.5 text-xs text-foreground outline-none placeholder:text-foreground-muted focus:border-[#3B82F6] focus:ring-1 focus:ring-[#3B82F6]"
+          className="w-full rounded-md border border-border bg-card px-2.5 py-1.5 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary"
         />
       )}
     </div>

@@ -96,8 +96,8 @@ export function VoiceSelector({ value, onChange, language = 'es', className }: V
   if (loading) {
     return (
       <div className={cn('space-y-2', className)}>
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground-muted">Voz</span>
-        <div className="flex items-center gap-2 text-xs text-foreground-muted">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Voz</span>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Loader2 className="h-3 w-3 animate-spin" /> Cargando voces...
         </div>
       </div>
@@ -107,15 +107,15 @@ export function VoiceSelector({ value, onChange, language = 'es', className }: V
   if (displayVoices.length === 0) {
     return (
       <div className={cn('space-y-2', className)}>
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground-muted">Voz</span>
-        <p className="text-xs text-foreground-muted">No hay voces disponibles. Configura ELEVENLABS_API_KEY.</p>
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Voz</span>
+        <p className="text-xs text-muted-foreground">No hay voces disponibles. Configura ELEVENLABS_API_KEY.</p>
       </div>
     );
   }
 
   return (
     <div className={cn('space-y-2', className)}>
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground-muted">Voz</span>
+      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Voz</span>
       <div className="grid grid-cols-2 gap-1.5">
         {displayVoices.map((voice) => {
           const isSelected = value === voice.id;
@@ -128,8 +128,8 @@ export function VoiceSelector({ value, onChange, language = 'es', className }: V
               className={cn(
                 'flex items-center gap-2 rounded-lg border px-3 py-2 text-left transition',
                 isSelected
-                  ? 'border-brand-500 bg-brand-500/10 text-foreground'
-                  : 'border-surface-tertiary bg-surface-secondary text-foreground-secondary hover:border-foreground/20',
+                  ? 'border-primary bg-primary/10 text-foreground'
+                  : 'border-border bg-card text-muted-foreground hover:border-foreground/20',
               )}
             >
               <div className={cn(
@@ -141,9 +141,9 @@ export function VoiceSelector({ value, onChange, language = 'es', className }: V
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1">
                   <span className="truncate text-xs font-medium">{voice.name}</span>
-                  {isSelected && <Mic className="h-3 w-3 text-brand-500" />}
+                  {isSelected && <Mic className="h-3 w-3 text-primary" />}
                 </div>
-                <span className="text-[10px] text-foreground-muted">{voice.accent}</span>
+                <span className="text-[10px] text-muted-foreground">{voice.accent}</span>
               </div>
               <button
                 type="button"
@@ -151,8 +151,8 @@ export function VoiceSelector({ value, onChange, language = 'es', className }: V
                 className={cn(
                   'flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition',
                   isPreviewing
-                    ? 'bg-brand-500 text-white'
-                    : 'bg-surface-tertiary text-foreground-muted hover:bg-surface-secondary hover:text-foreground',
+                    ? 'bg-primary text-white'
+                    : 'bg-secondary text-muted-foreground hover:bg-card hover:text-foreground',
                 )}
                 aria-label={`Preview voz ${voice.name}`}
               >

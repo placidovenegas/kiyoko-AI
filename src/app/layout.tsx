@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
-import { Toaster } from 'sonner';
+import { KiyokoToaster } from '@/components/ui/toast';
 import './globals.css';
 import { cn } from '@/lib/utils';
+import { QueryProvider } from '@/lib/query/provider';
 
 const geistSans = Geist({ variable: '--font-sans', subsets: ['latin'] });
 const geistMono = Geist_Mono({ variable: '--font-mono', subsets: ['latin'] });
@@ -13,6 +14,12 @@ export const metadata: Metadata = {
     template: '%s | Kiyoko AI',
   },
   description: 'Del brief al storyboard en minutos, no en días.',
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Kiyoko AI',
+  },
 };
 
 // Script to apply dark mode class before first paint (prevents flash)
@@ -33,8 +40,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="bg-background text-foreground font-sans antialiased">
-        {children}
-        <Toaster position="bottom-right" />
+        <QueryProvider>
+          {children}
+        </QueryProvider>
+        <KiyokoToaster />
       </body>
     </html>
   );

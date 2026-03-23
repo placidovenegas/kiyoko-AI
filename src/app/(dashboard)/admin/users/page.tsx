@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
@@ -41,46 +42,52 @@ const FILTERS = [
 ];
 
 export default function AdminUsersPage() {
-  const [users, setUsers] = useState<UserProfile[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const supabase = createClient();
+  const queryClient = useQueryClient();
 
-  const fetchUsers = useCallback(async () => {
-    setLoading(true);
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .order('created_at', { ascending: false });
-    setUsers((data || []) as UserProfile[]);
-    setLoading(false);
-  }, [supabase]);
+  const { data: users = [], isLoading: loading } = useQuery({
+    queryKey: ['admin-users'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as UserProfile[];
+    },
+  });
 
-  useEffect(() => { fetchUsers(); }, [fetchUsers]);
-
-  async function updateRole(userId: string, newRole: UserRole) {
-    const { error } = await supabase
-      .from('profiles')
-      .update({ role: newRole })
-      .eq('id', userId);
-
-    if (error) {
+  const updateRoleMutation = useMutation({
+    mutationFn: async ({ userId, newRole }: { userId: string; newRole: UserRole }) => {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ role: newRole })
+        .eq('id', userId);
+      if (error) throw error;
+      return newRole;
+    },
+    onSuccess: (_data, variables) => {
+      toast.success(`Rol actualizado a ${ROLE_LABELS[variables.newRole]}`);
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+    },
+    onError: () => {
       toast.error('Error al actualizar rol');
-      return;
-    }
+    },
+  });
 
-    setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
-    toast.success(`Rol actualizado a ${ROLE_LABELS[newRole]}`);
+  function updateRole(userId: string, newRole: UserRole) {
+    updateRoleMutation.mutate({ userId, newRole });
   }
 
   const filtered = filter === 'all' ? users : users.filter(u => u.role === filter);
 
   return (
 
-    <div className="space-y-6">
+    <div className="h-full overflow-y-auto space-y-6 p-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Gestión de Usuarios</h1>
-        <p className="text-sm text-foreground-muted">{users.length} usuarios registrados</p>
+        <h1 className="text-lg font-semibold text-foreground">Gestión de Usuarios</h1>
+        <p className="text-sm text-muted-foreground">{users.length} usuarios registrados</p>
       </div>
 
       <div className="flex gap-2">
@@ -90,8 +97,8 @@ export default function AdminUsersPage() {
             onClick={() => setFilter(f.value)}
             className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
               filter === f.value
-                ? 'bg-brand-500/10 text-brand-500'
-                : 'text-foreground-muted hover:bg-surface-secondary'
+                ? 'bg-primary/10 text-primary'
+                : 'text-muted-foreground hover:bg-secondary'
             }`}
           >
             {f.label}
@@ -107,26 +114,26 @@ export default function AdminUsersPage() {
       <div className="space-y-3">
         {loading ? (
           Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-20 animate-pulse rounded-xl bg-surface-tertiary" />
+            <div key={i} className="h-20 animate-pulse rounded-xl bg-secondary" />
           ))
         ) : filtered.length === 0 ? (
-          <div className="rounded-xl border border-surface-tertiary py-12 text-center text-foreground-muted">
+          <div className="rounded-xl border border-border py-12 text-center text-muted-foreground">
             No hay usuarios en esta categoría
           </div>
         ) : (
           filtered.map((user) => (
             <div
               key={user.id}
-              className="flex items-center justify-between rounded-xl border border-surface-tertiary bg-surface p-4"
+              className="flex items-center justify-between rounded-xl border border-border bg-cardp-4"
             >
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-500/10 text-sm font-bold text-brand-500">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
                   {(user.full_name || user.email)[0].toUpperCase()}
                 </div>
                 <div>
                   <p className="font-medium text-foreground">{user.full_name || 'Sin nombre'}</p>
-                  <p className="text-xs text-foreground-muted">{user.email}</p>
-                  <p className="text-xs text-foreground-muted">
+                  <p className="text-xs text-muted-foreground">{user.email}</p>
+                  <p className="text-xs text-muted-foreground">
                     Registrado {formatDistanceToNow(new Date(user.created_at), { addSuffix: true, locale: es })}
                   </p>
                 </div>
@@ -164,7 +171,7 @@ export default function AdminUsersPage() {
                   <select
                     value={user.role}
                     onChange={(e) => updateRole(user.id, e.target.value as UserRole)}
-                    className="rounded-lg border border-surface-tertiary bg-surface-secondary px-2 py-1 text-xs text-foreground"
+                    className="rounded-lg border border-border bg-card px-2 py-1 text-xs text-foreground"
                   >
                     <option value="editor">Editor</option>
                     <option value="viewer">Viewer</option>

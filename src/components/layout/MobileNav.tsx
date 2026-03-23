@@ -40,7 +40,7 @@ export function MobileNav({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex items-center justify-center size-10 rounded-md text-foreground-secondary hover:text-foreground hover:bg-surface-tertiary transition-colors"
+        className="flex items-center justify-center size-10 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
         aria-label="Abrir menú"
       >
         <IconMenu2 className="size-6" />
@@ -59,7 +59,7 @@ export function MobileNav({
           {/* Sheet */}
           <div
             className={cn(
-              'relative z-10 flex flex-col w-[280px] h-full bg-surface-secondary',
+              'relative z-10 flex flex-col w-[280px] h-full bg-card',
               'animate-[slideInLeft_200ms_ease-out]',
             )}
           >
@@ -71,7 +71,7 @@ export function MobileNav({
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="flex items-center justify-center size-8 rounded-md text-foreground-muted hover:text-foreground hover:bg-surface-tertiary transition-colors"
+                className="flex items-center justify-center size-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                 aria-label="Cerrar menú"
               >
                 <IconX className="size-5" />

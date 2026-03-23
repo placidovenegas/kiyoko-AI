@@ -23,7 +23,7 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
         return (
           <span key={idx} className="flex items-center gap-1.5">
             {idx > 0 && (
-              <span className="text-foreground-muted select-none" aria-hidden>
+              <span className="text-muted-foreground select-none" aria-hidden>
                 ›
               </span>
             )}
@@ -31,7 +31,7 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
             {isLast || !item.href ? (
               <span
                 className={cn(
-                  isLast ? 'font-semibold text-foreground' : 'text-foreground-muted',
+                  isLast ? 'font-semibold text-foreground' : 'text-muted-foreground',
                 )}
               >
                 {item.label}
@@ -39,7 +39,7 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
             ) : (
               <Link
                 href={item.href}
-                className="text-foreground-muted hover:text-foreground transition-colors"
+                className="text-muted-foreground hover:text-foreground transition-colors"
               >
                 {item.label}
               </Link>

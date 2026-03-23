@@ -86,8 +86,8 @@ export function ImageUpload({
           'relative flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-8',
           'transition-colors duration-200 cursor-pointer',
           isDragging
-            ? 'border-brand-500 bg-brand-500/5'
-            : 'border-foreground-muted/30 bg-surface hover:border-foreground-muted/50',
+            ? 'border-primary bg-primary/5'
+            : 'border-muted-foreground/30 bg-card hover:border-muted-foreground/50',
           disabled && 'cursor-not-allowed opacity-50',
         )}
       >
@@ -100,7 +100,7 @@ export function ImageUpload({
         ) : (
           <>
             <svg
-              className="h-10 w-10 text-foreground-muted"
+              className="h-10 w-10 text-muted-foreground"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -116,7 +116,7 @@ export function ImageUpload({
               <p className="text-sm font-medium text-foreground">
                 Drop an image here, or click to browse
               </p>
-              <p className="mt-1 text-xs text-foreground-muted">
+              <p className="mt-1 text-xs text-muted-foreground">
                 Max size: {Math.round(maxSize / 1024 / 1024)}MB
               </p>
             </div>

@@ -102,7 +102,7 @@ export function PromptEditor({
     <div className={cn('space-y-1.5', className)}>
       {/* Header */}
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground-muted">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
           {label}
         </span>
         {!isEditing && (
@@ -119,7 +119,7 @@ export function PromptEditor({
                     onClick={handleTranslate}
                     disabled={disabled || translating}
                     aria-label="Traducir prompt al espanol"
-                    className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-medium text-foreground-muted transition-colors hover:bg-surface-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-card hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                 }
               >
@@ -156,7 +156,7 @@ export function PromptEditor({
                       onClick={handleEdit}
                       disabled={disabled}
                       aria-label={`Editar ${label}`}
-                      className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-medium text-foreground-muted transition-colors hover:bg-surface-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-card hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     />
                   }
                 >
@@ -185,14 +185,14 @@ export function PromptEditor({
             <button
               type="button"
               onClick={handleCancel}
-              className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs text-foreground-muted transition-colors hover:bg-surface-secondary"
+              className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-card"
             >
               <X className="h-3 w-3" /> Cancelar
             </button>
             <button
               type="button"
               onClick={handleSave}
-              className="inline-flex items-center gap-1 rounded-md bg-[#3B82F6] px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-[#3B82F6]/90"
+              className="inline-flex items-center gap-1 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-primary/90"
             >
               <Save className="h-3 w-3" /> Guardar
             </button>
@@ -206,24 +206,24 @@ export function PromptEditor({
 
           {/* Translation */}
           {showTranslation && (
-            <div className="rounded-lg border border-[#3B82F6]/20 bg-[#3B82F6]/5 px-3 py-2">
+            <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
               <div className="mb-1 flex items-center justify-between">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-[#3B82F6]">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-primary">
                   Traduccion (referencia)
                 </span>
                 <button
                   type="button"
                   onClick={() => setShowTranslation(false)}
                   aria-label="Ocultar traduccion"
-                  className="text-foreground-muted hover:text-foreground"
+                  className="text-muted-foreground hover:text-foreground"
                 >
                   <ChevronUp className="h-3 w-3" />
                 </button>
               </div>
               {translating ? (
-                <p className="text-xs text-foreground-muted">Traduciendo...</p>
+                <p className="text-xs text-muted-foreground">Traduciendo...</p>
               ) : (
-                <p className="text-xs leading-relaxed text-foreground-secondary">
+                <p className="text-xs leading-relaxed text-muted-foreground">
                   {translation}
                 </p>
               )}

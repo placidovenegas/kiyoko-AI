@@ -10,14 +10,14 @@ export async function generateMarkdownExport(projectId: string): Promise<string>
     supabase.from('backgrounds').select('*').eq('project_id', projectId).order('sort_order'),
   ]);
 
-  const p = project.data;
+  const p = project.data as Record<string, unknown> | null;
   if (!p) throw new Error('Project not found');
 
   let md = `# ${p.title}\n\n`;
   md += `**Cliente:** ${p.client_name || 'N/A'}  \n`;
   md += `**Estilo:** ${p.style}  \n`;
-  md += `**Plataforma:** ${p.target_platform}  \n`;
-  md += `**Duración objetivo:** ${p.target_duration_seconds}s  \n\n`;
+  md += `**Plataforma:** ${p.target_platform ?? ''}  \n`;
+  md += `**Duración objetivo:** ${p.target_duration_seconds ?? ''}s  \n\n`;
 
   if (p.description) {
     md += `## Descripción\n\n${p.description}\n\n`;
@@ -48,17 +48,14 @@ export async function generateMarkdownExport(projectId: string): Promise<string>
   if (scenes.data?.length) {
     md += `## Escenas\n\n`;
     for (const s of scenes.data) {
-      md += `### ${s.scene_number} — ${s.title}\n`;
-      md += `**Tipo:** ${s.scene_type} | **Fase:** ${s.arc_phase} | **Duración:** ${s.duration_seconds}s  \n\n`;
+      const sc = s as Record<string, unknown>;
+      md += `### ${sc.scene_number} — ${sc.title}\n`;
+      md += `**Tipo:** ${sc.scene_type} | **Fase:** ${sc.arc_phase} | **Duración:** ${sc.duration_seconds}s  \n\n`;
 
-      if (s.description) md += `${s.description}\n\n`;
+      if (sc.description) md += `${sc.description}\n\n`;
 
-      if (s.prompt_image) {
-        md += `**Prompt de imagen:**\n\`\`\`\n${s.prompt_image}\n\`\`\`\n\n`;
-      }
-
-      if (s.prompt_video) {
-        md += `**Prompt de vídeo:**\n\`\`\`\n${s.prompt_video}\n\`\`\`\n\n`;
+      if (sc.image_prompt) {
+        md += `**Prompt de imagen:**\n\`\`\`\n${sc.image_prompt}\n\`\`\`\n\n`;
       }
 
       md += `---\n\n`;

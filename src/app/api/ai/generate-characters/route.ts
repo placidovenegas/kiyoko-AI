@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateText, Output } from 'ai';
 import { createClient } from '@/lib/supabase/server';
-import { getModelWithFallback, logUsage } from '@/lib/ai/sdk-router';
+import { logUsage } from '@/lib/ai/sdk-router';
+import { getUserModel } from '@/lib/ai/get-user-model';
 import { SYSTEM_CHARACTER_GENERATOR } from '@/lib/ai/prompts/system-character-generator';
 import { charactersArraySchema } from '@/lib/ai/schemas/character-output';
 
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { model, providerId } = getModelWithFallback();
+    const { model, providerId } = await getUserModel(user.id);
     const startTime = Date.now();
 
     const characterList = descriptions
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest) {
     const userPrompt = `Generate detailed character sheets for the following characters in a ${project.style ?? 'Pixar 3D animated'} storyboard:
 
 Project: ${project.title ?? 'Untitled'}
-Brief: ${project.brief ?? 'No brief'}
+Brief: ${(project as Record<string, unknown>).ai_brief ?? 'No brief'}
 
 Characters to create:
 ${characterList}

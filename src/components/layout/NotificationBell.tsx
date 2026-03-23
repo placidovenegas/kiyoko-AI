@@ -94,7 +94,7 @@ export function NotificationBell() {
         type="button"
         onClick={() => setOpen(!open)}
         aria-label={`Notificaciones${unreadCount > 0 ? ` (${unreadCount} sin leer)` : ''}`}
-        className="relative flex h-8 w-8 items-center justify-center rounded-md text-foreground-muted transition-colors hover:bg-surface-secondary hover:text-foreground"
+        className="relative flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
       >
         <Bell className="h-4 w-4" />
         {unreadCount > 0 && (
@@ -110,15 +110,15 @@ export function NotificationBell() {
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
 
           {/* Dropdown */}
-          <div className="absolute right-0 top-full z-50 mt-2 w-80 rounded-xl border border-surface-tertiary bg-surface shadow-2xl">
+          <div className="absolute right-0 top-full z-50 mt-2 w-80 rounded-xl border border-border bg-card shadow-2xl">
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-surface-tertiary px-4 py-3">
+            <div className="flex items-center justify-between border-b border-border px-4 py-3">
               <h3 className="text-sm font-semibold text-foreground">Notificaciones</h3>
               {unreadCount > 0 && (
                 <button
                   type="button"
                   onClick={markAllRead}
-                  className="inline-flex items-center gap-1 text-xs text-foreground-muted transition-colors hover:text-foreground"
+                  className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
                 >
                   <CheckCheck className="h-3 w-3" /> Marcar todas
                 </button>
@@ -129,16 +129,16 @@ export function NotificationBell() {
             <div className="max-h-80 overflow-y-auto">
               {notifications.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8">
-                  <Bell className="mb-2 h-8 w-8 text-foreground-muted/20" />
-                  <p className="text-sm text-foreground-muted">Sin notificaciones</p>
+                  <Bell className="mb-2 h-8 w-8 text-muted-foreground/20" />
+                  <p className="text-sm text-muted-foreground">Sin notificaciones</p>
                 </div>
               ) : (
                 notifications.map((notif) => (
                   <div
                     key={notif.id}
                     className={cn(
-                      'flex items-start gap-3 border-b border-surface-tertiary/50 px-4 py-3 transition-colors hover:bg-surface-secondary',
-                      !notif.read && 'bg-brand-500/5',
+                      'flex items-start gap-3 border-b border-border/50 px-4 py-3 transition-colors hover:bg-card',
+                      !notif.read && 'bg-primary/5',
                     )}
                   >
                     {/* Type indicator */}
@@ -149,20 +149,20 @@ export function NotificationBell() {
                     {/* Content */}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
-                        <p className={cn('text-xs', notif.read ? 'text-foreground-secondary' : 'font-medium text-foreground')}>
+                        <p className={cn('text-xs', notif.read ? 'text-muted-foreground' : 'font-medium text-foreground')}>
                           {notif.title}
                         </p>
-                        <span className="shrink-0 text-[10px] text-foreground-muted">{formatTime(notif.created_at)}</span>
+                        <span className="shrink-0 text-[10px] text-muted-foreground">{formatTime(notif.created_at)}</span>
                       </div>
                       {notif.body && (
-                        <p className="mt-0.5 line-clamp-2 text-[11px] text-foreground-muted">{notif.body}</p>
+                        <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">{notif.body}</p>
                       )}
                       <div className="mt-1 flex items-center gap-2">
                         {notif.link && (
                           <Link
                             href={notif.link}
                             onClick={() => { markAsRead(notif.id); setOpen(false); }}
-                            className="inline-flex items-center gap-0.5 text-[10px] text-brand-500 hover:underline"
+                            className="inline-flex items-center gap-0.5 text-[10px] text-primary hover:underline"
                           >
                             <ExternalLink className="h-2.5 w-2.5" /> Ver
                           </Link>
@@ -171,7 +171,7 @@ export function NotificationBell() {
                           <button
                             type="button"
                             onClick={() => markAsRead(notif.id)}
-                            className="inline-flex items-center gap-0.5 text-[10px] text-foreground-muted hover:text-foreground"
+                            className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-foreground"
                           >
                             <Check className="h-2.5 w-2.5" /> Leida
                           </button>

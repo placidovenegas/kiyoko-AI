@@ -11,10 +11,10 @@ export const storyboardTools = {
   // ---- Scenes ----
 
   updateScene: tool({
-    description: 'Actualiza campos de una escena existente (titulo, descripcion, duracion, prompts, camara, etc.)',
+    description: 'Actualiza campos directos de una escena existente (titulo, descripcion, duracion, etc.). Para prompts usa updatePrompt, para camara usa updateCamera.',
     inputSchema: z.object({
       sceneId: z.string().describe('UUID de la escena a actualizar'),
-      changes: z.record(z.string(), z.unknown()).describe('Campos a actualizar (title, description, duration_seconds, prompt_image, prompt_video, camera_angle, lighting, mood, etc.)'),
+      changes: z.record(z.string(), z.unknown()).describe('Campos a actualizar (title, description, duration_seconds, scene_type, sort_order, etc.)'),
       reason: z.string().describe('Razon del cambio en espanol'),
     }),
   }),
@@ -27,7 +27,7 @@ export const storyboardTools = {
       sceneNumber: z.string().describe('Codigo de la escena (ej: E10, N5)'),
       durationSeconds: z.number().describe('Duracion en segundos'),
       sceneType: z.enum(['original', 'improved', 'new', 'filler', 'video']).describe('Tipo de escena'),
-      insertAfterSceneId: z.string().optional().describe('UUID de la escena tras la cual insertar'),
+      insertAfterSceneId: z.string().nullish().describe('UUID de la escena tras la cual insertar'),
       promptImage: z.string().optional().describe('Prompt para imagen (en ingles)'),
       promptVideo: z.string().optional().describe('Prompt para video (en ingles)'),
     }),
@@ -121,6 +121,38 @@ export const storyboardTools = {
       backgroundId: z.string().describe('UUID del fondo'),
       changes: z.record(z.string(), z.unknown()).describe('Campos a actualizar'),
       reason: z.string().describe('Razon del cambio'),
+    }),
+  }),
+
+  // ---- Camera ----
+
+  updateCamera: tool({
+    description: 'Actualiza o crea la configuracion de camara de una escena (scene_camera)',
+    inputSchema: z.object({
+      sceneId: z.string().describe('UUID de la escena'),
+      camera_angle: z.enum([
+        'wide', 'medium', 'close_up', 'extreme_close_up', 'pov',
+        'low_angle', 'high_angle', 'birds_eye', 'dutch', 'over_shoulder',
+      ]).optional().describe('Angulo de camara'),
+      camera_movement: z.enum([
+        'static', 'dolly_in', 'dolly_out', 'pan_left', 'pan_right',
+        'tilt_up', 'tilt_down', 'tracking', 'crane', 'handheld', 'orbit',
+      ]).optional().describe('Movimiento de camara'),
+      lighting: z.string().optional().describe('Descripcion de la iluminacion'),
+      mood: z.string().optional().describe('Mood/atmosfera de la escena'),
+      camera_notes: z.string().optional().describe('Notas adicionales de camara'),
+    }),
+  }),
+
+  // ---- Scene-background assignment ----
+
+  assignBackground: tool({
+    description: 'Asigna un fondo/localizacion a una escena (scene_backgrounds junction)',
+    inputSchema: z.object({
+      sceneId: z.string().describe('UUID de la escena'),
+      backgroundId: z.string().describe('UUID del fondo a asignar'),
+      angle: z.string().optional().describe('Angulo especifico del fondo en esta escena'),
+      time_of_day: z.enum(['day', 'night', 'sunset', 'dawn']).optional().describe('Hora del dia para esta escena'),
     }),
   }),
 

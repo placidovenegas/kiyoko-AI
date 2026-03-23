@@ -83,26 +83,42 @@ export function ActionPlanCard({
       <div className="divide-y divide-border">
         {(plan.actions ?? []).map((action, i) => {
           const result = results?.find((r) => r.actionId === action.id);
+          // Support both legacy format (target/changes) and new format (table/data)
+          const a = action as unknown as Record<string, unknown>;
+          const target = a.target as Record<string, unknown> | undefined;
+          const changes = a.changes as Array<{ field: string; oldValue: unknown; newValue: unknown }> | undefined;
+          const newData = a.data as Record<string, unknown> | undefined;
+          const table = a.table as string | undefined;
+
           return (
             <div key={action.id || i} className="px-4 py-2.5 flex items-start gap-2.5">
               <div className="mt-0.5 shrink-0">{getActionIcon(action.type)}</div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  {action.target.sceneNumber && (
+                  {target?.sceneNumber != null && (
                     <span className="text-[10px] font-mono font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
-                      {action.target.sceneNumber}
+                      {String(target.sceneNumber)}
                     </span>
                   )}
-                  {action.target.characterName && (
+                  {!!target?.characterName && (
                     <span className="text-[10px] font-medium text-purple-400 bg-purple-400/10 px-1.5 py-0.5 rounded">
-                      {action.target.characterName}
+                      {String(target.characterName)}
+                    </span>
+                  )}
+                  {table && (
+                    <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded font-mono">
+                      {table}
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">{action.description_es}</p>
-                {(action.changes?.length ?? 0) > 0 && (
+                {/* description — legacy format */}
+                {action.description_es && (
+                  <p className="text-xs text-muted-foreground mt-1">{action.description_es}</p>
+                )}
+                {/* changes — legacy format */}
+                {(changes?.length ?? 0) > 0 && (
                   <div className="mt-1.5 space-y-1">
-                    {action.changes.map((change, ci) => (
+                    {changes!.map((change, ci) => (
                       <div key={ci} className="text-[11px] font-mono">
                         <span className="text-muted-foreground">{change.field}: </span>
                         {change.oldValue !== null && (
@@ -117,6 +133,20 @@ export function ActionPlanCard({
                         )}
                       </div>
                     ))}
+                  </div>
+                )}
+                {/* data — new format: show key fields */}
+                {!changes?.length && newData && (
+                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
+                    {Object.entries(newData)
+                      .filter(([, v]) => v !== null && v !== undefined && !(typeof v === 'string' && v.startsWith('__')))
+                      .slice(0, 4)
+                      .map(([k, v]) => (
+                        <span key={k} className="text-[11px] text-muted-foreground">
+                          <span className="opacity-60">{k}:</span>{' '}
+                          <span className="text-foreground/80">{String(v).slice(0, 40)}</span>
+                        </span>
+                      ))}
                   </div>
                 )}
               </div>

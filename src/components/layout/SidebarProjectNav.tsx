@@ -53,7 +53,7 @@ export function SidebarProjectNav({
     <div>
       {!collapsed && projectName && (
         <p
-          className="px-5 mb-2 text-xs font-semibold text-foreground-muted truncate uppercase tracking-wider"
+          className="px-5 mb-2 text-xs font-semibold text-muted-foreground truncate uppercase tracking-wider"
           title={projectName}
         >
           {projectName}
@@ -75,8 +75,8 @@ export function SidebarProjectNav({
                   'flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors',
                   collapsed && 'justify-center',
                   isActive
-                    ? 'bg-brand-500/15 text-brand-600 font-medium'
-                    : 'text-foreground-secondary hover:text-foreground hover:bg-surface-tertiary',
+                    ? 'bg-primary/15 text-primary/90 font-medium'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary',
                 )}
                 title={collapsed ? tab.label : undefined}
               >

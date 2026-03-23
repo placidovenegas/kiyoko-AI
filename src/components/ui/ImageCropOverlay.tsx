@@ -130,7 +130,7 @@ export function ImageCropOverlay({ src, onCrop, onCancel }: ImageCropOverlayProp
           </button>
           <button
             onClick={() => onCrop(`${position.x.toFixed(1)}% ${position.y.toFixed(1)}%`)}
-            className="flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-600"
+            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-primary/90"
           >
             <IconCheck size={16} />
             Confirmar avatar

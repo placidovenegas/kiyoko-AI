@@ -38,13 +38,13 @@ export default function ForgotPasswordPage() {
           <CheckCircle className="h-7 w-7 text-green-500" />
         </div>
         <h1 className="text-xl font-semibold text-foreground">Email enviado</h1>
-        <p className="mt-3 text-sm text-foreground-secondary">
+        <p className="mt-3 text-sm text-muted-foreground">
           Si existe una cuenta con <strong className="text-foreground">{email}</strong>,
           recibirás instrucciones para restablecer tu contraseña.
         </p>
         <Link
           href="/login"
-          className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-brand-500 hover:text-brand-600"
+          className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/90"
         >
           <ArrowLeft className="h-4 w-4" />
           Volver al login
@@ -56,13 +56,13 @@ export default function ForgotPasswordPage() {
   return (
     <AuthCard>
       <div className="mb-8 text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-brand-500/10">
-          <Mail className="h-7 w-7 text-brand-500" />
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+          <Mail className="h-7 w-7 text-primary" />
         </div>
         <h1 className="text-xl font-semibold text-foreground">
           Recuperar contraseña
         </h1>
-        <p className="mt-1 text-sm text-foreground-muted">
+        <p className="mt-1 text-sm text-muted-foreground">
           Te enviaremos un email con instrucciones
         </p>
       </div>
@@ -93,7 +93,7 @@ export default function ForgotPasswordPage() {
       <p className="mt-6 text-center">
         <Link
           href="/login"
-          className="inline-flex items-center gap-2 text-sm font-medium text-foreground-muted hover:text-foreground"
+          className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           Volver al login

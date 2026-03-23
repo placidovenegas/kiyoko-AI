@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import {
   generateSpeechElevenLabs,
   ELEVENLABS_VOICES,
@@ -60,9 +61,11 @@ export async function POST(request: NextRequest) {
       similarityBoost?: number;
       style?: number;
       speed?: number;
+      videoId?: string;
+      projectId?: string;
     };
 
-    const { text, voice, language = 'es' } = body;
+    const { text, voice, language = 'es', videoId, projectId } = body;
 
     if (!text?.trim()) {
       return NextResponse.json({ error: 'Text is required' }, { status: 400 });
@@ -71,8 +74,24 @@ export async function POST(request: NextRequest) {
     // ─── Try ElevenLabs first (primary) ────────────────────────
     const elevenLabsKey = process.env.ELEVENLABS_API_KEY;
     if (elevenLabsKey) {
+      // Check quota before generating
+      try {
+        const usage = await getElevenLabsUsage(elevenLabsKey);
+        if (usage.remainingCharacters < text.length) {
+          return NextResponse.json({
+            error: `Cuota de ElevenLabs insuficiente. Necesitas ${text.length} caracteres pero solo quedan ${usage.remainingCharacters}.`,
+            remainingCharacters: usage.remainingCharacters,
+            requiredCharacters: text.length,
+          }, { status: 429 });
+        }
+      } catch (quotaError) {
+        console.warn('[generate-voice] Could not check ElevenLabs quota:', quotaError);
+        // Continue anyway — the generation call will fail if quota is exceeded
+      }
+
       try {
         const voiceId = voice || (language === 'en' ? DEFAULT_VOICE_EN : DEFAULT_VOICE_ES);
+        const voiceMeta = ELEVENLABS_VOICES.find((v) => v.id === voiceId);
         const audioBuffer = await generateSpeechElevenLabs(elevenLabsKey, {
           text,
           voiceId,
@@ -80,6 +99,54 @@ export async function POST(request: NextRequest) {
           similarityBoost: body.similarityBoost,
           style: body.style,
         });
+
+        // Save audio to Storage + update video_narrations if videoId is provided
+        if (videoId && projectId) {
+          try {
+            const admin = createAdminClient();
+            const db = admin ?? supabase;
+
+            const timestamp = Date.now();
+            const storagePath = `projects/${projectId}/narration/${videoId}/${timestamp}.mp3`;
+
+            const { error: uploadError } = await db.storage
+              .from('kiyoko-storage')
+              .upload(storagePath, audioBuffer, {
+                contentType: 'audio/mpeg',
+                upsert: false,
+              });
+
+            if (uploadError) {
+              console.error('[generate-voice] Storage upload error:', uploadError);
+            } else {
+              const { data: urlData } = db.storage
+                .from('kiyoko-storage')
+                .getPublicUrl(storagePath);
+
+              const publicUrl = urlData.publicUrl;
+
+              // Estimate audio duration: ~150 words/min, ~5 chars/word => ~750 chars/min
+              const estimatedDurationMs = Math.round((text.length / 750) * 60 * 1000);
+
+              // Update the current video_narrations record with audio info
+              await db
+                .from('video_narrations')
+                .update({
+                  audio_url: publicUrl,
+                  audio_path: storagePath,
+                  audio_duration_ms: estimatedDurationMs,
+                  status: 'generated',
+                  voice_id: voiceId,
+                  voice_name: voiceMeta?.name ?? voiceId,
+                  provider: 'elevenlabs',
+                })
+                .eq('video_id', videoId)
+                .eq('is_current', true);
+            }
+          } catch (saveError) {
+            console.error('[generate-voice] Error saving audio to storage/DB:', saveError);
+          }
+        }
 
         return new NextResponse(new Uint8Array(audioBuffer), {
           headers: {
@@ -120,7 +187,51 @@ export async function POST(request: NextRequest) {
 
         if (response.ok) {
           const data = await response.json();
-          return new NextResponse(Buffer.from(data.audioContent, 'base64'), {
+          const audioBuffer = Buffer.from(data.audioContent, 'base64');
+
+          // Save Google TTS audio to Storage + DB if videoId provided
+          if (videoId && projectId) {
+            try {
+              const admin = createAdminClient();
+              const db = admin ?? supabase;
+
+              const timestamp = Date.now();
+              const storagePath = `projects/${projectId}/narration/${videoId}/${timestamp}.mp3`;
+
+              const { error: uploadError } = await db.storage
+                .from('kiyoko-storage')
+                .upload(storagePath, audioBuffer, {
+                  contentType: 'audio/mpeg',
+                  upsert: false,
+                });
+
+              if (!uploadError) {
+                const { data: urlData } = db.storage
+                  .from('kiyoko-storage')
+                  .getPublicUrl(storagePath);
+
+                const estimatedDurationMs = Math.round((text.length / 750) * 60 * 1000);
+
+                await db
+                  .from('video_narrations')
+                  .update({
+                    audio_url: urlData.publicUrl,
+                    audio_path: storagePath,
+                    audio_duration_ms: estimatedDurationMs,
+                    status: 'generated',
+                    voice_id: googleVoiceName,
+                    voice_name: googleVoiceName,
+                    provider: 'google',
+                  })
+                  .eq('video_id', videoId)
+                  .eq('is_current', true);
+              }
+            } catch (saveError) {
+              console.error('[generate-voice] Error saving Google TTS audio:', saveError);
+            }
+          }
+
+          return new NextResponse(audioBuffer, {
             headers: {
               'Content-Type': 'audio/mpeg',
               'Content-Disposition': 'inline; filename="narration.mp3"',

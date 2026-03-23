@@ -12,9 +12,9 @@ import {
   IconAlertTriangle,
   IconSparkles,
 } from '@tabler/icons-react';
-import type { Scene } from '@/types/scene';
-import type { Character } from '@/types/character';
-import type { Background } from '@/types/background';
+import type { Scene } from '@/types';
+import type { Character } from '@/types';
+import type { Background } from '@/types';
 
 interface SceneSelectionBarProps {
   selectedIds: string[];
@@ -58,7 +58,7 @@ export function SceneSelectionBar({
       // Reorder remaining scenes
       const remaining = scenes
         .filter(s => !selectedIds.includes(s.id))
-        .sort((a, b) => a.sort_order - b.sort_order);
+        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
 
       for (let i = 0; i < remaining.length; i++) {
         if (remaining[i].sort_order !== i) {
@@ -70,7 +70,7 @@ export function SceneSelectionBar({
       }
 
       // Recalc project stats
-      await supabase.rpc('recalc_project_stats', { p_id: projectId });
+      await (supabase.rpc as unknown as (fn: string, params: Record<string, string>) => Promise<unknown>)('recalc_project_stats', { p_id: projectId });
 
       toast.success(`${selectedIds.length} escena(s) eliminada(s)`);
       onClearSelection();
@@ -91,12 +91,12 @@ export function SceneSelectionBar({
     setAction('replacing');
     try {
       // Get context: scenes before and after the selection
-      const sortedSelected = selectedScenes.sort((a, b) => a.sort_order - b.sort_order);
-      const firstOrder = sortedSelected[0].sort_order;
-      const lastOrder = sortedSelected[sortedSelected.length - 1].sort_order;
+      const sortedSelected = selectedScenes.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+      const firstOrder = sortedSelected[0].sort_order ?? 0;
+      const lastOrder = sortedSelected[sortedSelected.length - 1].sort_order ?? 0;
 
-      const prevScene = scenes.find(s => s.sort_order === firstOrder - 1);
-      const nextScene = scenes.find(s => s.sort_order === lastOrder + 1);
+      const prevScene = scenes.find(s => (s.sort_order ?? 0) === firstOrder - 1);
+      const nextScene = scenes.find(s => (s.sort_order ?? 0) === lastOrder + 1);
 
       const context = {
         instruction: replaceInstruction,
@@ -173,16 +173,12 @@ Genera escenas de reemplazo que encajen con la narrativa. Responde en JSON con e
           category: ns.category || '',
           arc_phase: ns.arc_phase || sortedSelected[0]?.arc_phase || 'build',
           description: ns.description || '',
-          prompt_image: ns.prompt_image || '',
-          prompt_video: ns.prompt_video || '',
           duration_seconds: ns.duration_seconds || 5,
-          camera_angle: ns.camera_angle || 'medium',
-          camera_movement: ns.camera_movement || 'static',
           lighting: ns.lighting || '',
           mood: ns.mood || '',
-          status: ns.prompt_image ? 'prompt_ready' : 'draft',
+          status: 'draft',
           sort_order: firstOrder + i,
-        });
+        } as never);
       }
 
       // Reorder all scenes after the insertion point
@@ -200,7 +196,7 @@ Genera escenas de reemplazo que encajen con la narrativa. Responde en JSON con e
         }
       }
 
-      await supabase.rpc('recalc_project_stats', { p_id: projectId });
+      await (supabase.rpc as unknown as (fn: string, params: Record<string, string>) => Promise<unknown>)('recalc_project_stats', { p_id: projectId });
 
       toast.success(`${selectedIds.length} escena(s) sustituida(s) por ${newScenes.length} nueva(s)`);
       onClearSelection();
@@ -218,13 +214,13 @@ Genera escenas de reemplazo que encajen con la narrativa. Responde en JSON con e
 
   return (
     <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
-      <div className="flex items-center gap-3 rounded-2xl border border-surface-tertiary bg-surface px-5 py-3 shadow-dialog">
+      <div className="flex items-center gap-3 rounded-2xl border border-border bg-card px-5 py-3 shadow-dialog">
         {/* Count */}
         <span className="text-sm font-medium text-foreground">
           {selectedIds.length} escena{selectedIds.length > 1 ? 's' : ''} seleccionada{selectedIds.length > 1 ? 's' : ''}
         </span>
 
-        <div className="h-5 w-px bg-surface-tertiary" />
+        <div className="h-5 w-px bg-secondary" />
 
         {/* Actions */}
         {action === 'confirming-delete' ? (
@@ -239,7 +235,7 @@ Genera escenas de reemplazo que encajen con la narrativa. Responde en JSON con e
             </button>
             <button
               onClick={() => setAction('idle')}
-              className="rounded-lg border border-surface-tertiary px-3 py-1.5 text-xs font-medium text-foreground-secondary hover:bg-surface-secondary"
+              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-card"
             >
               Cancelar
             </button>
@@ -252,13 +248,13 @@ Genera escenas de reemplazo que encajen con la narrativa. Responde en JSON con e
               onChange={(e) => setReplaceInstruction(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleReplace()}
               placeholder="¿Qué quieres en su lugar? Ej: escenas de José asesorando clientes"
-              className="w-80 rounded-lg border border-surface-tertiary bg-surface-secondary px-3 py-1.5 text-sm text-foreground outline-none focus:border-brand-500"
+              className="w-80 rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary"
               autoFocus
             />
             <button
               onClick={handleReplace}
               disabled={action === 'replacing' || !replaceInstruction.trim()}
-              className="flex items-center gap-1 rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-600 disabled:opacity-50"
+              className="flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary/90 disabled:opacity-50"
             >
               {action === 'replacing' ? (
                 <IconLoader2 size={14} className="animate-spin" />
@@ -269,7 +265,7 @@ Genera escenas de reemplazo que encajen con la narrativa. Responde en JSON con e
             </button>
             <button
               onClick={() => { setShowReplaceInput(false); setReplaceInstruction(''); }}
-              className="rounded-lg border border-surface-tertiary px-3 py-1.5 text-xs text-foreground-muted hover:bg-surface-secondary"
+              className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-card"
             >
               Cancelar
             </button>
@@ -277,14 +273,14 @@ Genera escenas de reemplazo que encajen con la narrativa. Responde en JSON con e
         ) : (
           <>
             {action === 'deleting' ? (
-              <IconLoader2 size={16} className="animate-spin text-foreground-muted" />
+              <IconLoader2 size={16} className="animate-spin text-muted-foreground" />
             ) : (
               <>
                 <button
                   onClick={() => setShowReplaceInput(true)}
                   className={cn(
                     'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition',
-                    'bg-brand-500 text-white hover:bg-brand-600'
+                    'bg-primary text-white hover:bg-primary/90'
                   )}
                 >
                   <IconReplace size={14} />
@@ -302,12 +298,12 @@ Genera escenas de reemplazo que encajen con la narrativa. Responde en JSON con e
           </>
         )}
 
-        <div className="h-5 w-px bg-surface-tertiary" />
+        <div className="h-5 w-px bg-secondary" />
 
         {/* Clear */}
         <button
           onClick={onClearSelection}
-          className="flex h-7 w-7 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-secondary hover:text-foreground"
+          className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-card hover:text-foreground"
         >
           <IconX size={14} />
         </button>

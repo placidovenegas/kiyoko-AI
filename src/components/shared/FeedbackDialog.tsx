@@ -65,7 +65,7 @@ export function FeedbackDialog({ open, onClose }: FeedbackDialogProps) {
 
       {/* Dialog */}
       <div className={cn(
-        'relative z-10 w-80 rounded-xl border border-foreground/10 bg-surface-secondary shadow-2xl',
+        'relative z-10 w-80 rounded-xl border border-foreground/10 bg-card shadow-2xl',
         'animate-in fade-in slide-in-from-top-2 duration-200',
       )}>
         {/* Header */}
@@ -113,7 +113,7 @@ export function FeedbackDialog({ open, onClose }: FeedbackDialogProps) {
               placeholder={type === 'issue' ? 'Describe el problema...' : 'Mi idea para mejorar Kiyoko es...'}
               rows={4}
               autoFocus
-              className="w-full rounded-lg border border-foreground/10 bg-surface px-3 py-2 text-sm text-foreground placeholder:text-foreground/30 resize-none focus:outline-none focus:border-brand-500"
+              className="w-full rounded-lg border border-foreground/10 bg-card px-3 py-2 text-sm text-foreground placeholder:text-foreground/30 resize-none focus:outline-none focus:border-primary"
             />
             <div className="flex items-center justify-between">
               <button
@@ -127,7 +127,7 @@ export function FeedbackDialog({ open, onClose }: FeedbackDialogProps) {
                 type="button"
                 onClick={handleSend}
                 disabled={!message.trim() || sending}
-                className="flex items-center gap-1.5 rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-brand-600 disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-white transition hover:bg-primary/90 disabled:opacity-50"
               >
                 <Send size={12} />
                 {sending ? 'Enviando...' : 'Enviar'}

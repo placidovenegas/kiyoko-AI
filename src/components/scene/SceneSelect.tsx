@@ -39,7 +39,7 @@ export function SceneSelect({
 }: SceneSelectProps) {
   return (
     <div className={cn('flex flex-col gap-1', className)}>
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground-muted">
+      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
         {label}
       </span>
       <Select value={value} onValueChange={onChange} disabled={disabled}>
@@ -56,7 +56,7 @@ export function SceneSelect({
                 <div className="flex flex-col">
                   <span>{opt.label}</span>
                   {opt.description && (
-                    <span className="text-[10px] text-foreground-muted">{opt.description}</span>
+                    <span className="text-[10px] text-muted-foreground">{opt.description}</span>
                   )}
                 </div>
               </SelectItem>

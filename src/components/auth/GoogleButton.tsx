@@ -31,7 +31,7 @@ export function GoogleButton({ onClick, loading, label = 'Continuar con Google' 
         // Mobile/dark auth
         'border-white/10 bg-white/5 text-white hover:bg-white/10',
         // Desktop
-        'lg:border-surface-tertiary lg:bg-surface lg:text-foreground lg:hover:bg-surface-secondary',
+        'lg:border-border lg:bg-card lg:text-foreground lg:hover:bg-card',
         'disabled:opacity-50',
       )}
     >

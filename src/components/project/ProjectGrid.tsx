@@ -8,12 +8,12 @@ import { KButton } from '@/components/ui/kiyoko-button';
 export function ProjectGrid({ projects }: { projects: Project[] }) {
   if (projects.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center gap-6 rounded-2xl border-2 border-dashed border-surface-tertiary py-20 text-center">
+      <div className="flex flex-col items-center justify-center gap-6 rounded-2xl border-2 border-dashed border-border py-20 text-center">
         <div className="relative">
-          <div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-brand-500/10">
-            <Film className="h-10 w-10 text-brand-500" />
+          <div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-primary/10">
+            <Film className="h-10 w-10 text-primary" />
           </div>
-          <div className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-brand-500 shadow-lg">
+          <div className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-primary shadow-lg">
             <Sparkles className="h-4 w-4 text-white" />
           </div>
         </div>
@@ -22,7 +22,7 @@ export function ProjectGrid({ projects }: { projects: Project[] }) {
           <h3 className="text-xl font-bold text-foreground">
             Crea tu primer proyecto
           </h3>
-          <p className="max-w-md text-sm leading-relaxed text-foreground-muted">
+          <p className="max-w-md text-sm leading-relaxed text-muted-foreground">
             Empieza a diseñar tu storyboard con ayuda de IA. Describe tu idea y
             Kiyoko se encargará de generar escenas, personajes y fondos.
           </p>

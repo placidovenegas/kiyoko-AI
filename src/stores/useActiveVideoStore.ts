@@ -2,21 +2,21 @@ import { create } from 'zustand';
 
 export interface ActiveVideo {
   id: string;
+  short_id: string;
   name: string;
   platform: string | null;
   target_duration_seconds: number | null;
   aspect_ratio: string | null;
+  status: string | null;
 }
 
 interface ActiveVideoState {
   activeVideo: ActiveVideo | null;
   videos: ActiveVideo[];
-  /** Incrementing key — subscribe in useEffect to re-fetch videos */
   refreshKey: number;
   setActiveVideo: (video: ActiveVideo | null) => void;
   setVideos: (videos: ActiveVideo[]) => void;
   clearActiveVideo: () => void;
-  /** Call after creating/deleting/duplicating a video to refresh the header selector */
   triggerRefresh: () => void;
 }
 

@@ -21,7 +21,7 @@ export function useAuth() {
             .select('*')
             .eq('id', authUser.id)
             .single();
-          setUser(profile);
+          setUser(profile as unknown as Profile);
         }
       } catch {
         // Not authenticated
@@ -40,7 +40,7 @@ export function useAuth() {
             .select('*')
             .eq('id', session.user.id)
             .single();
-          setUser(profile);
+          setUser(profile as unknown as Profile);
         } else {
           setUser(null);
         }

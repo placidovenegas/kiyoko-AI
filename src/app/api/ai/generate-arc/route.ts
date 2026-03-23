@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generateText, Output } from 'ai';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
-import { getModelWithFallback, logUsage } from '@/lib/ai/sdk-router';
+import { logUsage } from '@/lib/ai/sdk-router';
+import { getUserModel } from '@/lib/ai/get-user-model';
 import { SYSTEM_PROJECT_GENERATOR } from '@/lib/ai/prompts/system-project-generator';
 
 interface GenerateArcBody {
@@ -67,15 +68,15 @@ export async function POST(request: NextRequest) {
       .eq('project_id', projectId)
       .order('order', { ascending: true });
 
-    const { model, providerId } = getModelWithFallback();
+    const { model, providerId } = await getUserModel(user.id);
     const startTime = Date.now();
 
     const userPrompt = `Generate a narrative arc for this storyboard project:
 
 Project: ${project.title ?? 'Untitled'}
-Brief: ${project.brief ?? 'No brief'}
-Duration: ${project.duration ?? 60} seconds
-Platform: ${project.platform ?? 'general'}
+Brief: ${(project as Record<string, unknown>).ai_brief ?? 'No brief'}
+Duration: ${(project as Record<string, unknown>).duration ?? 60} seconds
+Platform: ${(project as Record<string, unknown>).platform ?? 'general'}
 
 Scenes:
 ${(scenes ?? []).map((s: Record<string, unknown>, i: number) => `${i + 1}. ${s.title}: ${s.description}`).join('\n')}

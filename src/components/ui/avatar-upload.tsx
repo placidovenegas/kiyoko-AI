@@ -90,7 +90,7 @@ export function AvatarUpload({
         aria-label="Cambiar imagen"
         className={cn(
           'relative flex items-center justify-center rounded-full font-bold text-white transition',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
           'disabled:cursor-not-allowed disabled:opacity-50',
           sizeClasses[size],
         )}

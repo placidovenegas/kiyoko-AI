@@ -22,7 +22,8 @@ import { createClient } from '@/lib/supabase/client';
 
 interface ProjectItem {
   id: string;
-  name: string;
+  title: string;
+  short_id: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -76,12 +77,12 @@ export function CommandMenu() {
 
       const { data } = await supabase
         .from('projects')
-        .select('id, name')
-        .eq('user_id', user.id)
+        .select('id, title, short_id')
+        .eq('owner_id', user.id)
         .order('updated_at', { ascending: false })
         .limit(10);
 
-      if (data) setProjects(data as ProjectItem[]);
+      if (data) setProjects(data);
     }
 
     fetchProjects();
@@ -110,7 +111,7 @@ export function CommandMenu() {
       <div className="absolute top-[20%] left-1/2 -translate-x-1/2 w-full max-w-lg px-4">
         <Command
           className={cn(
-            'bg-surface border border-border/50 rounded-xl shadow-2xl overflow-hidden',
+            'bg-card border border-border/50 rounded-xl shadow-2xl overflow-hidden',
           )}
           loop
         >
@@ -147,8 +148,8 @@ export function CommandMenu() {
                 {projects.map((project) => (
                   <Command.Item
                     key={project.id}
-                    value={`project ${project.name}`}
-                    onSelect={() => handleSelect(`/project/${project.id}`)}
+                    value={`project ${project.title}`}
+                    onSelect={() => handleSelect(`/project/${project.short_id}`)}
                     className={cn(
                       'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm cursor-pointer',
                       'text-foreground/60 hover:text-foreground',
@@ -157,7 +158,7 @@ export function CommandMenu() {
                     )}
                   >
                     <FileText size={16} className="shrink-0" />
-                    <span className="flex-1 truncate">{project.name}</span>
+                    <span className="flex-1 truncate">{project.title}</span>
                     <ArrowRight size={12} className="shrink-0 opacity-0 group-aria-selected:opacity-100" />
                   </Command.Item>
                 ))}

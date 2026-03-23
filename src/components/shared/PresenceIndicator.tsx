@@ -36,7 +36,7 @@ export function PresenceIndicator({ users, maxVisible = 4 }: PresenceIndicatorPr
           title={user.name}
           className={cn(
             'relative size-6 rounded-full border-2 border-surface flex items-center justify-center',
-            'bg-brand-500/20 text-brand-500',
+            'bg-primary/20 text-primary',
           )}
         >
           {user.avatar_url ? (

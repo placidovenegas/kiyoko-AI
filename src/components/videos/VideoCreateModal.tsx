@@ -71,17 +71,17 @@ export function VideoCreateModal({ open, onClose, projectId, onCreated }: VideoC
       const videoName = mode === 'ai' ? aiBrief.split(/[.,!?\n]/)[0].trim().slice(0, 80) || 'Video IA' : title.trim();
       const slug = videoName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + Math.random().toString(36).slice(2, 8);
 
-      const { error } = await supabase.from('video_cuts').insert({
+      const { error } = await supabase.from('videos').insert({
         project_id: projectId,
-        name: videoName,
+        title: videoName,
+        short_id: slug,
         slug,
         platform,
         target_duration_seconds: duration,
         aspect_ratio: aspectRatio,
-        is_primary: false,
         sort_order: Math.floor(Date.now() / 1000) % 100000,
         status: 'draft',
-      });
+      } as never);
 
       if (error) throw error;
       toast.success(`Video "${videoName}" creado`);
@@ -102,36 +102,36 @@ export function VideoCreateModal({ open, onClose, projectId, onCreated }: VideoC
   const selectedPlatform = PLATFORMS.find((p) => p.value === platform);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
       <div
-        className="mx-4 w-full max-w-lg rounded-2xl border border-surface-tertiary bg-surface shadow-2xl"
+        className="mx-4 w-full max-w-lg rounded-2xl border border-border bg-card shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-surface-tertiary px-6 py-4">
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500/10">
-              <Video className="h-5 w-5 text-brand-500" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+              <Video className="h-5 w-5 text-primary" />
             </div>
             <div>
               <h3 className="text-base font-bold text-foreground">Nuevo Video</h3>
-              <p className="text-xs text-foreground-muted">Añade un video al proyecto</p>
+              <p className="text-xs text-muted-foreground">Añade un video al proyecto</p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-foreground-muted transition hover:bg-surface-secondary hover:text-foreground">
+          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-card hover:text-foreground">
             <X className="h-5 w-5" />
           </button>
         </div>
 
         <div className="space-y-5 p-6">
           {/* Mode toggle */}
-          <div className="flex rounded-lg border border-surface-tertiary p-1">
+          <div className="flex rounded-lg border border-border p-1">
             <button
               type="button"
               onClick={() => setMode('manual')}
               className={cn(
                 'flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition',
-                mode === 'manual' ? 'bg-brand-500 text-white shadow-sm' : 'text-foreground-muted hover:text-foreground',
+                mode === 'manual' ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground hover:text-foreground',
               )}
             >
               <Plus className="h-4 w-4" />
@@ -142,7 +142,7 @@ export function VideoCreateModal({ open, onClose, projectId, onCreated }: VideoC
               onClick={() => setMode('ai')}
               className={cn(
                 'flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition',
-                mode === 'ai' ? 'bg-accent text-white shadow-sm' : 'text-foreground-muted hover:text-foreground',
+                mode === 'ai' ? 'bg-accent text-white shadow-sm' : 'text-muted-foreground hover:text-foreground',
               )}
             >
               <Sparkles className="h-4 w-4" />
@@ -153,33 +153,33 @@ export function VideoCreateModal({ open, onClose, projectId, onCreated }: VideoC
           {/* AI Brief or Manual Title */}
           {mode === 'ai' ? (
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-foreground-secondary">Describe el video</label>
+              <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Describe el video</label>
               <textarea
                 value={aiBrief}
                 onChange={(e) => setAiBrief(e.target.value)}
                 placeholder="Ej: Un reel de 30s mostrando la nueva colección de zapatos, estilo dinámico con transiciones rápidas..."
                 rows={3}
                 autoFocus
-                className="w-full resize-none rounded-lg border border-surface-tertiary bg-surface-secondary px-3 py-2.5 text-sm text-foreground placeholder:text-foreground-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                className="w-full resize-none rounded-lg border border-border bg-card px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
               />
             </div>
           ) : (
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-foreground-secondary">Título del video</label>
+              <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Título del video</label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Ej: Spot YouTube semana 12..."
                 autoFocus
-                className="w-full rounded-lg border border-surface-tertiary bg-surface-secondary px-3 py-2.5 text-sm text-foreground placeholder:text-foreground-muted focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                className="w-full rounded-lg border border-border bg-card px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </div>
           )}
 
           {/* Platform */}
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-foreground-secondary">Plataforma</label>
+            <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Plataforma</label>
             <div className="grid grid-cols-5 gap-2">
               {PLATFORMS.map((p) => {
                 const isSelected = platform === p.value;
@@ -192,8 +192,8 @@ export function VideoCreateModal({ open, onClose, projectId, onCreated }: VideoC
                     className={cn(
                       'flex flex-col items-center gap-1.5 rounded-xl border-2 px-2 py-3 text-xs font-medium transition',
                       isSelected
-                        ? 'border-brand-500 bg-brand-500/10 text-brand-500'
-                        : 'border-surface-tertiary text-foreground-muted hover:border-foreground-muted/30 hover:text-foreground-secondary',
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border text-muted-foreground hover:border-muted-foreground/30 hover:text-muted-foreground',
                     )}
                   >
                     <PlatformIcon className={cn('h-5 w-5', isSelected ? p.color : '')} />
@@ -207,7 +207,7 @@ export function VideoCreateModal({ open, onClose, projectId, onCreated }: VideoC
           {/* Duration + Aspect Ratio */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-foreground-secondary">Duración</label>
+              <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Duración</label>
               <div className="relative">
                 <input
                   type="number"
@@ -215,13 +215,13 @@ export function VideoCreateModal({ open, onClose, projectId, onCreated }: VideoC
                   max={600}
                   value={duration}
                   onChange={(e) => setDuration(Number(e.target.value))}
-                  className="w-full rounded-lg border border-surface-tertiary bg-surface-secondary px-3 py-2.5 pr-10 text-sm text-foreground focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                  className="w-full rounded-lg border border-border bg-card px-3 py-2.5 pr-10 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                 />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-foreground-muted">seg</span>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">seg</span>
               </div>
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-foreground-secondary">Aspect Ratio</label>
+              <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Aspect Ratio</label>
               <KSelect
                 size="lg"
                 value={aspectRatio}
@@ -237,14 +237,14 @@ export function VideoCreateModal({ open, onClose, projectId, onCreated }: VideoC
           </div>
 
           {/* Preview */}
-          <div className="flex items-center gap-3 rounded-lg bg-surface-secondary px-4 py-3">
+          <div className="flex items-center gap-3 rounded-lg bg-card px-4 py-3">
             <div className={cn(
-              'flex items-center justify-center rounded-md border border-surface-tertiary bg-surface text-[10px] font-bold text-foreground-muted',
+              'flex items-center justify-center rounded-md border border-border bg-card text-[10px] font-bold text-muted-foreground',
               aspectRatio === '9:16' ? 'h-10 w-6' : aspectRatio === '1:1' ? 'h-8 w-8' : aspectRatio === '4:5' ? 'h-10 w-8' : 'h-6 w-10',
             )}>
               {aspectRatio}
             </div>
-            <div className="text-xs text-foreground-muted">
+            <div className="text-xs text-muted-foreground">
               <span className="font-medium text-foreground">{selectedPlatform?.label}</span>
               {' · '}{duration}s{' · '}{aspectRatio}
             </div>
@@ -252,7 +252,7 @@ export function VideoCreateModal({ open, onClose, projectId, onCreated }: VideoC
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 border-t border-surface-tertiary px-6 py-4">
+        <div className="flex items-center justify-end gap-3 border-t border-border px-6 py-4">
           <KButton variant="ghost" size="md" onClick={onClose}>
             Cancelar
           </KButton>
@@ -263,7 +263,7 @@ export function VideoCreateModal({ open, onClose, projectId, onCreated }: VideoC
             disabled={creating || (mode === 'manual' ? !title.trim() : !aiBrief.trim())}
             loading={creating}
             icon={mode === 'ai' ? <Sparkles className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-            className="shadow-lg shadow-brand-500/20"
+            className="shadow-lg shadow-primary/20"
           >
             {creating ? 'Creando...' : mode === 'ai' ? 'Generar video' : 'Crear video'}
           </KButton>

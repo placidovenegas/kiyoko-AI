@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateText, Output } from 'ai';
 import { createClient } from '@/lib/supabase/server';
-import { getModelWithFallback } from '@/lib/ai/sdk-router';
+import { getUserModel } from '@/lib/ai/get-user-model';
 import { SYSTEM_SCENE_GENERATOR } from '@/lib/ai/prompts/system-scene-generator';
 import { sceneOutputSchema } from '@/lib/ai/schemas/scene-output';
 
@@ -89,15 +89,15 @@ export async function POST(request: NextRequest) {
         ).join('\n')
       : 'No backgrounds defined yet.';
 
-    const { model, providerId } = getModelWithFallback();
+    const { model, providerId } = await getUserModel(user.id);
 
     const userPrompt = `Generate a new scene for this storyboard project based on the user's instruction.
 
 === PROJECT ===
 Title: ${project.title ?? 'Untitled'}
-Brief: ${project.brief ?? 'No brief'}
+Brief: ${(project as Record<string, unknown>).ai_brief ?? 'No brief'}
 Style: ${project.style ?? 'Pixar 3D animated'}
-Platform: ${project.platform ?? 'Not specified'}
+Platform: ${(project as Record<string, unknown>).platform ?? 'Not specified'}
 
 === EXISTING SCENES (${scenes.length}) ===
 ${existingScenesInfo}

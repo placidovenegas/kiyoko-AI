@@ -65,7 +65,7 @@ export function SidebarNav({ collapsed = false, isAdmin = false }: SidebarNavPro
       {sections.map((section, sIdx) => (
         <div key={sIdx}>
           {section.title && !collapsed && (
-            <p className="px-5 mb-1 text-[11px] font-semibold tracking-wider text-foreground-muted uppercase">
+            <p className="px-5 mb-1 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
               {section.title}
             </p>
           )}
@@ -84,8 +84,8 @@ export function SidebarNav({ collapsed = false, isAdmin = false }: SidebarNavPro
                       'flex items-center gap-3 px-2 py-2 rounded-md text-sm font-medium transition-colors',
                       collapsed && 'justify-center',
                       isActive
-                        ? 'bg-brand-500/15 text-brand-600 dark:text-brand-400'
-                        : 'text-foreground-secondary hover:text-foreground hover:bg-surface-tertiary',
+                        ? 'bg-primary/15 text-primary/90 dark:text-brand-400'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-secondary',
                     )}
                     title={collapsed ? item.label : undefined}
                   >

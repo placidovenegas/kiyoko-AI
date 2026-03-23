@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
 <body>
   <h1>${project.title ?? 'Storyboard'}</h1>
   <p class="meta">Created with Kiyoko AI | ${new Date().toLocaleDateString()}</p>
-  <p>${project.brief ?? ''}</p>
+  <p>${(project as Record<string, unknown>).ai_brief ?? ''}</p>
 
   ${characters?.length ? `
   <h2>Characters</h2>

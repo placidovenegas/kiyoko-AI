@@ -60,7 +60,7 @@ export function UserMenu() {
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
           'flex items-center gap-2 px-2 py-1.5 rounded-md',
-          'hover:bg-surface-tertiary transition-colors',
+          'hover:bg-secondary transition-colors',
         )}
         aria-label="Menú de usuario"
       >
@@ -72,7 +72,7 @@ export function UserMenu() {
             className="size-8 rounded-full object-cover"
           />
         ) : (
-          <div className="flex items-center justify-center size-8 rounded-full bg-brand-500 text-white text-xs font-bold">
+          <div className="flex items-center justify-center size-8 rounded-full bg-primary text-white text-xs font-bold">
             {user.initials}
           </div>
         )}
@@ -86,14 +86,14 @@ export function UserMenu() {
         <div
           className={cn(
             'absolute right-0 top-full mt-1 z-50 w-56',
-            'bg-surface border border-foreground/10 rounded-lg shadow-card-hover',
+            'bg-card border border-foreground/10 rounded-lg shadow-card-hover',
             'py-1',
           )}
         >
           {/* User info header */}
           <div className="px-3 py-2 border-b border-foreground/10">
             <p className="text-sm font-medium text-foreground truncate">{user.name}</p>
-            <p className="text-xs text-foreground-muted truncate">{user.email}</p>
+            <p className="text-xs text-muted-foreground truncate">{user.email}</p>
           </div>
 
           {/* Actions */}
@@ -103,7 +103,7 @@ export function UserMenu() {
                 'flex items-center gap-2.5 w-full px-3 py-2 text-sm transition-colors text-left',
                 action.danger
                   ? 'text-red-500 hover:bg-red-500/10'
-                  : 'text-foreground-secondary hover:text-foreground hover:bg-surface-tertiary',
+                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary',
               );
 
               if (action.href) {
