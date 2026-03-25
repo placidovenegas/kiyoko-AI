@@ -1,7 +1,6 @@
 ---
 name: create-page
 description: Cuando necesites crear una nueva página (ruta) en la app Next.js. Incluye page.tsx, loading.tsx, error.tsx y opcionalmente layout.tsx.
-allowed-tools: Read, Write
 ---
 
 # Skill: Create Page

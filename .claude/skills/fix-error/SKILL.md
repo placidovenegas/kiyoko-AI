@@ -1,7 +1,6 @@
 ---
 name: fix-error
 description: Cuando hay un error de build, runtime, TypeScript, o Supabase que necesita diagnóstico y fix.
-allowed-tools: Read, Write, Bash(npm:*), Bash(npx:*), mcp__supabase
 ---
 
 # Skill: Fix Error

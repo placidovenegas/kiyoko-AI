@@ -1,7 +1,6 @@
 ---
 name: create-hook
 description: Cuando necesites crear un custom hook para fetch (useQuery), mutaciones (useMutation) o suscripciones realtime con Supabase.
-allowed-tools: Read, Write
 ---
 
 # Skill: Create Hook

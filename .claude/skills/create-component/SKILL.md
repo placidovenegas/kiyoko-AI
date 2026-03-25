@@ -1,7 +1,6 @@
 ---
 name: create-component
 description: Cuando necesites crear un componente React nuevo. Decide si es Server o Client Component según la interactividad necesaria.
-allowed-tools: Read, Write
 ---
 
 # Skill: Create Component

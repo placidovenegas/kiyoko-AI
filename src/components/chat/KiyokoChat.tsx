@@ -46,7 +46,6 @@ export function KiyokoChat({ mode, onClose }: KiyokoChatProps) {
     }
     return 240;
   });
-  const hasRestoredRef = useRef(false);
 
   const {
     messages,
@@ -174,16 +173,6 @@ export function KiyokoChat({ mode, onClose }: KiyokoChatProps) {
   useEffect(() => {
     loadConversations();
   }, [loadConversations]);
-
-  // ---- Restore last conversation on mount ----
-  useEffect(() => {
-    if (hasRestoredRef.current) return;
-    const lastId = localStorage.getItem(LAST_CONVERSATION_KEY);
-    if (lastId) {
-      hasRestoredRef.current = true;
-      loadConversation(lastId);
-    }
-  }, [loadConversation]);
 
   // ---- Persist active conversationId ----
   useEffect(() => {

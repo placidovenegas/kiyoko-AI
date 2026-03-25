@@ -1,7 +1,6 @@
 ---
 name: supabase-migration
 description: Cuando necesites crear, modificar o borrar tablas, enums, indices, RLS policies o seeds en Supabase. También para ejecutar SQL vía MCP.
-allowed-tools: mcp__supabase, Bash(npx supabase:*), Read, Write
 ---
 
 # Skill: Supabase Migration
