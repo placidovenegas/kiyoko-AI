@@ -45,9 +45,13 @@ interface AIState {
   setCreating: (creating: boolean, label?: string) => void;
 }
 
-const SIDEBAR_WIDTH_MIN = 320;
-const SIDEBAR_WIDTH_MAX = 600;
-const SIDEBAR_WIDTH_DEFAULT = 420;
+// UX: el panel lateral suele necesitar más espacio que antes.
+const SIDEBAR_WIDTH_MIN = 360;
+// Debe permitir que el panel crezca (chat >= 450 + historial hasta ~75vw).
+// Se capea igualmente por viewport desde `KiyokoChat` cuando el historial está abierto,
+// así que este max alto evita que el store corte el crecimiento en pantallas grandes.
+const SIDEBAR_WIDTH_MAX = 5000;
+const SIDEBAR_WIDTH_DEFAULT = 520;
 
 function clampWidth(w: number): number {
   return Math.min(SIDEBAR_WIDTH_MAX, Math.max(SIDEBAR_WIDTH_MIN, w));

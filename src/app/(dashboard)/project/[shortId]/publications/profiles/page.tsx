@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useProject } from '@/contexts/ProjectContext';
 import { queryKeys } from '@/lib/query/keys';
 import { KButton } from '@/components/ui/kiyoko-button';
+import { Button } from '@/components/ui/button';
 import {
   Loader2, Plus, Instagram, Youtube, Twitter, Globe, Users, Hash, Trash2, X,
 } from 'lucide-react';
@@ -111,9 +112,9 @@ export default function SocialProfilesPage() {
         <div className="mb-6 rounded-xl border border-primary/30 bg-card p-5">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-foreground">Nuevo perfil social</h3>
-            <button onClick={() => setShowForm(false)} className="text-muted-foreground hover:text-foreground">
+            <Button variant="ghost" size="xs" isIconOnly className="h-6 w-6" onClick={() => setShowForm(false)}>
               <X className="h-4 w-4" />
-            </button>
+            </Button>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>

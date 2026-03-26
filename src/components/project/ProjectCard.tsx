@@ -31,11 +31,11 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  draft: 'bg-gray-500/20 text-gray-400',
+  draft: 'bg-muted0/20 text-muted-foreground',
   in_progress: 'bg-primary/20 text-primary',
   review: 'bg-purple-500/20 text-purple-400',
   completed: 'bg-green-500/20 text-green-400',
-  archived: 'bg-gray-500/10 text-gray-500',
+  archived: 'bg-muted0/10 text-muted-foreground',
 };
 
 function ConfirmDeleteModal({
@@ -248,7 +248,7 @@ export function ProjectCard({ project }: { project: Project }) {
 
           {/* Footer */}
           <div className="flex items-center justify-between mt-auto">
-            <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium', STATUS_COLORS[project.status] ?? 'bg-gray-500/20 text-gray-400')}>
+            <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium', STATUS_COLORS[project.status] ?? 'bg-muted0/20 text-muted-foreground')}>
               {STATUS_LABELS[project.status] ?? project.status}
             </span>
             <div className="flex items-center gap-1.5">

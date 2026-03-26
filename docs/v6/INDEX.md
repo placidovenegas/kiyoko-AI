@@ -24,6 +24,7 @@ Este índice resume la documentación V6 creada para tu repo y cómo usarla como
 - `IA/05_prompt_quality.md`
 - `IA/06_providers_router.md`
 - `IA/07_endpoints_ai_persistencia.md`
+- `IA/08_asistente_contextual_y_timeline.md`
 
 ### Base de datos (canon real)
 - `DB/01_schema_resumen.md`
@@ -37,6 +38,11 @@ Este índice resume la documentación V6 creada para tu repo y cómo usarla como
 - `UX/02_menus_modales_ajustes.md`
 - `UX/03_streaming_sse_protocol.md`
 - `UX/04_chat_layout_y_dimensiones.md`
+- `UX/05_chat_componentes_y_interaccion.md`
+- `UX/06_chat_referencia_visual_flujos_y_tema.md` — tema, colores, componentes y flujos (mockups / imágenes)
+- `UX/08_prompt_stitch_chat_pagina_a_pagina.md` — prompt Stitch/Figma IA artboard por artboard + interacciones (enviar, crear, cancelar)
+- `UX/09_chat_informe_componentes_y_siguiente_paso.md` — informe: CHOICES, OPTIONS, CREATE, streaming y referencia “siguiente paso”
+- `UX/10_chat_catalogo_componentes_y_especificacion_cliente.md` — catálogo de componentes IA, especificación visual (refs.), Q&A por bloque y flujo post-creación unificado
 
 ### Residuos y limpieza segura
 - `CODE/01_residuos_y_actualizaciones.md`
@@ -50,4 +56,8 @@ Este índice resume la documentación V6 creada para tu repo y cómo usarla como
 
 ### (Opcional) plan de QA
 - `QA/01_plan_pruebas_v6.md`
+
+### MY DOCUMENT (especificaciones V7/V8 y prototipos)
+- `MY DOCUMENT/kiyoko-v8-prompt-implementacion-chat.md` — **prompt maestro** para implementar el chat V8 (estados, BD, prioridades P0–P3)
+- Ver también: `kiyoko-v8-especificacion-completa.md`, `kiyoko-comportamiento-chat.md`, `kiyoko-v7-ux-spec.md`, `kiyoko-chat-prototype.jsx`
 

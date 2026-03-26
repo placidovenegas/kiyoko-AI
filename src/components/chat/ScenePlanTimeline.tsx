@@ -70,10 +70,10 @@ function getPhaseConfig(phase: string): PhaseConfig {
     default:
       return {
         label: phase,
-        circleBg: 'bg-gray-400 dark:bg-zinc-500',
-        badgeBg: 'bg-gray-200 dark:bg-zinc-700/60',
+        circleBg: 'bg-gray-400',
+        badgeBg: 'bg-muted',
         badgeText: 'text-muted-foreground',
-        barBg: 'bg-gray-400 dark:bg-zinc-500',
+        barBg: 'bg-gray-400',
       };
   }
 }
@@ -152,7 +152,7 @@ export function ScenePlanTimeline({ scenes, totalDuration }: ScenePlanTimelinePr
             ({scenes.length} escena{scenes.length !== 1 ? 's' : ''})
           </span>
         </div>
-        <span className="text-xs font-medium text-gray-500 dark:text-zinc-400 tabular-nums">
+        <span className="text-xs font-medium text-muted-foreground tabular-nums">
           {formatDuration(total)} total
         </span>
       </div>

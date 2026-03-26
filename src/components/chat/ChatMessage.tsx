@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useMemo, useCallback, Component } from 'react';
+import { useState, useMemo, useCallback, useEffect, Component } from 'react';
 import type { ReactNode, ErrorInfo } from 'react';
 import { Copy, Check, RotateCcw, Volume2, Send, AlertCircle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { StreamingWave, BlockSkeleton } from '@/components/chat/StreamingWave';
+import { Button } from '@/components/ui/button';
+import { StreamingWave, ComponentLoadingSkeleton } from '@/components/chat/StreamingWave';
 
 // ---- Error boundary for chat blocks ----
 class BlockErrorBoundary extends Component<{ children: ReactNode }, { error: string | null }> {
@@ -42,6 +43,7 @@ import { BackgroundCreationCard } from '@/components/chat/BackgroundCreationCard
 import type { BackgroundCreationData } from '@/components/chat/BackgroundCreationCard';
 import { VideoCreationCard } from '@/components/chat/VideoCreationCard';
 import type { VideoCreationData } from '@/components/chat/VideoCreationCard';
+import { ProjectCreationCard } from '@/components/chat/ProjectCreationCard';
 import { SceneDetailCard } from '@/components/chat/SceneDetailCard';
 import type { SceneDetailData } from '@/components/chat/SceneDetailCard';
 import { ResourceListCard } from '@/components/chat/ResourceListCard';
@@ -51,8 +53,18 @@ import type { VideoSummaryData } from '@/components/chat/VideoSummaryCard';
 import type { SelectableEntity } from '@/components/chat/EntitySelector';
 import type { KiyokoMessage } from '@/hooks/useKiyokoChat';
 import type { AiActionPlan } from '@/types/ai-actions';
+import { CreationCancelledCard } from '@/components/chat/CreationCancelledCard';
+import { CreationSuccessCard } from '@/components/chat/CreationSuccessCard';
 import { parseAiMessage } from '@/lib/ai/parse-ai-message';
 import type { ScenePlanItem } from '@/components/chat/ScenePlanTimeline';
+import {
+  streamingComponentIntroLabel,
+  streamingSkeletonVariant,
+  CHAT_CHOICE_INTRO_PANEL_CLASS,
+  CHOICE_SELECTION_HINT_ES,
+  choiceMarkdownImpliesSelectionHint,
+} from '@/components/chat/chatDockOverlay';
+import { inferSkeletonVariantFromUserPrompt } from '@/lib/chat/infer-skeleton-from-user-prompt';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -64,10 +76,24 @@ interface ChatMessageProps {
   projectId?: string;
   isLastMessage?: boolean;
   isStreaming?: boolean;
+  /** Fase THINK: mensaje asistente vacío aún sin tokens — mostrar “Preparando…” en el hilo */
+  isAssistantThinking?: boolean;
+  /** Último mensaje del usuario (inferencia de skeleton contextual). */
+  userPromptHint?: string | null;
+  // Si está activo, los bloques [CREATE:*] NO se renderizan en el historial.
+  // En su lugar se notifica al padre para abrir el formulario como UI overlay.
+  hideCreateCards?: boolean;
+  onCreateCardRequested?: (payload: {
+    messageId: string;
+    type: 'character' | 'background' | 'video' | 'project';
+    prefill: Record<string, unknown>;
+  }) => void;
   onExecute: (messageId: string, plan: AiActionPlan) => void;
   onCancel: (messageId: string) => void;
   onModify: (text: string) => void;
   onSend?: (text: string) => void;
+  /** Post-creación: navegación “¿Siguiente paso?” (si no hay ruta, el padre puede enviar al chat). */
+  onPostCreationStep?: (label: string, message: KiyokoMessage) => void;
   onUndo: (batchId: string) => void;
   onWorkflowAction?: (actionId: string, label: string) => void;
   // Entidades disponibles en el contexto actual (para bloques [SELECT:type])
@@ -128,28 +154,8 @@ function parseAudioUrl(content: string): string | null {
   return match ? match[1].trim() : null;
 }
 
-function extractTextContent(content: string): string {
-  return content
-    // Nuevos bloques v5
-    .replace(/\[(ACTION_PLAN|PREVIEW(?::\w+)?|SELECT(?::\w+)?|OPTIONS|DIFF(?::\w+)?|PROMPT_PREVIEW(?::\w+)?|SCENE_PLAN|PROJECT_SUMMARY|CREATE(?::\w+)?|SCENE_DETAIL|RESOURCE_LIST|VIDEO_SUMMARY|SUGGESTIONS)\][\s\S]*?\[\/(?:ACTION_PLAN|PREVIEW(?::\w+)?|SELECT(?::\w+)?|OPTIONS|DIFF(?::\w+)?|PROMPT_PREVIEW(?::\w+)?|SCENE_PLAN|PROJECT_SUMMARY|CREATE(?::\w+)?|SCENE_DETAIL|RESOURCE_LIST|VIDEO_SUMMARY|SUGGESTIONS)\]/g, '')
-    // Bloques legacy
-    .replace(/```json\s*[\s\S]*?```/g, '')
-    .replace(/\[SUGERENCIAS\][\s\S]*?(?:\[\/SUGERENCIAS\]|$)/g, '')
-    .replace(/\[WORKFLOW:[^\]]*\]/g, '')
-    .replace(/\[AUDIO:[^\]]*\]/g, '')
-    // Bloques sin cierre (LLMs a veces omiten [/TAG])
-    .replace(/\[OPTIONS\]\s*\[[\s\S]*?\]/g, '')
-    .replace(/\[SUGGESTIONS\]\s*\[[\s\S]*?\]/g, '')
-    .replace(/\[CREATE:\w+\]\s*\{[\s\S]*?\}/g, '')
-    .replace(/\[SCENE_DETAIL\]\s*\{[\s\S]*?\}/g, '')
-    .replace(/\[PROJECT_SUMMARY\]\s*\{[\s\S]*?\}/g, '')
-    .replace(/\[VIDEO_SUMMARY\]\s*\{[\s\S]*?\}/g, '')
-    .replace(/\[RESOURCE_LIST\]\s*\{[\s\S]*?\}/g, '')
-    // Bloques a medio escribir durante streaming (sin cerrar JSON ni tag)
-    .replace(/\[(ACTION_PLAN|OPTIONS|SUGGESTIONS|CREATE:\w+|SCENE_PLAN|SCENE_DETAIL|PROJECT_SUMMARY|VIDEO_SUMMARY|RESOURCE_LIST|DIFF|PROMPT_PREVIEW|PREVIEW:\w+)\][\s\S]*$/g, '')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
+// Nota: para limpiar texto visible usamos `parseAiMessage(...).text`
+// en vez de una limpieza regex legacy (reduce inconsistencias V6).
 
 function formatTime(date: Date): string {
   return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
@@ -172,6 +178,18 @@ type ContentSegment =
 
 const CHOICE_RE = /^[☐□]\s+(.+)$|^-\s+\[\s*\]\s+(.+)$/;
 const HEADING_RE = /^#{1,4}\s+.+$|^.+:$/; // e.g. "## Duración" or "Duración del vídeo:"
+
+/** Todo el texto que la IA va escribiendo antes de la primera opción ☐ (mismo criterio que intro + [PROJECT_SUMMARY]). */
+function textBeforeFirstChoiceLine(content: string): string {
+  if (!content) return '';
+  const lines = content.split('\n');
+  const out: string[] = [];
+  for (const line of lines) {
+    if (CHOICE_RE.test(line.trim())) break;
+    out.push(line);
+  }
+  return out.join('\n').trim();
+}
 
 function parseContentSegments(content: string): ContentSegment[] {
   const lines = content.split('\n');
@@ -268,10 +286,37 @@ function parseContentSegments(content: string): ContentSegment[] {
 interface ChoiceSelectorProps {
   segments: ContentSegment[];
   onConfirm: (selected: string[]) => void;
+  /** Texto visible del asistente (p. ej. `parseAiMessage().text`) para que el intro coincida con lo que ya salió en streaming. */
+  assistantText?: string;
 }
 
-function ChoiceSelector({ segments, onConfirm }: ChoiceSelectorProps) {
+function ChoiceSelector({ segments, onConfirm, assistantText }: ChoiceSelectorProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const { combinedMarkdown, choiceSegments } = useMemo(() => {
+    const md: string[] = [];
+    const ch: Extract<ContentSegment, { type: 'choices' }>[] = [];
+    for (const seg of segments) {
+      if (seg.type === 'markdown') md.push(seg.content);
+      else ch.push(seg);
+    }
+    return {
+      combinedMarkdown: md.join('\n\n').trim(),
+      choiceSegments: ch,
+    };
+  }, [segments]);
+
+  /** Misma fuente que durante el stream: texto hasta la primera ☐. */
+  const introPanelMarkdown = useMemo(() => {
+    if (assistantText?.trim()) {
+      const before = textBeforeFirstChoiceLine(assistantText);
+      if (before.length > 0) return before;
+    }
+    return combinedMarkdown;
+  }, [assistantText, combinedMarkdown]);
+
+  /** Si el texto ya pide elegir, no repetimos la ayuda. Si no hay texto, mostramos la ayuda. */
+  const showSelectionHint = !choiceMarkdownImpliesSelectionHint(introPanelMarkdown);
 
   const toggle = useCallback((item: string) => {
     setSelected((prev) => {
@@ -288,23 +333,34 @@ function ChoiceSelector({ segments, onConfirm }: ChoiceSelectorProps) {
     setSelected(new Set());
   };
 
+  const hintId = 'kiyoko-choice-hint';
+
   return (
     <div className="space-y-3">
-      {segments.map((seg, si) => {
-        if (seg.type === 'markdown') {
-          return (
-            <ReactMarkdown key={si} remarkPlugins={[remarkGfm]} components={mdComponents}>
-              {seg.content}
-            </ReactMarkdown>
-          );
-        }
+      {introPanelMarkdown.length > 0 && (
+        <div className={CHAT_CHOICE_INTRO_PANEL_CLASS}>
+          <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+            {introPanelMarkdown}
+          </ReactMarkdown>
+        </div>
+      )}
 
-        return (
+      {showSelectionHint && (
+        <p id={hintId} className="text-[11px] font-medium text-muted-foreground px-0.5">
+          {CHOICE_SELECTION_HINT_ES}
+        </p>
+      )}
+
+      <div
+        className="space-y-3"
+        {...(showSelectionHint ? { 'aria-describedby': hintId } : {})}
+      >
+        {choiceSegments.map((seg, si) => (
           <div key={si} className="space-y-3">
             {seg.groups.map((group, gi) => (
               <div key={gi}>
                 {group.heading && (
-                  <p className="text-[11px] font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wide mb-1.5">
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
                     {group.heading}
                   </p>
                 )}
@@ -319,13 +375,13 @@ function ChoiceSelector({ segments, onConfirm }: ChoiceSelectorProps) {
                         className={cn(
                           'flex items-center gap-2 w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-all duration-100',
                           isOn
-                            ? 'bg-teal-500/12 text-teal-700 dark:text-teal-300 border border-teal-500/35'
-                            : 'bg-white/60 dark:bg-white/3 text-gray-700 dark:text-zinc-300 border border-gray-200 dark:border-white/8 hover:bg-gray-50 dark:hover:bg-white/6 hover:border-gray-300 dark:hover:border-white/15',
+                            ? 'bg-primary/12 text-primary border border-primary/35'
+                            : 'bg-card text-foreground border border-border hover:bg-accent hover:border-border',
                         )}
                       >
                         <span className={cn(
                           'flex items-center justify-center size-4 rounded border shrink-0 transition-colors',
-                          isOn ? 'bg-teal-500 border-teal-500' : 'border-gray-300 dark:border-zinc-600',
+                          isOn ? 'bg-primary border-primary' : 'border-border dark:border-zinc-600',
                         )}>
                           {isOn && <Check size={9} className="text-white" />}
                         </span>
@@ -337,15 +393,14 @@ function ChoiceSelector({ segments, onConfirm }: ChoiceSelectorProps) {
               </div>
             ))}
           </div>
-        );
-      })}
+        ))}
+      </div>
 
-      {/* Confirm button */}
       {selected.size > 0 && (
         <button
           type="button"
           onClick={handleConfirm}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-teal-600 hover:bg-teal-500 text-white transition-colors mt-1"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary hover:bg-primary text-white transition-colors mt-1"
         >
           <Send size={11} />
           Enviar selección ({selected.size})
@@ -373,12 +428,12 @@ function CodeBlock({ children, className }: { children: string; className?: stri
   return (
     <div className="relative group my-3">
       {language && (
-        <div className="flex items-center justify-between px-3 py-1.5 bg-gray-100/60 dark:bg-white/4 rounded-t-lg border border-b-0 border-gray-300 dark:border-white/8">
-          <span className="text-[10px] font-mono text-gray-500 dark:text-zinc-500 uppercase tracking-wider">{language}</span>
+        <div className="flex items-center justify-between px-3 py-1.5 bg-muted/60 dark:bg-white/4 rounded-t-lg border border-b-0 border-border">
+          <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">{language}</span>
           <button
             type="button"
             onClick={handleCopy}
-            className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-zinc-500 hover:text-gray-900 dark:hover:text-zinc-100 transition-colors"
+            className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-gray-900 transition-colors"
           >
             {copied ? <Check size={10} /> : <Copy size={10} />}
             {copied ? 'Copiado' : 'Copiar'}
@@ -387,7 +442,7 @@ function CodeBlock({ children, className }: { children: string; className?: stri
       )}
       <pre
         className={cn(
-          'overflow-x-auto p-3 bg-gray-50/80 dark:bg-black/30 text-gray-900 dark:text-zinc-100 text-xs font-mono border border-gray-300 dark:border-white/8',
+          'overflow-x-auto p-3 bg-muted/80 dark:bg-black/30 text-foreground text-xs font-mono border border-border',
           language ? 'rounded-b-lg' : 'rounded-lg',
         )}
       >
@@ -397,7 +452,7 @@ function CodeBlock({ children, className }: { children: string; className?: stri
         <button
           type="button"
           onClick={handleCopy}
-          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 flex items-center justify-center size-6 rounded bg-gray-100/80 dark:bg-black/40 border border-gray-300 dark:border-white/10 text-gray-500 dark:text-zinc-500 hover:text-gray-900 dark:hover:text-zinc-100 transition-all"
+          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 flex items-center justify-center size-6 rounded bg-muted/80 border border-border text-muted-foreground hover:text-gray-900 transition-all"
         >
           {copied ? <Check size={10} /> : <Copy size={10} />}
         </button>
@@ -419,7 +474,7 @@ const mdComponents: Components = {
       return <CodeBlock className={className}>{String(children)}</CodeBlock>;
     }
     return (
-      <code className="text-teal-400 bg-gray-100 dark:bg-white/8 px-1 py-0.5 rounded text-xs font-mono" {...props}>
+      <code className="text-primary bg-muted px-1 py-0.5 rounded text-xs font-mono" {...props}>
         {children}
       </code>
     );
@@ -452,30 +507,30 @@ const mdComponents: Components = {
 
   // ---- Headings ----
   h1: ({ children }) => (
-    <h1 className="text-base font-bold text-gray-900 dark:text-zinc-100 mt-4 mb-2 pb-1.5 border-b border-gray-300 dark:border-white/8">{children}</h1>
+    <h1 className="text-base font-bold text-foreground mt-4 mb-2 pb-1.5 border-b border-border">{children}</h1>
   ),
   h2: ({ children }) => (
-    <h2 className="text-sm font-bold text-gray-900 dark:text-zinc-100 mt-3 mb-1.5">{children}</h2>
+    <h2 className="text-sm font-bold text-foreground mt-3 mb-1.5">{children}</h2>
   ),
   h3: ({ children }) => (
-    <h3 className="text-[13px] font-semibold text-gray-900 dark:text-zinc-100 mt-2.5 mb-1">{children}</h3>
+    <h3 className="text-[13px] font-semibold text-foreground mt-2.5 mb-1">{children}</h3>
   ),
   h4: ({ children }) => (
-    <h4 className="text-xs font-semibold text-gray-900 dark:text-zinc-100 mt-2 mb-1">{children}</h4>
+    <h4 className="text-xs font-semibold text-foreground mt-2 mb-1">{children}</h4>
   ),
 
   // ---- Text elements ----
   p: ({ children }) => (
-    <p className="text-[13px] leading-relaxed text-gray-900 dark:text-zinc-100 my-1.5">{children}</p>
+    <p className="text-[13px] leading-relaxed text-foreground my-1.5">{children}</p>
   ),
   a: ({ children, href }) => (
-    <a href={href} target="_blank" rel="noopener noreferrer" className="text-teal-400 hover:underline">{children}</a>
+    <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{children}</a>
   ),
   strong: ({ children }) => (
-    <strong className="font-semibold text-gray-900 dark:text-zinc-100">{children}</strong>
+    <strong className="font-semibold text-foreground">{children}</strong>
   ),
   em: ({ children }) => (
-    <em className="italic text-gray-900 dark:text-zinc-100">{children}</em>
+    <em className="italic text-foreground">{children}</em>
   ),
 
   // ---- Lists ----
@@ -486,14 +541,14 @@ const mdComponents: Components = {
     <ol className="list-decimal pl-4 space-y-0.5 my-1.5">{children}</ol>
   ),
   li: ({ children }) => (
-    <li className="text-[13px] leading-relaxed text-gray-900 dark:text-zinc-100">{children}</li>
+    <li className="text-[13px] leading-relaxed text-foreground">{children}</li>
   ),
 
   // ---- Other ----
   blockquote: ({ children }) => (
-    <blockquote className="border-l-2 border-teal-500/30 pl-3 my-2 text-gray-500 dark:text-zinc-500 italic">{children}</blockquote>
+    <blockquote className="border-l-2 border-primary/30 pl-3 my-2 text-muted-foreground italic">{children}</blockquote>
   ),
-  hr: () => <hr className="my-3 border-gray-300 dark:border-white/8" />,
+  hr: () => <hr className="my-3 border-border" />,
 };
 
 // ---------------------------------------------------------------------------
@@ -513,7 +568,7 @@ function CopyMessageButton({ text }: { text: string }) {
       type="button"
       onClick={handleCopy}
       title="Copiar mensaje"
-      className="flex items-center justify-center size-5 rounded text-gray-400 dark:text-zinc-600 hover:text-gray-700 dark:hover:text-zinc-300 hover:bg-gray-100 dark:hover:bg-white/8 transition-colors"
+      className="flex items-center justify-center size-5 rounded text-muted-foreground hover:text-gray-700 hover:bg-muted transition-colors"
     >
       {copied ? <Check size={11} /> : <Copy size={11} />}
     </button>
@@ -526,8 +581,8 @@ function CopyMessageButton({ text }: { text: string }) {
 
 function AudioPlayer({ url }: { url: string }) {
   return (
-    <div className="mt-2 flex items-center gap-2 rounded-lg bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/8 px-3 py-2">
-      <Volume2 size={13} className="shrink-0 text-teal-500" />
+    <div className="mt-2 flex items-center gap-2 rounded-lg bg-muted border border-border px-3 py-2">
+      <Volume2 size={13} className="shrink-0 text-primary" />
       <audio controls src={url} className="flex-1 h-7 min-w-0" style={{ accentColor: '#14b8a6' }} />
     </div>
   );
@@ -537,7 +592,7 @@ function AudioPlayer({ url }: { url: string }) {
 // ChatMessage
 // ---------------------------------------------------------------------------
 
-export function ChatMessage({ message, activeAgent, projectId, isLastMessage, isStreaming: parentStreaming, onExecute, onCancel, onModify, onSend, onUndo, onWorkflowAction, contextEntities }: ChatMessageProps) {
+export function ChatMessage({ message, activeAgent, projectId, isLastMessage, isStreaming: parentStreaming, isAssistantThinking, userPromptHint, hideCreateCards, onCreateCardRequested, onExecute, onCancel, onModify, onSend, onPostCreationStep, onUndo, onWorkflowAction, contextEntities }: ChatMessageProps) {
   const isUser = message.role === 'user';
 
   // Parsear todos los bloques especiales del mensaje del asistente
@@ -579,8 +634,42 @@ export function ChatMessage({ message, activeAgent, projectId, isLastMessage, is
   const resourceListBlocks = specialBlocks.filter((b) => b.type === 'RESOURCE_LIST');
   const videoSummaryBlocks = specialBlocks.filter((b) => b.type === 'VIDEO_SUMMARY');
 
+  // UX: si el mensaje sólo contiene un bloque CREATE (sin otros bloques especiales),
+  // no lo renderizamos dentro del historial cuando `hideCreateCards` está activo.
+  // La creación se muestra como overlay arriba del input.
+  const shouldSkipCreateOnlyMessage = (
+    hideCreateCards
+    && !isUser
+    && createBlocks.length > 0
+    && specialBlocks.every((b) => b.type === 'CREATE')
+  );
+
+  // When hiding create cards, bubble up CREATE blocks to the parent so the UI
+  // can be rendered as an overlay above the input (instead of inside the chat list).
+  useEffect(() => {
+    if (!hideCreateCards) return;
+    if (isUser) return;
+    if (!isLastMessage) return;
+    if (!onCreateCardRequested) return;
+    if (!createBlocks.length) return;
+
+    const first = createBlocks[0];
+    const type = first.subtype as 'character' | 'background' | 'video' | 'project';
+    if (type !== 'character' && type !== 'background' && type !== 'video' && type !== 'project') return;
+
+    const prefill = (typeof first.data === 'object' && first.data !== null)
+      ? (first.data as Record<string, unknown>)
+      : {};
+
+    onCreateCardRequested({
+      messageId: message.id,
+      type,
+      prefill,
+    });
+  }, [hideCreateCards, isUser, isLastMessage, onCreateCardRequested, createBlocks, message.id]);
+
   const textContent = !isUser
-    ? extractTextContent(message.content)
+    ? (parsedBlocks?.text ?? '')
     : message.content;
 
   // Detect interactive choices (☐ lines) in assistant messages
@@ -596,7 +685,9 @@ export function ChatMessage({ message, activeAgent, projectId, isLastMessage, is
   // 3. Content has an opening block tag WITHOUT a matching closing tag
   const hasPartialBlock = useMemo(() => {
     if (isUser || !message.content || !isLastMessage || !parentStreaming) return false;
-    const openTags = message.content.match(/\[(PROJECT_SUMMARY|VIDEO_SUMMARY|SCENE_DETAIL|RESOURCE_LIST|CREATE:\w+)\]/g);
+    const openTags = message.content.match(
+      /\[(?:PROJECT_SUMMARY|VIDEO_SUMMARY|SCENE_DETAIL|RESOURCE_LIST|SCENE_PLAN|OPTIONS|CREATE:\w+|PROMPT_PREVIEW(?::\w+)?)\]/g,
+    );
     if (!openTags) return false;
     // Check if LAST opening tag has a closing tag
     const lastTag = openTags[openTags.length - 1];
@@ -604,6 +695,19 @@ export function ChatMessage({ message, activeAgent, projectId, isLastMessage, is
     const closePattern = new RegExp(`\\[\\/${baseTag}(:\\w+)?\\]`);
     return !closePattern.test(message.content.slice(message.content.lastIndexOf(lastTag)));
   }, [isUser, message.content, isLastMessage, parentStreaming]);
+
+  const hasStructuredUi =
+    specialBlocks.length > 0
+    || !!actionPlan
+    || workflowActions.length > 0
+    || !!audioUrl
+    || hasChoices
+    || hasPartialBlock;
+
+  /** Mientras el último mensaje sigue en stream: texto visible, componentes al terminar. */
+  const deferStructuredUi = Boolean(
+    isLastMessage && parentStreaming && hasStructuredUi,
+  );
 
   const handleChoiceConfirm = useCallback((items: string[]) => {
     const text = items.join(', ');
@@ -614,17 +718,106 @@ export function ChatMessage({ message, activeAgent, projectId, isLastMessage, is
     }
   }, [onSend, onModify]);
 
-  const renderedMarkdown = useMemo(() => {
+  /**
+   * Texto que debe ir escribiéndose antes de montar tarjetas/bloques (igual patrón que CREATE + frase y PROJECT_SUMMARY + bloque).
+   * Si hay ☐: solo hasta la primera opción. Si no hay ☐: todo el `textContent` (resumen, intro, etc.).
+   */
+  const streamingIntroBeforeComponents = useMemo(
+    () => textBeforeFirstChoiceLine(textContent ?? ''),
+    [textContent],
+  );
+
+  /** Markdown “normal” cuando aún no hay líneas ☐ (stream previo a la primera casilla). */
+  const assistantMarkdownPlain = useMemo(() => {
     if (!textContent || hasChoices) return null;
-    return (
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
-        {textContent}
-      </ReactMarkdown>
-    );
+    return textContent;
   }, [textContent, hasChoices]);
 
+  const loadingSkeletonVariant = useMemo(
+    () =>
+      streamingSkeletonVariant(message.content, specialBlocks, {
+        hasChoices,
+        hasActionPlan: !!actionPlan,
+        hasWorkflowActions: workflowActions.length > 0,
+        hasAudio: !!audioUrl,
+      }, userPromptHint),
+    [
+      message.content,
+      specialBlocks,
+      hasChoices,
+      actionPlan,
+      workflowActions.length,
+      audioUrl,
+      userPromptHint,
+    ],
+  );
+
+  const thinkSkeletonVariant = useMemo(
+    () => inferSkeletonVariantFromUserPrompt(userPromptHint),
+    [userPromptHint],
+  );
+
+  if (shouldSkipCreateOnlyMessage) return null;
+
+  if (!isUser && message.creationSuccess) {
+    const cs = message.creationSuccess;
+    return (
+      <div className="group">
+        <div className="space-y-1.5 min-w-0 flex-1 max-w-[min(100%,42rem)]">
+          <CreationSuccessCard
+            data={{
+              name: cs.name,
+              entityLabel: cs.entityLabel,
+              badge: cs.badge,
+              nextSteps: cs.nextSteps,
+              onStep: (label) => {
+                if (onPostCreationStep) {
+                  onPostCreationStep(label, message);
+                } else if (onSend) {
+                  onSend(label);
+                } else {
+                  onModify(label);
+                }
+              },
+            }}
+          />
+          <div
+            className={cn(
+              'flex items-center gap-1.5 mt-1 h-5 opacity-0 group-hover:opacity-100 transition-opacity',
+              'justify-start',
+            )}
+          >
+            <span className="text-[10px] text-muted-foreground/50 tabular-nums">
+              {formatTime(message.timestamp)}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isUser && message.creationCancelled) {
+    return (
+      <div className="group">
+        <div className="space-y-1.5 min-w-0 flex-1 max-w-[min(100%,42rem)]">
+          <CreationCancelledCard subtitle={message.creationCancelled.subtitle} />
+          <div
+            className={cn(
+              'flex items-center gap-1.5 mt-1 h-5 opacity-0 group-hover:opacity-100 transition-opacity',
+              'justify-start',
+            )}
+          >
+            <span className="text-[10px] text-muted-foreground/50 tabular-nums">
+              {formatTime(message.timestamp)}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className={cn('group', isUser ? 'flex flex-col items-end' : '')}>
+    <div className={cn('group', isUser ? 'flex flex-col items-end' : '', 'px-1 sm:px-2')}>
       {/* ---- Message body ---- */}
       <div className={cn('space-y-1.5 min-w-0', isUser ? 'max-w-[80%]' : 'flex-1')}>
         {/* User message — bubble style like Notion */}
@@ -635,7 +828,7 @@ export function ChatMessage({ message, activeAgent, projectId, isLastMessage, is
               <div className="flex flex-wrap gap-2 mb-2 justify-end">
                 {message.images.map((url, i) => (
                   <a key={i} href={url} target="_blank" rel="noopener noreferrer"
-                    className="block rounded-lg overflow-hidden border border-border hover:border-teal-500/40 transition-colors">
+                    className="block rounded-lg overflow-hidden border border-border hover:border-primary/40 transition-colors">
                     <img src={url} alt={`Imagen ${i + 1}`} className="w-40 h-32 object-cover" loading="lazy" />
                   </a>
                 ))}
@@ -652,21 +845,57 @@ export function ChatMessage({ message, activeAgent, projectId, isLastMessage, is
             {/* Assistant text — clean, no bubble */}
             {(() => {
               const hasBlocks = specialBlocks.length > 0;
-              if (!textContent && !actionPlan && !hasBlocks) {
+              if (!textContent && !actionPlan && !hasBlocks && !deferStructuredUi && !message.creationSuccess) {
+                if (isAssistantThinking) {
+                  return (
+                    <div className="mt-3 space-y-2.5">
+                      <StreamingWave label="Preparando respuesta…" />
+                      <ComponentLoadingSkeleton variant={thinkSkeletonVariant} />
+                    </div>
+                  );
+                }
                 return <StreamingWave />;
               }
-              if (textContent || hasChoices || hasBlocks) {
+              if (textContent || hasChoices || hasBlocks || deferStructuredUi) {
                 return (
                   <div className="text-[13px] leading-relaxed text-foreground overflow-hidden">
-                    {/* Interactive choices or plain markdown */}
-                    {hasChoices && contentSegments
-                      ? <ChoiceSelector segments={contentSegments} onConfirm={handleChoiceConfirm} />
-                      : renderedMarkdown
-                    }
+                    {/* Mismo patrón que CREATE y [PROJECT_SUMMARY]: la IA escribe el intro en el panel; al terminar el stream, el componente. */}
+                    {deferStructuredUi && streamingIntroBeforeComponents.length > 0 && (
+                      <div className={CHAT_CHOICE_INTRO_PANEL_CLASS}>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+                          {streamingIntroBeforeComponents}
+                        </ReactMarkdown>
+                      </div>
+                    )}
+                    {!deferStructuredUi && hasChoices && contentSegments && (
+                      <ChoiceSelector
+                        segments={contentSegments}
+                        onConfirm={handleChoiceConfirm}
+                        assistantText={textContent ?? ''}
+                      />
+                    )}
+                    {!deferStructuredUi && !hasChoices && assistantMarkdownPlain && (
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+                        {assistantMarkdownPlain}
+                      </ReactMarkdown>
+                    )}
 
-                    {/* Skeleton while block is streaming */}
-                    {hasPartialBlock && <BlockSkeleton />}
+                    {/* Mientras llega el bloque: onda + skeleton contextual */}
+                    {deferStructuredUi && (
+                      <div className="mt-3 space-y-2.5">
+                        <StreamingWave
+                          label={streamingComponentIntroLabel(specialBlocks, {
+                            hasActionPlan: !!actionPlan,
+                            hasWorkflowActions: workflowActions.length > 0,
+                            hasAudio: !!audioUrl,
+                          })}
+                        />
+                        <ComponentLoadingSkeleton variant={loadingSkeletonVariant} />
+                      </div>
+                    )}
 
+                    {!deferStructuredUi && (
+                    <>
                     {/* Audio player */}
                     {audioUrl && <AudioPlayer url={audioUrl} />}
 
@@ -744,6 +973,7 @@ export function ChatMessage({ message, activeAgent, projectId, isLastMessage, is
 
                     {/* [CREATE:character] / [CREATE:background] — Interactive creation forms */}
                     {createBlocks.map((b, i) => {
+                      if (hideCreateCards) return null;
                       const entityType = b.subtype;
                       const prefillData = typeof b.data === 'object' && b.data !== null
                         ? b.data as Record<string, string>
@@ -804,6 +1034,23 @@ export function ChatMessage({ message, activeAgent, projectId, isLastMessage, is
                         );
                       }
 
+                      if (entityType === 'project') {
+                        return (
+                          <BlockErrorBoundary key={`cp-${i}`}>
+                            <ProjectCreationCard
+                              prefill={{
+                                title: prefillData.title,
+                                description: prefillData.description,
+                                client_name: prefillData.client_name,
+                                style: prefillData.style,
+                              }}
+                              onCreated={(msg) => onSend ? onSend(msg) : onModify(msg)}
+                              onCancel={() => onSend?.('Cancelado')}
+                            />
+                          </BlockErrorBoundary>
+                        );
+                      }
+
                       return null;
                     })}
 
@@ -846,18 +1093,20 @@ export function ChatMessage({ message, activeAgent, projectId, isLastMessage, is
 
                     {/* Workflow action buttons */}
                     {workflowActions.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mt-3 pt-2.5 border-t border-gray-200 dark:border-white/8">
+                      <div className="flex flex-wrap gap-1.5 mt-3 pt-2.5 border-t border-border">
                         {workflowActions.map((action) => (
                           <button
                             key={action.id}
                             type="button"
                             onClick={() => onWorkflowAction?.(action.id, action.label)}
-                            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-teal-500/10 text-teal-700 dark:text-teal-400 border border-teal-500/25 hover:bg-teal-500/20 hover:border-teal-500/40 transition-colors"
+                            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-primary/10 text-primary border border-primary/25 hover:bg-primary/20 hover:border-primary/40 transition-colors"
                           >
                             {action.label}
                           </button>
                         ))}
                       </div>
+                    )}
+                    </>
                     )}
                   </div>
                 );
@@ -866,7 +1115,7 @@ export function ChatMessage({ message, activeAgent, projectId, isLastMessage, is
             })()}
 
             {/* [PREVIEW:type] — Tarjetas de previsualización antes de guardar */}
-            {previewBlocks.map((b, i) => {
+            {!deferStructuredUi && previewBlocks.map((b, i) => {
               const data = (typeof b.data === 'object' && b.data !== null)
                 ? b.data as Record<string, unknown>
                 : {};
@@ -889,7 +1138,7 @@ export function ChatMessage({ message, activeAgent, projectId, isLastMessage, is
             })}
 
             {/* Action plan card — hide when preview handles confirm, BUT show if execution had errors */}
-            {actionPlan && (
+            {!deferStructuredUi && actionPlan && (
               previewBlocks.length === 0 ||
               (message.executionResults !== undefined && !message.executionResults.every((r) => r.success))
             ) && (
@@ -917,10 +1166,10 @@ export function ChatMessage({ message, activeAgent, projectId, isLastMessage, is
           </span>
           {/* Edit — only last user message */}
           {isUser && message.content && (
-            <button type="button" onClick={() => onModify(message.content)} title="Editar"
-              className="flex items-center justify-center size-5 rounded text-muted-foreground/50 hover:text-foreground hover:bg-accent transition-colors">
+            <Button type="button" variant="ghost" size="xs" isIconOnly onClick={() => onModify(message.content)} title="Editar"
+              className="size-5 text-muted-foreground/50 hover:text-foreground">
               <RotateCcw size={10} />
-            </button>
+            </Button>
           )}
           {/* Copy */}
           {(isUser ? message.content : textContent) && (

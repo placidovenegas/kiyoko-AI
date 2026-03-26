@@ -14,9 +14,9 @@ const WORKSPACE_TYPES = [
     label: 'Personal',
     description: 'Proyectos propios y experimentación',
     icon: Briefcase,
-    color: 'text-teal-400',
-    bg: 'bg-teal-500/10',
-    border: 'border-teal-500/40',
+    color: 'text-primary',
+    bg: 'bg-primary/10',
+    border: 'border-primary/40',
   },
   {
     value: 'freelance',
@@ -65,7 +65,7 @@ export default function NewWorkspacePage() {
         <div className="flex items-center gap-3">
           <Link
             href="/organizations"
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition hover:bg-[#1A1A1D] hover:text-foreground"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition hover:bg-accent hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
@@ -94,7 +94,7 @@ export default function NewWorkspacePage() {
                       'flex flex-col items-center gap-2 rounded-lg border p-4 text-center transition-all',
                       isSelected
                         ? `${type.border} ${type.bg}`
-                        : 'border-border hover:border-border/60 hover:bg-[#1A1A1D]',
+                        : 'border-border hover:border-border/60 hover:bg-accent',
                     )}
                   >
                     <div className={cn(
@@ -133,7 +133,7 @@ export default function NewWorkspacePage() {
               }
               required
               autoFocus
-              className="h-10 w-full rounded-lg border border-border bg-[#151517] px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 transition"
+              className="h-10 w-full rounded-lg border border-border bg-input px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/20 transition"
             />
             <p className="mt-1.5 text-xs text-muted-foreground">
               Puedes cambiarlo después desde los ajustes
@@ -143,14 +143,14 @@ export default function NewWorkspacePage() {
           <div className="flex gap-3">
             <Link
               href="/organizations"
-              className="flex-1 rounded-lg border border-border py-2.5 text-center text-sm font-medium text-muted-foreground transition hover:bg-[#1A1A1D] hover:text-foreground"
+              className="flex-1 rounded-lg border border-border py-2.5 text-center text-sm font-medium text-muted-foreground transition hover:bg-accent hover:text-foreground"
             >
               Cancelar
             </Link>
             <button
               type="submit"
               disabled={!name.trim() || createOrgMutation.isPending || !canCreateOrg}
-              className="flex-1 rounded-lg bg-teal-600 py-2.5 text-sm font-medium text-white transition hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex-1 rounded-lg bg-primary py-2.5 text-sm font-medium text-white transition hover:bg-primary disabled:cursor-not-allowed disabled:opacity-50"
             >
               {createOrgMutation.isPending ? 'Creando...' : 'Crear workspace'}
             </button>

@@ -8,11 +8,11 @@ export default function AuthLayout({
   return (
     <div className="flex min-h-screen">
       {/* Left panel — immersive brand */}
-      <div className="relative hidden w-1/2 overflow-hidden bg-[#0A0B1E] lg:flex lg:flex-col lg:justify-between">
+      <div className="relative hidden w-1/2 overflow-hidden bg-brand-dark lg:flex lg:flex-col lg:justify-between">
         {/* Gradient orbs — teal + orange from logo */}
-        <div className="absolute -left-32 -top-32 h-[600px] w-[600px] rounded-full bg-[#058B96]/20 blur-[150px]" />
-        <div className="absolute -bottom-40 right-0 h-[500px] w-[500px] rounded-full bg-[#FE6A3C]/12 blur-[130px]" />
-        <div className="absolute right-20 top-1/3 h-[350px] w-[350px] rounded-full bg-[#58DAAC]/8 blur-[100px]" />
+        <div className="absolute -left-32 -top-32 h-[600px] w-[600px] rounded-full bg-brand-teal/20 blur-[150px]" />
+        <div className="absolute -bottom-40 right-0 h-[500px] w-[500px] rounded-full bg-brand-coral/12 blur-[130px]" />
+        <div className="absolute right-20 top-1/3 h-[350px] w-[350px] rounded-full bg-brand-green/8 blur-[100px]" />
 
         {/* Grid pattern */}
         <div
@@ -33,8 +33,8 @@ export default function AuthLayout({
             <KiyokoLogo variant="dark" size={72} />
 
             <div className="space-y-4">
-              <div className="inline-flex items-center gap-2 rounded-full border border-[#058B96]/30 bg-[#058B96]/10 px-4 py-1.5 text-sm text-[#58DAAC]">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#58DAAC] animate-pulse" />
+              <div className="inline-flex items-center gap-2 rounded-full border border-brand-teal/30 bg-brand-teal/10 px-4 py-1.5 text-sm text-brand-green">
+                <span className="h-1.5 w-1.5 rounded-full bg-brand-green animate-pulse" />
                 Potenciado por IA
               </div>
               <h2 className="text-4xl font-bold leading-[1.1] tracking-tight text-white xl:text-5xl">
@@ -71,10 +71,10 @@ export default function AuthLayout({
       </div>
 
       {/* Right panel — auth form */}
-      <div className="relative flex flex-1 items-center justify-center bg-[#0A0B1E] p-6 lg:bg-background">
+      <div className="relative flex flex-1 items-center justify-center bg-brand-dark p-6 lg:bg-background">
         {/* Mobile gradients */}
-        <div className="absolute -left-20 -top-20 h-[300px] w-[300px] rounded-full bg-[#058B96]/10 blur-[80px] lg:hidden" />
-        <div className="absolute -bottom-20 -right-20 h-[250px] w-[250px] rounded-full bg-[#FE6A3C]/10 blur-[60px] lg:hidden" />
+        <div className="absolute -left-20 -top-20 h-[300px] w-[300px] rounded-full bg-brand-teal/10 blur-[80px] lg:hidden" />
+        <div className="absolute -bottom-20 -right-20 h-[250px] w-[250px] rounded-full bg-brand-coral/10 blur-[60px] lg:hidden" />
 
         <div className="relative z-10 w-full max-w-md">
           {children}

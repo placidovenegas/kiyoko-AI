@@ -85,7 +85,7 @@ export function SceneDetailCard({ data, onAction }: SceneDetailCardProps) {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2.5 bg-muted/50 border-b border-border">
         <div className="flex items-center gap-2">
-          <div className="flex items-center justify-center size-6 rounded-full bg-teal-600 text-white text-[10px] font-bold shrink-0">
+          <div className="flex items-center justify-center size-6 rounded-full bg-primary text-white text-[10px] font-bold shrink-0">
             {data.scene_number}
           </div>
           <span className="font-semibold text-foreground">{data.title}</span>
@@ -248,7 +248,7 @@ export function SceneDetailCard({ data, onAction }: SceneDetailCardProps) {
             <button
               type="button"
               onClick={() => onAction(`Genera el prompt de imagen para la escena ${data.scene_number}`)}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-medium border border-teal-500/30 text-teal-600 dark:text-teal-400 bg-teal-500/5 hover:bg-teal-500/10 transition-colors"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-medium border border-primary/30 text-primary dark:text-primary bg-primary/5 hover:bg-primary/10 transition-colors"
             >
               <Sparkles size={10} /> Generar prompt imagen
             </button>

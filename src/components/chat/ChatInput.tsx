@@ -22,6 +22,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
+import { toast } from 'sonner';
 import {
   Popover,
   PopoverContent,
@@ -60,6 +61,16 @@ interface ChatInputProps {
   contextType?: ChatContextType;
   prefillText?: string | null;
   onPrefillConsumed?: () => void;
+  /** Sandbox/dev: evita fetch de providers/status para no hacer requests */
+  disableProvidersFetch?: boolean;
+  /** Formulario de creación anclado: bloquea escritura y muestra placeholder tipo “Creando…” */
+  creationDockOpen?: boolean;
+  /** Conectado visualmente al dock (esquinas inferiores redondeadas, sin borde superior duplicado) */
+  dockTail?: boolean;
+  /**
+   * Dentro del compositor unificado (formulario + input): sin borde propio; el padre aporta el único `rounded-xl`.
+   */
+  embeddedInComposer?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -92,7 +103,7 @@ function providerDotColor(status: ProviderStatus['status'], isFree: boolean): st
   switch (status) {
     case 'available': return isFree ? 'bg-amber-400' : 'bg-emerald-500';
     case 'cooldown': return 'bg-amber-400 animate-pulse';
-    default: return 'bg-gray-400 dark:bg-zinc-600';
+    default: return 'bg-gray-400';
   }
 }
 
@@ -149,20 +160,20 @@ function ProviderList({
         className={cn(
           'flex items-center gap-2.5 w-full px-2 py-2 rounded-md transition-colors',
           isAutoSelected
-            ? 'bg-teal-500/10 text-teal-600 dark:text-teal-400'
+            ? 'bg-primary/10 text-primary dark:text-primary'
             : 'text-foreground hover:bg-accent',
         )}
       >
-        <Zap size={12} className="shrink-0 text-teal-500" />
+        <Zap size={12} className="shrink-0 text-primary" />
         <div className="flex flex-col items-start flex-1 min-w-0">
-          <span className={cn('text-xs font-medium leading-tight', isAutoSelected && 'text-teal-600 dark:text-teal-400')}>
+          <span className={cn('text-xs font-medium leading-tight', isAutoSelected && 'text-primary dark:text-primary')}>
             Automático
           </span>
           <span className="text-[10px] text-muted-foreground leading-tight">
             Mejor proveedor disponible
           </span>
         </div>
-        {isAutoSelected && <Check size={13} className="shrink-0 text-teal-500" />}
+        {isAutoSelected && <Check size={13} className="shrink-0 text-primary" />}
       </button>
 
       <div className="my-1 border-t border-border" />
@@ -196,7 +207,7 @@ function ProviderList({
               className={cn(
                 'flex items-center gap-2.5 w-full px-2 py-2 rounded-md transition-colors',
                 isSelected
-                  ? 'bg-teal-500/10 text-teal-600 dark:text-teal-400'
+                  ? 'bg-primary/10 text-primary dark:text-primary'
                   : isAvailable || p.status === 'no_key'
                     ? 'text-foreground hover:bg-accent'
                     : 'text-muted-foreground cursor-not-allowed opacity-60',
@@ -208,7 +219,7 @@ function ProviderList({
                 : <Bot size={12} className="shrink-0 text-muted-foreground" />
               }
               <div className="flex flex-col items-start flex-1 min-w-0">
-                <span className={cn('text-xs font-medium leading-tight', isSelected && 'text-teal-600 dark:text-teal-400')}>
+                <span className={cn('text-xs font-medium leading-tight', isSelected && 'text-primary dark:text-primary')}>
                   {p.name}
                 </span>
                 <span className={cn(
@@ -218,7 +229,7 @@ function ProviderList({
                   {subtitle}
                 </span>
               </div>
-              {isSelected && <Check size={13} className="shrink-0 text-teal-500" />}
+              {isSelected && <Check size={13} className="shrink-0 text-primary" />}
             </button>
             {noKeyProvider === p.id && (
               <NoKeyTooltip providerName={p.name} />
@@ -246,6 +257,10 @@ export function ChatInput({
   contextType,
   prefillText,
   onPrefillConsumed,
+  disableProvidersFetch = false,
+  creationDockOpen = false,
+  dockTail = false,
+  embeddedInComposer = false,
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileRef     = useRef<HTMLInputElement>(null);
@@ -270,10 +285,13 @@ export function ChatInput({
   const [modelMenuOpen, setModelMenuOpen] = useState(false); // + menu sub-panel
   const modelCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const inputLocked = isStreaming || creationDockOpen;
+
   const openModelMenu = useCallback(() => {
+    if (inputLocked) return;
     if (modelCloseTimer.current) clearTimeout(modelCloseTimer.current);
     setModelMenuOpen(true);
-  }, []);
+  }, [inputLocked]);
 
   const scheduleCloseModelMenu = useCallback(() => {
     modelCloseTimer.current = setTimeout(() => setModelMenuOpen(false), 120);
@@ -281,6 +299,7 @@ export function ChatInput({
 
   // ---- Fetch providers ----
   useEffect(() => {
+    if (disableProvidersFetch) return;
     fetch('/api/ai/providers/status')
       .then((r) => r.ok ? r.json() : null)
       .then((json) => {
@@ -289,7 +308,7 @@ export function ChatInput({
         }
       })
       .catch(() => {});
-  }, []);
+  }, [disableProvidersFetch]);
 
   // ---- Prefill from parent ----
   useEffect(() => {
@@ -316,6 +335,14 @@ export function ChatInput({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Durante streaming o dock de creación: cerrar menús
+  useEffect(() => {
+    if (!inputLocked) return;
+    setPlusOpen(false);
+    setProviderOpen(false);
+    setModelMenuOpen(false);
+  }, [inputLocked]);
+
   // ---- Derived provider info ----
   const isAutoMode = !selectedProvider;
   const effectiveProviderId = isAutoMode
@@ -333,10 +360,10 @@ export function ChatInput({
         : 'Auto';
 
   const chipDot = isAutoMode
-    ? 'bg-teal-500'
+    ? 'bg-primary'
     : currentProvider
       ? providerDotColor(currentProvider.status, currentProvider.isFree)
-      : 'bg-gray-400 dark:bg-zinc-600';
+      : 'bg-gray-400';
 
   // ---- Handlers ----
   const handleSelectProvider = useCallback((id: string) => {
@@ -356,39 +383,50 @@ export function ChatInput({
   }, []);
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    if (inputLocked) return;
     setInput(e.target.value);
     const el = e.target;
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
-  }, []);
+  }, [inputLocked]);
 
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const newEntries: FileEntry[] = Array.from(e.target.files ?? []).map((file) => ({
+    if (inputLocked) return;
+    const all = Array.from(e.target.files ?? []);
+    const imageFiles = all.filter((f) => f.type.startsWith('image/'));
+    const nonImageCount = all.length - imageFiles.length;
+    if (nonImageCount > 0) {
+      toast.error('Para analizar imágenes, sólo se permiten archivos de tipo imagen.');
+    }
+
+    const newEntries: FileEntry[] = imageFiles.map((file) => ({
       file,
-      preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
+      preview: URL.createObjectURL(file),
     }));
     setFiles((prev) => [...prev, ...newEntries]);
     e.target.value = '';
     setPlusOpen(false);
-  }, []);
+  }, [inputLocked]);
 
   const removeFile = useCallback((idx: number) => {
+    if (inputLocked) return;
     setFiles((prev) => {
       const entry = prev[idx];
       if (entry?.preview) URL.revokeObjectURL(entry.preview);
       return prev.filter((_, i) => i !== idx);
     });
-  }, []);
+  }, [inputLocked]);
 
   const handleSend = useCallback(() => {
     const text = input.trim();
     if (!text && files.length === 0) return;
     if (isStreaming) { onStop(); return; }
+    if (creationDockOpen) return;
     onSend(text, files.map((f) => f.file));
     setInput('');
     setFiles([]);
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
-  }, [input, files, isStreaming, onSend, onStop]);
+  }, [input, files, isStreaming, creationDockOpen, onSend, onStop]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -398,27 +436,41 @@ export function ChatInput({
   }, [handleSend]);
 
   const handleClear = useCallback(() => {
+    if (inputLocked) return;
     onClearConversation?.();
     setPlusOpen(false);
-  }, [onClearConversation]);
+  }, [onClearConversation, inputLocked]);
 
   const hasContent = input.trim().length > 0 || files.length > 0;
 
   const CtxIcon = contextType ? CONTEXT_ICON[contextType] : null;
 
   return (
-    <div className="px-3 pb-3 pt-1.5 shrink-0">
-
-      {/* Streaming indicator removed — shown inline in chat via StreamingWave */}
+    <div
+      className={cn(
+        'shrink-0 w-full min-w-0',
+        embeddedInComposer ? 'px-0 pb-3 pt-0' : 'px-3 pb-3',
+        dockTail && !embeddedInComposer && 'px-3 pb-2 pt-0',
+      )}
+    >
 
       {/* Main input box */}
       <div
         className={cn(
-          'rounded-xl border transition-all duration-150',
-          'bg-muted/60',
-          focused
-            ? 'border-teal-500/60 shadow-[0_0_0_2px_rgba(20,184,166,0.08)]'
-            : 'border-border',
+          'transition-all duration-150',
+          embeddedInComposer
+            ? 'rounded-none border-0 border-t border-border/45 bg-transparent'
+            : cn(
+                'border bg-muted/60',
+                dockTail
+                  ? 'rounded-b-xl rounded-t-none border-0 border-t border-border/80 bg-muted/60'
+                  : cn(
+                      'rounded-xl',
+                      focused
+                        ? 'border-primary/60 shadow-[0_0_0_2px_rgba(20,184,166,0.08)]'
+                        : 'border-border',
+                    ),
+              ),
         )}
       >
         {/* File previews inside the box */}
@@ -436,7 +488,8 @@ export function ChatInput({
                   <button
                     type="button"
                     onClick={() => removeFile(i)}
-                    className="absolute -top-1.5 -right-1.5 flex items-center justify-center size-4 rounded-full bg-gray-800 dark:bg-zinc-700 border border-border text-white opacity-0 group-hover/thumb:opacity-100 transition-opacity"
+                    disabled={inputLocked}
+                    className="absolute -top-1.5 -right-1.5 flex items-center justify-center size-4 rounded-full bg-gray-800 dark:bg-secondary border border-border text-white opacity-0 group-hover/thumb:opacity-100 transition-opacity"
                   >
                     <X className="size-2.5" />
                   </button>
@@ -447,11 +500,12 @@ export function ChatInput({
                   key={i}
                   className="flex items-center gap-1.5 rounded-md border border-border bg-secondary/60 px-2 py-1 text-[11px] text-foreground"
                 >
-                  <FileText className="size-3 shrink-0 text-teal-500" />
+                  <FileText className="size-3 shrink-0 text-primary" />
                   <span className="max-w-24 truncate">{entry.file.name}</span>
                   <button
                     type="button"
                     onClick={() => removeFile(i)}
+                    disabled={inputLocked}
                     className="ml-0.5 text-muted-foreground hover:text-foreground transition-colors"
                   >
                     <X className="size-2.5" />
@@ -470,13 +524,24 @@ export function ChatInput({
           onKeyDown={handleKeyDown}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
-          placeholder={isStreaming ? 'Escribe para interrumpir y enviar...' : placeholder}
+          placeholder={
+            isStreaming && !creationDockOpen
+              ? 'Escribe para interrumpir y enviar...'
+              : placeholder
+          }
+          disabled={inputLocked}
+          title={
+            creationDockOpen
+              ? 'El chat está en modo creación: completa el formulario de arriba o cancela para escribir de nuevo.'
+              : undefined
+          }
           rows={1}
           className={cn(
             'w-full bg-transparent resize-none outline-none',
             'text-sm text-foreground',
             'placeholder:text-muted-foreground',
             'px-3 pt-3 pb-2.5 max-h-40 min-h-5 leading-5',
+            creationDockOpen && 'cursor-not-allowed opacity-90',
           )}
         />
 
@@ -487,15 +552,24 @@ export function ChatInput({
         <div className="flex items-center gap-1 px-1.5 py-1.5">
 
           {/* LEFT: + menu */}
-          <Popover open={plusOpen} onOpenChange={setPlusOpen}>
+          <Popover
+            open={plusOpen}
+            onOpenChange={(v) => {
+              if (inputLocked) return;
+              setPlusOpen(v);
+            }}
+          >
             <PopoverTrigger asChild>
               <button
                 type="button"
+                disabled={inputLocked}
+                aria-disabled={inputLocked}
                 className={cn(
                   'flex items-center justify-center size-7 rounded-md transition-colors',
                   'text-muted-foreground hover:text-foreground',
                   'hover:bg-accent',
                   plusOpen && 'bg-accent text-foreground',
+                  inputLocked && 'cursor-not-allowed opacity-60',
                 )}
                 title="Más opciones"
               >
@@ -512,6 +586,7 @@ export function ChatInput({
                 <button
                   type="button"
                   onClick={() => fileRef.current?.click()}
+                  disabled={inputLocked}
                   className="flex items-center gap-2.5 w-full px-2 py-1.5 rounded-md text-sm text-foreground hover:bg-accent transition-colors"
                 >
                   <Paperclip size={13} className="shrink-0 text-muted-foreground" />
@@ -522,6 +597,7 @@ export function ChatInput({
                 <button
                   type="button"
                   onClick={handleClear}
+                  disabled={inputLocked}
                   className="flex items-center gap-2.5 w-full px-2 py-1.5 rounded-md text-sm text-foreground hover:bg-accent transition-colors"
                 >
                   <Trash2 size={13} className="shrink-0 text-muted-foreground" />
@@ -530,10 +606,18 @@ export function ChatInput({
               )}
               <div className="my-1 border-t border-border" />
               {/* Cambiar modelo — se abre al hover */}
-              <Popover open={modelMenuOpen} onOpenChange={setModelMenuOpen}>
+              <Popover
+                open={modelMenuOpen}
+                onOpenChange={(v) => {
+                  if (inputLocked) return;
+                  setModelMenuOpen(v);
+                }}
+              >
                 <PopoverTrigger asChild>
                   <button
                     type="button"
+                    disabled={inputLocked}
+                    aria-disabled={inputLocked}
                     onMouseEnter={openModelMenu}
                     onMouseLeave={scheduleCloseModelMenu}
                     className={cn(
@@ -575,13 +659,15 @@ export function ChatInput({
             {contextLabel && (
               <button
                 type="button"
+                disabled={inputLocked}
+                aria-disabled={inputLocked}
                 className="flex items-center gap-1 min-w-0 px-1.5 py-0.5 rounded-md hover:bg-accent transition-colors"
                 title={contextLabel}
               >
                 {CtxIcon && (
                   <CtxIcon size={11} className="shrink-0 text-muted-foreground" />
                 )}
-                <span className="text-[11px] text-gray-400 dark:text-zinc-500 truncate max-w-32">
+                <span className="text-[11px] text-muted-foreground truncate max-w-32">
                   {contextLabel}
                 </span>
               </button>
@@ -592,22 +678,30 @@ export function ChatInput({
           <div className="flex items-center gap-1 shrink-0">
 
             {/* Provider chip — opens its OWN popover, independent of + menu */}
-            <Popover open={providerOpen} onOpenChange={setProviderOpen}>
+            <Popover
+              open={providerOpen}
+              onOpenChange={(v) => {
+                if (inputLocked) return;
+                setProviderOpen(v);
+              }}
+            >
               <PopoverTrigger asChild>
                 <button
                   type="button"
+                  disabled={inputLocked}
+                  aria-disabled={inputLocked}
                   className={cn(
                     'flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors',
                     'text-[11px] text-muted-foreground',
-                    'hover:text-gray-700 dark:hover:text-zinc-300',
+                    'hover:text-gray-700',
                     'hover:bg-accent',
                     providerOpen && 'bg-accent text-foreground',
-                    isAutoMode && 'text-teal-600 dark:text-teal-400',
+                    isAutoMode && 'text-primary dark:text-primary',
                   )}
                   title="Cambiar proveedor"
                 >
                   {isAutoMode
-                    ? <Zap size={11} className="shrink-0 text-teal-500" />
+                    ? <Zap size={11} className="shrink-0 text-primary" />
                     : <span className={cn('size-1.5 rounded-full shrink-0', chipDot)} />
                   }
                   <span>{isAutoMode ? 'Auto' : providerLabel}</span>
@@ -633,20 +727,27 @@ export function ChatInput({
               </PopoverContent>
             </Popover>
 
-            {/* Send / Stop */}
+            {/* Send / Stop — con dock de creación abierto solo se permite detener stream, no enviar */}
             <button
               type="button"
               onClick={isStreaming ? onStop : hasContent ? handleSend : undefined}
-              disabled={!hasContent && !isStreaming}
+              disabled={creationDockOpen ? !isStreaming : !hasContent && !isStreaming}
               className={cn(
                 'flex items-center justify-center size-7 rounded-lg transition-colors shrink-0',
+                creationDockOpen && !isStreaming && 'opacity-40',
                 isStreaming
                   ? 'bg-orange-600 hover:bg-orange-500 text-white'
-                  : hasContent
-                    ? 'bg-teal-600 hover:bg-teal-500 text-white'
-                    : 'text-gray-300 dark:text-zinc-700 cursor-not-allowed',
+                  : hasContent && !creationDockOpen
+                    ? 'bg-primary hover:bg-primary text-white'
+                    : 'text-muted-foreground cursor-not-allowed',
               )}
-              title={isStreaming ? 'Detener' : 'Enviar'}
+              title={
+                creationDockOpen && !isStreaming
+                  ? 'Desbloquea cancelando o completando la creación'
+                  : isStreaming
+                    ? 'Detener'
+                    : 'Enviar'
+              }
             >
               {isStreaming
                 ? <Square size={12} className="fill-current" />
@@ -664,7 +765,7 @@ export function ChatInput({
         multiple
         className="hidden"
         onChange={handleFileChange}
-        accept="image/*,.pdf,.doc,.docx,.txt,.md"
+        accept="image/*"
       />
     </div>
   );

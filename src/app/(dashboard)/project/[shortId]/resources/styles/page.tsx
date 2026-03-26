@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useProject } from '@/contexts/ProjectContext';
 import { queryKeys } from '@/lib/query/keys';
 import { KButton } from '@/components/ui/kiyoko-button';
+import { Button } from '@/components/ui/button';
 import {
   Loader2, Palette, Plus, Star, Pencil, X, Save,
 } from 'lucide-react';
@@ -99,9 +100,9 @@ export default function StylesPage() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-medium text-primary">Editando</span>
-                    <button onClick={() => setEditingId(null)} className="text-muted-foreground hover:text-foreground">
+                    <Button variant="ghost" size="xs" isIconOnly className="h-6 w-6" onClick={() => setEditingId(null)}>
                       <X className="h-4 w-4" />
-                    </button>
+                    </Button>
                   </div>
                   <input
                     value={editName}

@@ -42,6 +42,12 @@ En tu código existen (al menos) estos overlays:
 3. Persistencia:
    - la apertura/cierre de modales no debe resetear el chat ni borrar inputs (excepto “Clear conversation”).
 
+4. Deep-linking (entrypoints por URL):
+   - `src/app/(dashboard)/layout.tsx` abre `SettingsModal` cuando:
+     - la ruta empieza por `/settings` (mapea a sección),
+     - o existe el query param `?settings=open` (opcional `&section=api-keys|perfil|notificaciones|suscripcion|seguridad|...`).
+   - si el modal se abrió por query param, al cerrarlo se elimina el flag `settings=open` del URL para que no vuelva a abrir al refrescar.
+
 ## 3.1) Regla de decisión (cuándo usar qué overlay)
 1. Usa `Dialog` (`ui/dialog.tsx`) para:
    - flujos de selección o formularios “centrales”,

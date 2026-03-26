@@ -27,16 +27,16 @@ export function PromptBlock({
     >
       <div className="flex items-center justify-between border-b border-muted-foreground/10 px-4 py-2">
         {language && (
-          <span className="text-xs font-medium text-gray-400">{language}</span>
+          <span className="text-xs font-medium text-muted-foreground">{language}</span>
         )}
-        <CopyButton text={code} className="ml-auto text-gray-400 hover:text-gray-200" />
+        <CopyButton text={code} className="ml-auto text-muted-foreground hover:text-gray-200" />
       </div>
       <pre className="overflow-x-auto p-4">
         <code className="font-mono text-sm text-gray-200">
           {showLineNumbers
             ? lines.map((line, i) => (
                 <div key={i} className="flex">
-                  <span className="mr-4 inline-block w-8 shrink-0 text-right text-gray-600 select-none">
+                  <span className="mr-4 inline-block w-8 shrink-0 text-right text-muted-foreground select-none">
                     {i + 1}
                   </span>
                   <span>{line}</span>

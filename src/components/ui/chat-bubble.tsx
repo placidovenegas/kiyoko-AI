@@ -139,7 +139,7 @@ export function ChatMessage({
             <span
               className={cn(
                 'mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-full ring-2 ring-background',
-                'bg-teal-600 text-white',
+                'bg-primary text-white',
                 avatarClass,
               )}
             >
@@ -163,7 +163,7 @@ export function ChatMessage({
             /* AI bubble */
             !isUser && 'rounded-2xl rounded-tl-md bg-muted text-foreground dark:bg-default-800',
             /* User bubble — dark teal */
-            isUser && 'rounded-2xl rounded-tr-md bg-teal-950 text-white dark:bg-teal-900',
+            isUser && 'rounded-2xl rounded-tr-md bg-primary text-primary-foreground',
             /* Failed */
             isFailed && 'opacity-60',
           )}

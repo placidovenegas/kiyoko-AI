@@ -951,6 +951,11 @@ export type Database = {
           bio: string | null
           company: string | null
           created_at: string | null
+          creative_platforms: string | null
+          creative_purpose: string | null
+          creative_typical_duration: string | null
+          creative_use_context: string | null
+          creative_video_types: string | null
           email: string
           full_name: string | null
           id: string
@@ -964,6 +969,11 @@ export type Database = {
           bio?: string | null
           company?: string | null
           created_at?: string | null
+          creative_platforms?: string | null
+          creative_purpose?: string | null
+          creative_typical_duration?: string | null
+          creative_use_context?: string | null
+          creative_video_types?: string | null
           email: string
           full_name?: string | null
           id: string
@@ -977,6 +987,11 @@ export type Database = {
           bio?: string | null
           company?: string | null
           created_at?: string | null
+          creative_platforms?: string | null
+          creative_purpose?: string | null
+          creative_typical_duration?: string | null
+          creative_use_context?: string | null
+          creative_video_types?: string | null
           email?: string
           full_name?: string | null
           id?: string

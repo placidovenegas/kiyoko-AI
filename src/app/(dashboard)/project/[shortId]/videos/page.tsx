@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { queryKeys } from '@/lib/query/keys';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils/cn';
+import { Button } from '@/components/ui/button';
 import {
   Plus, Clock, MoreHorizontal, Copy, Trash2,
   Pencil, ExternalLink, CheckCircle2, Video,
@@ -46,12 +47,12 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  draft: 'bg-zinc-500/15 text-zinc-400',
+  draft: 'bg-muted-foreground/15 text-muted-foreground',
   prompting: 'bg-blue-500/15 text-blue-400',
   generating: 'bg-amber-500/15 text-amber-400',
   review: 'bg-purple-500/15 text-purple-400',
   approved: 'bg-emerald-500/15 text-emerald-400',
-  exported: 'bg-teal-500/15 text-teal-400',
+  exported: 'bg-primary/15 text-primary',
 };
 
 const VIDEO_STATUSES = [
@@ -77,7 +78,7 @@ function VideoRow({
   const targetDuration = video.target_duration_seconds ?? 0;
 
   return (
-    <div className="group relative rounded-lg border border-border bg-card p-4 transition-colors hover:bg-[#1A1A1D]">
+    <div className="group relative rounded-lg border border-border bg-card p-4 transition-colors hover:bg-accent">
       <Link
         href={`/project/${projectShortId}/video/${video.short_id}`}
         className="absolute inset-0 rounded-lg"
@@ -87,7 +88,7 @@ function VideoRow({
       <div className="flex items-start justify-between gap-4">
         {/* Left: platform icon + info */}
         <div className="flex items-start gap-3 min-w-0">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-[#0E0E10] text-xl">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary text-xl">
             {PLATFORM_ICONS[video.platform] ?? '🎬'}
           </div>
           <div className="min-w-0">
@@ -96,7 +97,7 @@ function VideoRow({
                 {video.title}
               </h3>
               {video.is_primary && (
-                <span className="shrink-0 flex items-center gap-1 rounded-full bg-teal-500/10 px-2 py-0.5 text-[10px] font-medium text-teal-400">
+                <span className="shrink-0 flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
                   <CheckCircle2 className="h-3 w-3" /> Principal
                 </span>
               )}
@@ -118,15 +119,15 @@ function VideoRow({
         <div className="flex shrink-0 items-center gap-2 relative z-10">
           <span className={cn(
             'rounded-full px-2.5 py-0.5 text-[11px] font-medium',
-            STATUS_COLORS[video.status] ?? 'bg-zinc-500/15 text-zinc-400'
+            STATUS_COLORS[video.status] ?? 'bg-muted-foreground/15 text-muted-foreground'
           )}>
             {STATUS_LABELS[video.status] ?? video.status}
           </span>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-[#1A1A1D] hover:text-foreground group-hover:opacity-100">
+              <Button variant="ghost" size="xs" isIconOnly className="h-7 w-7 opacity-0 group-hover:opacity-100">
                 <MoreHorizontal className="h-4 w-4" />
-              </button>
+              </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent side="left" align="start" className="w-48">
               <DropdownMenuItem asChild>
@@ -150,7 +151,7 @@ function VideoRow({
                     <DropdownMenuItem
                       key={s}
                       onClick={() => onStatusChange(video.id, s)}
-                      className={video.status === s ? 'text-teal-400' : ''}
+                      className={video.status === s ? 'text-primary' : ''}
                     >
                       {STATUS_LABELS[s]}
                       {video.status === s && <CheckCircle2 className="ml-auto h-3.5 w-3.5" />}
@@ -283,7 +284,7 @@ export default function VideosPage() {
         </div>
         <button
           onClick={() => setCreateModalOpen(true)}
-          className="flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-teal-500"
+          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary"
         >
           <Plus className="h-4 w-4" />
           Nuevo vídeo
@@ -302,7 +303,7 @@ export default function VideosPage() {
           </p>
           <button
             onClick={() => setCreateModalOpen(true)}
-            className="flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-500"
+            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary"
           >
             <Plus className="h-4 w-4" />
             Crear primer vídeo

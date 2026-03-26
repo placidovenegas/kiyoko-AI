@@ -164,8 +164,9 @@ export function buildSystemPrompt(params: BuildSystemPromptParams): string {
   // ---- REGLAS DE CONTEXTO ----
   lines.push(`[REGLAS DE CONTEXTO]`);
   if (level === 'dashboard') {
-    lines.push(`- Estás en el Dashboard. NO menciones videos, escenas ni fondos específicos.`);
-    lines.push(`- Habla solo de proyectos, productividad y cómo ayudar al usuario a empezar.`);
+    lines.push(`- Estás en el Dashboard: prioriza proyectos, tareas y orientación general.`);
+    lines.push(`- No inventes ni detalles personajes, fondos ni escenas concretas; eso aplica al abrir un proyecto o vídeo.`);
+    lines.push(`- Si el usuario pide ideas creativas, plantéalas a nivel de proyecto o campaña, no como ideas de un vídeo concreto hasta que abra un vídeo.`);
     lines.push(`- Ofrece crear un proyecto nuevo o navegar a uno existente.`);
   } else if (level === 'project') {
     lines.push(`- Estás en el Proyecto. Puedes hablar de videos, personajes y fondos.`);
@@ -314,6 +315,17 @@ export function buildSystemPrompt(params: BuildSystemPromptParams): string {
   lines.push(`Cuando el plan crea múltiples escenas, TAMBIÉN incluye un timeline visual:`);
   lines.push(`[SCENE_PLAN][{"scene_number":1,"title":"...","duration":5,"arc_phase":"hook","description":"..."},...][/SCENE_PLAN]`);
   lines.push('');
+
+  // ---- TIMELINE SEGMENTADA (6A/6B/6-T) + coherencia de cámara ----
+  lines.push(`Reglas TIMELINE "6A/6B/6-T" (para storyboard editable y coherente):`);
+  lines.push(`- Tu timeline del cliente se representa como un conjunto de escenas con duración (no como “un solo prompt gigante”).`);
+  lines.push(`- Si hay un cambio relevante de cámara (plano medio → acercamiento a manos → plano detalle), crea una escena independiente SOLO para ese tramo temporal para que el prompt se reescriba únicamente en esa escena.`);
+  lines.push(`- Usa el campo "title" de cada escena con la etiqueta del segmento y el rango temporal (ej. "6A — 0–3s", "6A — 3–5s", "6-T — 5–6s").`);
+  lines.push(`- En "description", explica en español segundo a segundo qué pasa y qué audio/ambiente se escucha durante ESE rango.`);
+  lines.push(`- Si aparecen personajes o fondos diferentes: NO los mezcles en una misma escena, crea otra escena (aunque pertenezca al mismo grupo lógico).`);
+  lines.push(`- Para agrupar lógicamente el storyboard, incluye en scenes.metadata (Json) metadata.timeline con { group, segment, orderGroup, name_group, range:{startSec,endSec} }.`);
+  lines.push('');
+
   lines.push(`Al final de cada respuesta incluye 2-3 sugerencias de siguiente paso:`);
   lines.push(`[SUGGESTIONS]["Sugerencia 1", "Sugerencia 2", "Sugerencia 3"][/SUGGESTIONS]`);
   lines.push('');
@@ -384,16 +396,22 @@ Hablas siempre en español. Tu tono es profesional pero cercano.
 Estás en el Dashboard del usuario.
 
 [REGLAS DE CONTEXTO]
-- Estás en el Dashboard. NO menciones videos, escenas, personajes ni fondos específicos.
+- Estás en el Dashboard: prioriza proyectos y tareas; no inventes personajes, fondos ni escenas concretos.
+- Las ideas creativas van a nivel de proyecto o campaña; las ideas de un vídeo concreto cuando el usuario esté dentro de ese vídeo.
 - Puedes ayudar a crear proyectos nuevos, navegar a proyectos existentes, o explicar cómo funciona Kiyoko.
 - Cuando el usuario quiera crear un proyecto, guíalo paso a paso con botones — NO pidas todo a la vez.
 
 [FLUJO PARA CREAR PROYECTO]
 Pregunta UNA COSA a la vez usando [OPTIONS]:
-1. Primero: plataforma principal
-2. Luego: estilo visual
-3. Luego: duración objetivo del video
-4. Luego: genera el proyecto con un nombre y muestra [PREVIEW:project] + [ACTION_PLAN]
+ 1. Primero: plataforma principal
+ 2. Luego: estilo visual
+ 3. Luego: duración objetivo del video
+ 4. Luego: genera el proyecto con un nombre y muestra [PREVIEW:project] + [ACTION_PLAN]
+
+Alternativa rápida: si el usuario pide "crear proyecto", "nuevo proyecto" o "formulario de proyecto" y quieres abrir el formulario directo (sin flujo paso a paso con OPTIONS), responde con UNA frase corta y el bloque:
+[CREATE:project]
+{"title":"","description":"","client_name":"","style":"pixar"}
+[/CREATE]
 
 Ejemplo:
 Usuario: "Quiero crear un proyecto"

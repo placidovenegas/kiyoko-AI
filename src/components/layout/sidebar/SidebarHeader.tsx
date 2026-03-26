@@ -17,6 +17,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
+import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
 import { KiyokoIcon } from '@/components/ui/logo';
@@ -30,7 +31,7 @@ import { cn } from '@/lib/utils/cn';
 // ---------------------------------------------------------------------------
 
 const ORG_TYPE_COLORS: Record<string, string> = {
-  personal:  'bg-teal-500/20 text-teal-500',
+  personal:  'bg-primary/20 text-primary',
   freelance: 'bg-blue-500/20 text-blue-500',
   team:      'bg-purple-500/20 text-purple-500',
   agency:    'bg-orange-500/20 text-orange-500',
@@ -101,15 +102,17 @@ export function SidebarHeaderSection() {
             onMouseLeave={() => setHovered(false)}
           >
             <PopoverTrigger asChild>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                fullWidth
                 className={cn(
-                  'flex w-full items-center gap-2 rounded-md px-2 py-1.5 transition-colors',
+                  'flex w-full items-center gap-2 rounded-md px-2 py-1.5 h-auto',
                   'hover:bg-sidebar-accent text-foreground',
                   open && 'bg-sidebar-accent',
                 )}
               >
-                <KiyokoIcon size={20} className="shrink-0 text-[#313131] dark:text-white mb-1" />
+                <KiyokoIcon size={20} className="shrink-0 text-foreground mb-1" />
                 {isExpanded && (
                   <div className="min-w-0 flex-1 text-left pr-5">
                     <p className="truncate text-[13px] font-semibold leading-tight">{userName}</p>
@@ -120,25 +123,25 @@ export function SidebarHeaderSection() {
                     )}
                   </div>
                 )}
-              </button>
+              </Button>
             </PopoverTrigger>
 
             {/* Collapse button — overlaid on top-right of the trigger, appears on hover */}
             {isExpanded && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="xs"
+                isIconOnly
                 onClick={(e) => { e.stopPropagation(); toggleSidebar(); }}
                 className={cn(
-                  'absolute right-1 top-1/2 -translate-y-1/2 z-10',
-                  'flex items-center justify-center size-5 rounded',
-                  'text-muted-foreground hover:text-foreground hover:bg-sidebar-accent',
-                  'transition-all duration-150',
+                  'absolute right-1 top-1/2 -translate-y-1/2 z-10 size-5',
                   hovered ? 'opacity-100' : 'opacity-0',
                 )}
                 title="Colapsar menú"
               >
                 <ChevronsLeft size={13} />
-              </button>
+              </Button>
             )}
           </div>
 
@@ -163,22 +166,26 @@ export function SidebarHeaderSection() {
                   </div>
                 </div>
                 <div className="flex gap-1.5">
-                  <button
+                  <Button
                     type="button"
+                    variant="bordered"
+                    size="xs"
                     onClick={() => { setOpen(false); openSettingsModal('perfil'); }}
-                    className="flex flex-1 items-center justify-center gap-1.5 h-7 px-2 rounded-md border border-border text-[12px] font-medium text-foreground hover:bg-accent transition-colors"
+                    className="flex-1 h-7 text-[12px]"
                   >
                     <Settings className="h-3 w-3 shrink-0 text-muted-foreground" />
                     Ajustes
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    variant="bordered"
+                    size="xs"
                     onClick={() => { setOpen(false); openSettingsModal('org-miembros'); }}
-                    className="flex flex-1 items-center justify-center gap-1.5 h-7 px-2 rounded-md border border-border text-[12px] font-medium text-foreground hover:bg-accent transition-colors"
+                    className="flex-1 h-7 text-[12px]"
                   >
                     <UserPlus className="h-3 w-3 shrink-0 text-muted-foreground" />
                     Invitar
-                  </button>
+                  </Button>
                 </div>
               </div>
             ) : loading ? (
@@ -192,12 +199,14 @@ export function SidebarHeaderSection() {
               {organizations.map((org) => {
                 const isActive = org.id === currentOrgId;
                 return (
-                  <button
+                  <Button
                     key={org.id}
                     type="button"
+                    variant="ghost"
+                    fullWidth
                     onClick={() => { switchOrg(org.id); router.push('/dashboard'); setOpen(false); }}
                     className={cn(
-                      'flex w-full items-center gap-2.5 px-3 py-1.5 transition-colors text-left',
+                      'flex w-full items-center gap-2.5 px-3 py-1.5 h-auto text-left rounded-none',
                       'hover:bg-accent',
                       isActive && 'bg-accent/50',
                     )}
@@ -210,20 +219,22 @@ export function SidebarHeaderSection() {
                       {org.name}
                     </p>
                     {isActive && <Check className="h-3.5 w-3.5 shrink-0 text-foreground" />}
-                  </button>
+                  </Button>
                 );
               })}
 
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                fullWidth
                 onClick={() => { openWorkspaceModal(); setOpen(false); }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 transition-colors hover:bg-accent text-primary"
+                className="flex w-full items-center gap-2 px-3 py-1.5 h-auto text-left rounded-none hover:bg-accent text-primary"
               >
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center">
                   <Plus className="h-3.5 w-3.5" />
                 </span>
                 <span className="text-[13px] font-medium">Nueva organización</span>
-              </button>
+              </Button>
             </div>
 
             <Separator />
@@ -231,19 +242,21 @@ export function SidebarHeaderSection() {
             {/* ── Cuenta ───────────────────────────────────────────────── */}
             <div className="py-1">
               <div className="flex items-center gap-2 px-3 py-1.5">
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-teal-500/20 text-teal-500 text-[9px] font-bold">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-primary/20 text-primary text-[9px] font-bold">
                   {initials(user?.full_name)}
                 </span>
                 <p className="flex-1 min-w-0 truncate text-[12px] text-muted-foreground">{userEmail}</p>
               </div>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                fullWidth
                 onClick={() => { setOpen(false); signOut(); }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent"
+                className="flex w-full items-center gap-2 px-3 py-1.5 h-auto text-[13px] text-foreground rounded-none hover:bg-accent"
               >
                 <LogOut className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 Cerrar sesión
-              </button>
+              </Button>
             </div>
           </PopoverContent>
         </Popover>

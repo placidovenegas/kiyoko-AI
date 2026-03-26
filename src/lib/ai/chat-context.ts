@@ -52,7 +52,7 @@ export function getWelcomeMessage(location: ChatLocation): string {
         '¡Hola! Estoy en el dashboard. Puedo ayudarte a:\n' +
         '• Crear un nuevo proyecto\n' +
         '• Analizar tus proyectos existentes\n' +
-        '• Generar ideas para vídeos\n' +
+        '• Generar ideas a nivel de proyecto o campaña\n' +
         '¿Qué quieres hacer?'
       );
     case 'project':
@@ -99,8 +99,43 @@ export function getQuickActions(location: ChatLocation): QuickAction[] {
   switch (location.type) {
     case 'dashboard':
       return [
-        { id: 'new_project', label: 'Crear proyecto', icon: '➕', prompt: 'Quiero crear un nuevo proyecto' },
-        { id: 'suggestions', label: 'Ideas para vídeo', icon: '💡', prompt: 'Dame ideas para un vídeo' },
+        {
+          id: 'tasks_summary',
+          label: 'Resumen de tareas',
+          icon: '',
+          prompt: 'Dame un resumen de mis tareas pendientes y en progreso y qué conviene priorizar',
+        },
+        {
+          id: 'new_project',
+          label: 'Crear proyecto',
+          icon: '',
+          prompt: 'Quiero crear un nuevo proyecto audiovisual; guíame paso a paso',
+        },
+        {
+          id: 'project_ideas',
+          label: 'Ideas de proyecto',
+          icon: '',
+          prompt:
+            'Dame ideas creativas a nivel de proyecto o campaña (temas, enfoque, prioridades); no asumas un vídeo concreto hasta que elija uno',
+        },
+        {
+          id: 'new_task',
+          label: 'Nueva tarea',
+          icon: '',
+          prompt: 'Quiero crear una nueva tarea: ayúdame a definir título, prioridad y siguiente paso',
+        },
+        {
+          id: 'review_projects',
+          label: 'Revisar proyectos',
+          icon: '',
+          prompt: 'Ayúdame a revisar el estado de mis proyectos y qué debería abordar primero',
+        },
+        {
+          id: 'explore_styles',
+          label: 'Estilos y referencias',
+          icon: '',
+          prompt: 'Sugiere estilos visuales o referencias para mis próximos proyectos',
+        },
       ];
     case 'project':
       return [
@@ -111,6 +146,13 @@ export function getQuickActions(location: ChatLocation): QuickAction[] {
       ];
     case 'video':
       return [
+        {
+          id: 'video_ideas',
+          label: 'Ideas para el vídeo',
+          icon: '',
+          prompt:
+            'Dame ideas creativas para este vídeo concreto (gancho, tono, estructura, mensaje); usa el contexto del vídeo abierto',
+        },
         { id: 'generate_scenes', label: 'Generar escenas', icon: '🎬', prompt: 'Genera las escenas para este vídeo' },
         { id: 'generate_narration', label: 'Narración', icon: '🎙️', prompt: 'Genera la narración completa de todas las escenas' },
         { id: 'batch_prompts', label: 'Prompts batch', icon: '⚡', prompt: 'Genera los prompts de imagen para todas las escenas' },

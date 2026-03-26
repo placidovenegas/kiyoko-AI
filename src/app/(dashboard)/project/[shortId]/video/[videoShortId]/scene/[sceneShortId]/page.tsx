@@ -24,7 +24,7 @@ import type { CameraAngle, CameraMovement } from '@/types';
 // ---------------------------------------------------------------------------
 
 const STATUS_COLORS: Record<string, string> = {
-  draft: 'bg-zinc-500/20 text-zinc-400 border-zinc-500/30',
+  draft: 'bg-zinc-500/20 text-muted-foreground border-zinc-500/30',
   prompt_ready: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
   generating: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
   generated: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
@@ -817,7 +817,7 @@ export default function SceneDetailPage() {
                               <span className="text-purple-400">{p.generator}</span>
                             )}
                             {p.created_at && (
-                              <span className="text-[#52525B] ml-auto">
+                              <span className="text-muted-foreground ml-auto">
                                 {new Date(p.created_at).toLocaleDateString()}
                               </span>
                             )}

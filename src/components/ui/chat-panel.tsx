@@ -80,7 +80,7 @@ const CTX_DOT: Record<ChatContextType, string> = {
 function AiAvatar({ visible }: { visible: boolean }) {
   if (!visible) return <span className="size-7 shrink-0" />;
   return (
-    <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-xl bg-teal-600">
+    <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-xl bg-primary">
       <KiyokoIcon size={13} className="text-white" />
     </div>
   );
@@ -231,7 +231,7 @@ export function ChatPanel({
 
       {/* ── Header ── */}
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border bg-card/50 px-3">
-        <div className="flex size-7 items-center justify-center rounded-xl bg-teal-600">
+        <div className="flex size-7 items-center justify-center rounded-xl bg-primary">
           <KiyokoIcon size={13} className="text-white" />
         </div>
         <div className="min-w-0 flex-1">
@@ -294,8 +294,8 @@ export function ChatPanel({
         {messages.length === 0 && !isLoading && (
           emptyState ?? (
             <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
-              <div className="flex size-16 items-center justify-center rounded-2xl bg-teal-600/10">
-                <KiyokoIcon size={32} className="text-teal-600" />
+              <div className="flex size-16 items-center justify-center rounded-2xl bg-primary/10">
+                <KiyokoIcon size={32} className="text-primary" />
               </div>
               <div>
                 <p className="text-sm font-semibold text-foreground">Kiyoko AI</p>

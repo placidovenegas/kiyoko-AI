@@ -12,6 +12,7 @@ import {
   Search,
   MessageCircle,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils/cn';
 import { createClient } from '@/lib/supabase/client';
 import { FeedbackDialog } from '@/components/shared/FeedbackDialog';
@@ -124,8 +125,9 @@ export function Header({ onToggleChat, chatOpen }: HeaderProps) {
       <div className="flex-1" />
 
       {/* Search — center of navbar, always visible */}
-      <button
+      <Button
         type="button"
+        variant="ghost"
         onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }))}
         className={cn(
           'flex items-center gap-2 h-8 w-64 px-3 rounded-lg',
@@ -139,19 +141,21 @@ export function Header({ onToggleChat, chatOpen }: HeaderProps) {
         <kbd className="shrink-0 text-[10px] font-medium text-foreground/25 bg-foreground/6 border border-foreground/10 rounded px-1 py-0.5">
           ⌘K
         </kbd>
-      </button>
+      </Button>
 
       {/* Spacer right */}
       <div className="flex-1" />
 
       {/* Feedback */}
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="xs"
         onClick={() => setFeedbackOpen(true)}
-        className="shrink-0 mr-1.5 px-2.5 py-1 rounded-md border border-foreground/8 text-[12px] text-foreground/40 hover:text-foreground/70 hover:bg-foreground/4 transition-all"
+        className="shrink-0 mr-1.5 px-2.5 py-1 rounded-md border border-foreground/8 text-[12px] text-foreground/40 hover:text-foreground/70 hover:bg-foreground/4"
       >
         Feedback
-      </button>
+      </Button>
 
       {/* RIGHT: icons */}
       <div className="flex items-center gap-1 shrink-0">
@@ -198,9 +202,12 @@ export function Header({ onToggleChat, chatOpen }: HeaderProps) {
         {profile && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button
+              <Button
                 type="button"
-                className="flex items-center justify-center size-8 rounded-md border border-foreground/6 transition-all duration-150 hover:bg-foreground/4 ml-0.5"
+                variant="ghost"
+                size="xs"
+                isIconOnly
+                className="size-8 rounded-md border border-foreground/6 hover:bg-foreground/4 ml-0.5"
               >
                 {profile.avatar_url ? (
                   <img src={profile.avatar_url} alt={displayName} className="size-5 rounded-full object-cover" />
@@ -209,7 +216,7 @@ export function Header({ onToggleChat, chatOpen }: HeaderProps) {
                     {initials}
                   </div>
                 )}
-              </button>
+              </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               {/* User info header */}

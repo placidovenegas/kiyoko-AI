@@ -81,9 +81,12 @@
   --color-danger-800: #610726;
   --color-danger-900: #310413;
 
-  /* Legacy brand (kept for backward compat) */
-  --color-brand-teal: #0EA5A0;
-  --color-brand-green: #34D399;
+  /* Brand — Landing & marketing colors */
+  --color-brand-teal: #058B96;
+  --color-brand-green: #58DAAC;
+  --color-brand-coral: #FE6A3C;
+  --color-brand-purple: #8B5CF6;
+  --color-brand-dark: #0A0B1E;
 
   /* Fases del arco narrativo */
   --color-phase-hook: #EF4444;

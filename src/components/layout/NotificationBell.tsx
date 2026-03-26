@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Bell, Check, CheckCheck, ExternalLink } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils/cn';
 import Link from 'next/link';
@@ -16,55 +18,79 @@ interface Notification {
   created_at: string;
 }
 
+const NOTIFICATIONS_KEY = ['notifications'] as const;
+
 export function NotificationBell() {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const qc = useQueryClient();
+  const supabase = createClient();
+
+  // ---- Fetch with useQuery ----
+  const { data: notifications = [] } = useQuery({
+    queryKey: NOTIFICATIONS_KEY,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('notifications')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20);
+      return (data as Notification[]) ?? [];
+    },
+  });
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const fetchNotifications = useCallback(async () => {
-    setLoading(true);
-    const supabase = createClient();
-    const { data } = await supabase
-      .from('notifications')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(20);
-    setNotifications((data as Notification[]) ?? []);
-    setLoading(false);
-  }, []);
-
+  // ---- Realtime subscription ----
   useEffect(() => {
-    fetchNotifications();
-  }, [fetchNotifications]);
-
-  // Realtime subscription for new notifications
-  useEffect(() => {
-    const supabase = createClient();
     const channel = supabase
       .channel('notifications-bell')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload) => {
-        setNotifications((prev) => [payload.new as Notification, ...prev].slice(0, 20));
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, () => {
+        qc.invalidateQueries({ queryKey: NOTIFICATIONS_KEY });
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [supabase, qc]);
 
-  const markAsRead = useCallback(async (id: string) => {
-    const supabase = createClient();
-    await supabase.from('notifications').update({ read: true }).eq('id', id);
-    setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n));
-  }, []);
+  // ---- Mutations ----
+  const markAsReadMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await supabase.from('notifications').update({ read: true }).eq('id', id);
+    },
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: NOTIFICATIONS_KEY });
+      const prev = qc.getQueryData<Notification[]>(NOTIFICATIONS_KEY);
+      qc.setQueryData<Notification[]>(NOTIFICATIONS_KEY, (old) =>
+        old?.map((n) => n.id === id ? { ...n, read: true } : n) ?? [],
+      );
+      return { prev };
+    },
+    onError: (_err, _id, ctx) => {
+      if (ctx?.prev) qc.setQueryData(NOTIFICATIONS_KEY, ctx.prev);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: NOTIFICATIONS_KEY }),
+  });
 
-  const markAllRead = useCallback(async () => {
-    const supabase = createClient();
-    const unreadIds = notifications.filter((n) => !n.read).map((n) => n.id);
-    if (unreadIds.length === 0) return;
-    await supabase.from('notifications').update({ read: true }).in('id', unreadIds);
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-  }, [notifications]);
+  const markAllReadMutation = useMutation({
+    mutationFn: async () => {
+      const unreadIds = notifications.filter((n) => !n.read).map((n) => n.id);
+      if (unreadIds.length === 0) return;
+      await supabase.from('notifications').update({ read: true }).in('id', unreadIds);
+    },
+    onMutate: async () => {
+      await qc.cancelQueries({ queryKey: NOTIFICATIONS_KEY });
+      const prev = qc.getQueryData<Notification[]>(NOTIFICATIONS_KEY);
+      qc.setQueryData<Notification[]>(NOTIFICATIONS_KEY, (old) =>
+        old?.map((n) => ({ ...n, read: true })) ?? [],
+      );
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(NOTIFICATIONS_KEY, ctx.prev);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: NOTIFICATIONS_KEY }),
+  });
 
+  // ---- Helpers ----
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
     const now = new Date();
@@ -90,11 +116,14 @@ export function NotificationBell() {
 
   return (
     <div className="relative">
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="xs"
+        isIconOnly
         onClick={() => setOpen(!open)}
         aria-label={`Notificaciones${unreadCount > 0 ? ` (${unreadCount} sin leer)` : ''}`}
-        className="relative flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
+        className="relative size-8"
       >
         <Bell className="h-4 w-4" />
         {unreadCount > 0 && (
@@ -102,7 +131,7 @@ export function NotificationBell() {
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
-      </button>
+      </Button>
 
       {open && (
         <>
@@ -115,13 +144,15 @@ export function NotificationBell() {
             <div className="flex items-center justify-between border-b border-border px-4 py-3">
               <h3 className="text-sm font-semibold text-foreground">Notificaciones</h3>
               {unreadCount > 0 && (
-                <button
+                <Button
                   type="button"
-                  onClick={markAllRead}
-                  className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                  variant="ghost"
+                  size="xs"
+                  onClick={() => markAllReadMutation.mutate()}
+                  className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
                 >
                   <CheckCheck className="h-3 w-3" /> Marcar todas
-                </button>
+                </Button>
               )}
             </div>
 
@@ -137,12 +168,12 @@ export function NotificationBell() {
                   <div
                     key={notif.id}
                     className={cn(
-                      'flex items-start gap-3 border-b border-border/50 px-4 py-3 transition-colors hover:bg-card',
+                      'flex items-start gap-3 border-b border-border/50 px-4 py-3 transition-colors hover:bg-accent/50',
                       !notif.read && 'bg-primary/5',
                     )}
                   >
                     {/* Type indicator */}
-                    <div className={cn('mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full', typeIcon[notif.type] || 'bg-gray-500/20 text-gray-500')}>
+                    <div className={cn('mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full', typeIcon[notif.type] || 'bg-muted text-muted-foreground')}>
                       <Bell className="h-3 w-3" />
                     </div>
 
@@ -161,20 +192,22 @@ export function NotificationBell() {
                         {notif.link && (
                           <Link
                             href={notif.link}
-                            onClick={() => { markAsRead(notif.id); setOpen(false); }}
+                            onClick={() => { markAsReadMutation.mutate(notif.id); setOpen(false); }}
                             className="inline-flex items-center gap-0.5 text-[10px] text-primary hover:underline"
                           >
                             <ExternalLink className="h-2.5 w-2.5" /> Ver
                           </Link>
                         )}
                         {!notif.read && (
-                          <button
+                          <Button
                             type="button"
-                            onClick={() => markAsRead(notif.id)}
-                            className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-foreground"
+                            variant="ghost"
+                            size="xs"
+                            onClick={() => markAsReadMutation.mutate(notif.id)}
+                            className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-foreground h-auto py-0 px-1"
                           >
                             <Check className="h-2.5 w-2.5" /> Leida
-                          </button>
+                          </Button>
                         )}
                       </div>
                     </div>

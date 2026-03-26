@@ -178,7 +178,7 @@ export function PromptEditor({
               onChange={(e) => setEditValue(e.target.value)}
               rows={4}
               aria-label={`Editar ${label}`}
-              className="font-mono text-xs leading-relaxed text-gray-300"
+              className="font-mono text-xs leading-relaxed text-muted-foreground"
             />
           </InputGroup>
           <div className="flex items-center justify-end gap-1.5">
@@ -200,7 +200,7 @@ export function PromptEditor({
         </div>
       ) : (
         <>
-          <pre className="whitespace-pre-wrap wrap-break-word rounded-lg bg-[#0d1117] px-3 py-2.5 text-xs leading-relaxed text-gray-300">
+          <pre className="whitespace-pre-wrap wrap-break-word rounded-lg bg-secondary px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
             <code>{value}</code>
           </pre>
 

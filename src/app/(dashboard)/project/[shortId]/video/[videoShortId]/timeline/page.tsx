@@ -20,7 +20,7 @@ const ARC_PHASE_COLORS: Record<string, { bg: string; border: string; text: strin
   outro: { bg: 'bg-pink-500/20', border: 'border-pink-500/40', text: 'text-pink-400', label: 'Outro' },
 };
 
-const DEFAULT_PHASE = { bg: 'bg-zinc-500/20', border: 'border-zinc-500/40', text: 'text-zinc-400', label: 'Otro' };
+const DEFAULT_PHASE = { bg: 'bg-zinc-500/20', border: 'border-zinc-500/40', text: 'text-muted-foreground', label: 'Otro' };
 
 function formatSeconds(s: number | null): string {
   if (s == null || s <= 0) return '0s';

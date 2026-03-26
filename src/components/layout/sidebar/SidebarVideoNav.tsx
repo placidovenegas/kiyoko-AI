@@ -8,6 +8,7 @@ import {
   Share2, Download, ChevronDown, ChevronLeft,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { Button } from '@/components/ui/button';
 import { queryKeys } from '@/lib/query/keys';
 import {
   SidebarGroup, SidebarGroupLabel, SidebarGroupContent,
@@ -88,13 +89,13 @@ export function SidebarVideoNav({ projectShortId, videoShortId }: Props) {
           <div className="px-2 pb-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex w-full items-center gap-2 rounded-lg border border-sidebar-border bg-sidebar-accent/30 px-3 py-2 text-sm hover:bg-sidebar-accent transition-colors">
+                <Button variant="bordered" className="flex w-full items-center gap-2 rounded-lg border border-sidebar-border bg-sidebar-accent/30 px-3 py-2 text-sm hover:bg-sidebar-accent transition-colors">
                   <Film className="h-4 w-4 shrink-0 text-muted-foreground" />
                   <span className="flex-1 text-left truncate">
                     {currentVideo?.title ?? 'Cargando...'}
                   </span>
                   <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
-                </button>
+                </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-[--radix-dropdown-menu-trigger-width]">
                 {allVideos?.map((v) => (

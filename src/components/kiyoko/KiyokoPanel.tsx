@@ -5,10 +5,11 @@ import { usePathname } from 'next/navigation';
 import { useAIStore } from '@/stores/ai-store';
 import { KiyokoButton } from '@/components/kiyoko/KiyokoButton';
 import { KiyokoChat } from '@/components/chat/KiyokoChat';
+import { CornerDownRight, CornerUpLeft } from 'lucide-react';
 
 /**
  * KiyokoPanel — 3 modes: sidebar, floating, fullscreen.
- * RULE: Only renders inside /project/... routes (Section 1).
+ * RULE: Renders in the main app area (dashboard + project routes) so IA is always accessible.
  * All hooks MUST be called before any conditional return.
  */
 export function KiyokoPanel() {
@@ -44,7 +45,8 @@ export function KiyokoPanel() {
   }, [sidebarWidth, setSidebarWidth]);
 
   const [floatPos, setFloatPos] = useState({ x: -1, y: -1 });
-  const [floatSize] = useState({ w: 450, h: 500 });
+  const [floatSize, setFloatSize] = useState({ w: 560, h: 600 });
+  const [isFloatHovered, setIsFloatHovered] = useState(false);
   const floatRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -79,6 +81,44 @@ export function KiyokoPanel() {
     document.body.style.cursor = 'move';
   }, [floatPos]);
 
+  // ---- Floating resize (bottom-right corner) ----
+  const handleFloatResizeMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startW = floatSize.w;
+    const startH = floatSize.h;
+    const startPos = { ...floatPos };
+
+    const onMove = (ev: MouseEvent) => {
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+
+      // Keep the floating panel inside viewport bounds.
+      const maxW = Math.max(320, window.innerWidth - startPos.x - 20);
+      const maxH = Math.max(320, window.innerHeight - startPos.y - 20);
+
+      const nextW = Math.max(320, Math.min(maxW, startW + dx));
+      const nextH = Math.max(320, Math.min(maxH, startH + dy));
+
+      setFloatSize({ w: nextW, h: nextH });
+    };
+
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    document.body.style.cursor = 'nwse-resize';
+    document.body.style.userSelect = 'none';
+  }, [floatPos, floatSize.w, floatSize.h]);
+
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -98,7 +138,17 @@ export function KiyokoPanel() {
   // ---- NOW safe to do conditional returns (all hooks are above) ----
 
   const isInsideProject = /\/project\/[^/]+/.test(pathname);
-  if (!isInsideProject) return null;
+  const isInsideDashboardArea = (
+    pathname.startsWith('/dashboard')
+    || pathname.startsWith('/organizations')
+    || pathname.startsWith('/new')
+    || pathname.startsWith('/settings')
+    || pathname.startsWith('/admin')
+  );
+
+  // Antes el panel sólo existía en /project/*; esto impedía usar IA desde el dashboard.
+  // Ahora la IA/cliente se mantiene disponible en el área principal del app.
+  if (!isInsideProject && !isInsideDashboardArea) return null;
 
   if (!isOpen) return <KiyokoButton />;
 
@@ -106,15 +156,21 @@ export function KiyokoPanel() {
   if (mode === 'sidebar') {
     return (
       <div
-        className="shrink-0 h-full flex border-l border-border bg-background relative z-30"
+        className="shrink-0 h-full flex bg-background relative z-30"
         style={{ width: sidebarWidth }}
       >
+        {/* Área de agarre (w-2) invisible + línea visible fina (w-px) */}
         <div
-          className="absolute top-0 left-0 w-1 h-full cursor-col-resize z-10 hover:bg-teal-500/40 active:bg-teal-500/60 transition-colors"
+          className="absolute top-0 left-0 w-2 h-full cursor-col-resize z-10 bg-transparent group"
           onMouseDown={handleSidebarResize}
-        />
+        >
+          <div
+            className="absolute inset-y-0 left-1 w-px bg-border group-hover:bg-[#3E4452] group-active:bg-[#3E4452] transition-colors"
+          />
+        </div>
         <div className="flex-1 min-w-0 h-full">
-          <KiyokoChat mode="panel" onClose={closeChat} />
+          {/* `sidebar` = chat panel lateral con historial visible */}
+          <KiyokoChat mode="expanded" onClose={closeChat} />
         </div>
       </div>
     );
@@ -126,13 +182,15 @@ export function KiyokoPanel() {
       <div
         ref={floatRef}
         className="fixed z-50 rounded-xl border border-border shadow-2xl bg-background overflow-hidden flex flex-col"
+        onMouseEnter={() => setIsFloatHovered(true)}
+        onMouseLeave={() => setIsFloatHovered(false)}
         style={{
           left: floatPos.x,
           top: floatPos.y,
           width: floatSize.w,
           height: floatSize.h,
-          minWidth: 350,
-          minHeight: 400,
+          minWidth: 320,
+          minHeight: 320,
         }}
       >
         <div
@@ -140,15 +198,37 @@ export function KiyokoPanel() {
           onMouseDown={handleFloatDrag}
         />
         <div className="flex-1 min-h-0">
+          {/* `floating` = ventana flotante compacta (sin historial persistente) */}
           <KiyokoChat mode="panel" onClose={closeChat} />
         </div>
+
+        {/* Resize hint + handle (only on hover) */}
+        {isFloatHovered && (
+          <>
+            {/* Top-left hint (only visual) */}
+            <div className="absolute left-2 top-2 pointer-events-none opacity-80">
+              <CornerUpLeft size={14} className="text-muted-foreground" />
+            </div>
+
+            {/* Bottom-right handle */}
+            <div
+              role="button"
+              aria-label="Redimensionar chat flotante"
+              title="Redimensionar"
+              onMouseDown={handleFloatResizeMouseDown}
+              className="absolute right-1 bottom-1 w-6 h-6 cursor-nwse-resize flex items-center justify-center rounded-md hover:bg-accent/20"
+            >
+              <CornerDownRight size={16} className="text-muted-foreground" />
+            </div>
+          </>
+        )}
       </div>
     );
   }
 
   // ---- Fullscreen mode ----
   return (
-    <div className="fixed inset-0 z-40 bg-background flex flex-col md:relative md:inset-auto md:flex-1">
+    <div className="relative z-40 bg-background flex flex-col flex-1 min-h-0 w-full overflow-hidden">
       <KiyokoChat mode="expanded" onClose={closeChat} />
     </div>
   );

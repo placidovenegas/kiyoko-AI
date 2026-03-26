@@ -69,8 +69,8 @@ function getTypeMeta(type: string): TypeMeta {
         label: 'Fondo',
         icon: <Image size={14} />,
         borderColor: 'border-l-teal-500',
-        badgeBg: 'bg-teal-500/10',
-        badgeText: 'text-teal-400',
+        badgeBg: 'bg-primary/10',
+        badgeText: 'text-primary',
       };
     case 'prompt':
       return {
@@ -86,7 +86,7 @@ function getTypeMeta(type: string): TypeMeta {
         icon: <FolderOpen size={14} />,
         borderColor: 'border-l-zinc-500',
         badgeBg: 'bg-zinc-500/10',
-        badgeText: 'text-zinc-400',
+        badgeText: 'text-muted-foreground',
       };
   }
 }
@@ -107,12 +107,12 @@ const PLATFORM_LABELS: Record<string, string> = {
 };
 
 const STATUS_LABELS: Record<string, { label: string; classes: string }> = {
-  draft:       { label: 'Borrador',   classes: 'bg-zinc-500/10 text-zinc-400' },
+  draft:       { label: 'Borrador',   classes: 'bg-zinc-500/10 text-muted-foreground' },
   generating:  { label: 'Generando',  classes: 'bg-amber-500/10 text-amber-400 animate-pulse' },
   review:      { label: 'En revisión', classes: 'bg-blue-500/10 text-blue-400' },
   approved:    { label: 'Aprobado',   classes: 'bg-emerald-500/10 text-emerald-400' },
-  published:   { label: 'Publicado',  classes: 'bg-teal-500/10 text-teal-400' },
-  archived:    { label: 'Archivado',  classes: 'bg-zinc-500/10 text-zinc-500' },
+  published:   { label: 'Publicado',  classes: 'bg-primary/10 text-primary' },
+  archived:    { label: 'Archivado',  classes: 'bg-zinc-500/10 text-muted-foreground' },
 };
 
 const ROLE_LABELS: Record<string, string> = {

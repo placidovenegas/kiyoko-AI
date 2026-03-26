@@ -1,17 +1,52 @@
 'use client';
 
-import { useRef, useEffect, useCallback, useState, useMemo } from 'react';
+import { useRef, useEffect, useCallback, useState, useMemo, type ReactNode } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { usePathname, useRouter } from 'next/navigation';
+import { cn } from '@/lib/utils/cn';
 import { useKiyokoChat } from '@/hooks/useKiyokoChat';
 import type { KiyokoMessage } from '@/hooks/useKiyokoChat';
 import { useAIStore } from '@/stores/ai-store';
+import { useOrgStore } from '@/stores/useOrgStore';
 import { ChatMessage } from '@/components/chat/ChatMessage';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { ChatHistorySidebar } from '@/components/chat/ChatHistorySidebar';
+import { CharacterCreationCard } from '@/components/chat/CharacterCreationCard';
+import { BackgroundCreationCard } from '@/components/chat/BackgroundCreationCard';
+import { VideoCreationCard } from '@/components/chat/VideoCreationCard';
+import { ProjectCreationCard } from '@/components/chat/ProjectCreationCard';
 import { KiyokoHeader } from '@/components/kiyoko/KiyokoHeader';
 import { KiyokoEmptyState } from '@/components/kiyoko/KiyokoEmptyState';
 import { StreamingWave } from '@/components/chat/StreamingWave';
+import { ChatFollowUpList } from '@/components/chat/ChatFollowUpList';
+import { V8_SUGGESTION_STAGGER_MS } from '@/types/chat-v8';
+import {
+  CHAT_COMPOSER_UNIFIED_SHELL_CLASS,
+  CHAT_COMPOSER_MAX_WIDTH_CLASS,
+  CHAT_CREATION_DOCK_CLASS,
+  CREATION_FORM_HANDOFF_MS,
+  CHAT_DOCK_OVERLAY_ANIMATE,
+  CHAT_DOCK_OVERLAY_EXIT,
+  CHAT_DOCK_OVERLAY_INITIAL,
+  CHAT_DOCK_OVERLAY_TRANSITION,
+  CHAT_THREAD_DIM_CLASS,
+  creationFormIntroLabel,
+} from '@/components/chat/chatDockOverlay';
 import { createClient } from '@/lib/supabase/client';
+import { resolveNextStepRoute } from '@/lib/chat/resolve-next-step-route';
+import { buildContextClientHint } from '@/lib/chat/build-context-client-hint';
+import {
+  fetchDashboardContextStats,
+  type DashboardContextStatsLite,
+} from '@/lib/chat/fetch-dashboard-context-stats';
+import { fetchProjectContextStats, type ProjectContextStatsLite } from '@/lib/chat/fetch-project-context-stats';
+import { fetchActiveUserApiKeyCount } from '@/lib/chat/fetch-active-user-api-key-count';
+import {
+  fetchProfileCreativeContext,
+  type ProfileCreativeContextLite,
+} from '@/lib/chat/fetch-profile-creative-context';
+import { ChatContextStrip } from '@/components/chat/ChatContextStrip';
+import type { CreationSaveContext } from '@/types/chat-v8';
 import type { AiActionPlan } from '@/types/ai-actions';
 
 // ---------------------------------------------------------------------------
@@ -31,25 +66,36 @@ const HISTORY_WIDTH_KEY = 'kiyoko-history-width';
 // KiyokoChat
 // ---------------------------------------------------------------------------
 
-export function KiyokoChat({ mode, onClose }: KiyokoChatProps) {
+export function KiyokoChat({ mode, onClose, projectSlug: projectSlugProp }: KiyokoChatProps) {
   const pathname = usePathname();
   const router = useRouter();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [projectTitle, setProjectTitle] = useState<string | null>(null);
   const [videoTitle, setVideoTitle] = useState<string | null>(null);
+  const [sceneLabel, setSceneLabel] = useState<string | null>(null);
+  const [projectStats, setProjectStats] = useState<ProjectContextStatsLite | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [userApiKeyCount, setUserApiKeyCount] = useState<number | null>(null);
+  const [userApiKeyLoading, setUserApiKeyLoading] = useState(true);
+  const [dashboardStats, setDashboardStats] = useState<DashboardContextStatsLite | null>(null);
+  const [dashboardStatsLoading, setDashboardStatsLoading] = useState(false);
+  const [profileCreative, setProfileCreative] = useState<ProfileCreativeContextLite | null>(null);
+
+  const currentOrgId = useOrgStore((s) => s.currentOrgId);
   const [historyWidth, setHistoryWidth] = useState(() => {
     if (typeof window === 'undefined') return 240;
     const saved = localStorage.getItem(HISTORY_WIDTH_KEY);
     if (saved) {
       const w = parseInt(saved, 10);
-      if (!isNaN(w) && w >= 180 && w <= 480) return w;
+      if (!isNaN(w)) return w;
     }
-    return 240;
+    return 320;
   });
 
   const {
     messages,
     isStreaming,
+    isThinking,
     conversationId,
     conversations,
     suggestions,
@@ -65,17 +111,223 @@ export function KiyokoChat({ mode, onClose }: KiyokoChatProps) {
     setProject,
     setContext,
     clearSuggestions,
+    persistConversationNow,
     projectId: chatProjectId,
+    projectSlug: projectSlugStore,
+    videoId: chatVideoId,
+    sceneId: chatSceneId,
+    contextLevel: chatContextLevel,
   } = useKiyokoChat();
 
   const isExpandedMode = mode === 'expanded';
+  const [historyOpen, setHistoryOpen] = useState<boolean>(() => mode === 'expanded');
   const activeAgent = useAIStore((s) => s.activeAgent);
+  const sidebarWidth = useAIStore((s) => s.sidebarWidth);
+  const setSidebarWidth = useAIStore((s) => s.setSidebarWidth);
+
+  // ---- Creation overlay (no debe renderizar dentro del historial) ----
+  type CreationType = 'character' | 'background' | 'video' | 'project';
+  type ActiveCreation = {
+    messageId: string;
+    type: CreationType;
+    prefill: Record<string, unknown>;
+  };
+
+  const [activeCreation, setActiveCreation] = useState<ActiveCreation | null>(null);
+  /** Formulario listo pero aún no montado: la IA sigue escribiendo el mensaje (stream). */
+  const [pendingCreation, setPendingCreation] = useState<ActiveCreation | null>(null);
+  const dismissedCreationMessageIdsRef = useRef<Set<string>>(new Set());
+
+  const defaultNextSteps = useCallback((t: CreationType): string[] => {
+    switch (t) {
+      case 'character':
+        return ['Ver personaje', 'Subir imagen referencia', 'Regenerar prompt', 'Personajes', 'Tareas'];
+      case 'background':
+        return ['Ver fondo', 'Subir referencia', 'Regenerar prompt', 'Fondos', 'Tareas'];
+      case 'video':
+        return ['Ver vídeo', 'Escenas', 'Tareas', 'Ajustes del proyecto'];
+      case 'project':
+        return ['Abrir proyecto', 'Crear vídeo', 'Añadir personaje', 'Tareas'];
+      default:
+        return ['Tareas', 'Volver al proyecto'];
+    }
+  }, []);
+
+  const parseCreatedEntityName = useCallback((msg: string): string => {
+    const m =
+      msg.match(/Personaje "([^"]+)"/)
+      ?? msg.match(/Fondo "([^"]+)"/)
+      ?? msg.match(/Video "([^"]+)"/)
+      ?? msg.match(/Proyecto "([^"]+)"/i);
+    return (m?.[1] ?? 'Recurso').trim();
+  }, []);
+
+  const injectAssistantMessage = useCallback(
+    (partial: Partial<KiyokoMessage> & Pick<KiyokoMessage, 'content'>) => {
+      const { messages: currentMessages } = useKiyokoChat.getState();
+      const assistantMsg: KiyokoMessage = {
+        ...partial,
+        id: partial.id ?? crypto.randomUUID(),
+        role: 'assistant',
+        content: partial.content,
+        timestamp: partial.timestamp ?? new Date(),
+        creationSuccess: partial.creationSuccess,
+      };
+      useKiyokoChat.setState({
+        messages: [...currentMessages, assistantMsg],
+      });
+      clearSuggestions();
+      void persistConversationNow();
+    },
+    [clearSuggestions, persistConversationNow],
+  );
+
+  const injectAssistantNotice = useCallback(
+    (text: string) => {
+      injectAssistantMessage({ content: text });
+    },
+    [injectAssistantMessage],
+  );
+
+  const handleCreateCardRequested = useCallback((payload: {
+    messageId: string;
+    type: 'character' | 'background' | 'video' | 'project';
+    prefill: Record<string, unknown>;
+  }) => {
+    const dismissed = dismissedCreationMessageIdsRef.current.has(payload.messageId);
+    if (dismissed) return;
+    if (activeCreation?.messageId === payload.messageId) return;
+    if (pendingCreation?.messageId === payload.messageId) return;
+
+    const next: ActiveCreation = {
+      messageId: payload.messageId,
+      type: payload.type,
+      prefill: payload.prefill,
+    };
+
+    if (isStreaming) {
+      setPendingCreation(next);
+      useAIStore.getState().setCreating(true, creationFormIntroLabel(payload.type));
+      return;
+    }
+    setActiveCreation(next);
+  }, [isStreaming, activeCreation?.messageId, pendingCreation?.messageId]);
+
+  useEffect(() => {
+    if (isStreaming) return;
+    if (!pendingCreation) return;
+    const payload = pendingCreation;
+    const id = window.setTimeout(() => {
+      setActiveCreation(payload);
+      setPendingCreation(null);
+      useAIStore.getState().setCreating(false);
+    }, CREATION_FORM_HANDOFF_MS);
+    return () => window.clearTimeout(id);
+  }, [isStreaming, pendingCreation]);
+
+  const handleActiveCreationCancel = useCallback(() => {
+    if (!activeCreation) return;
+    dismissedCreationMessageIdsRef.current.add(activeCreation.messageId);
+    setActiveCreation(null);
+    injectAssistantMessage({
+      content: '',
+      creationCancelled: { subtitle: 'Puedes intentarlo de nuevo cuando quieras.' },
+    });
+  }, [activeCreation, injectAssistantMessage]);
+
+  const handleActiveCreationCreated = useCallback((msg: string, ctx?: CreationSaveContext) => {
+    if (!activeCreation) return;
+    dismissedCreationMessageIdsRef.current.add(activeCreation.messageId);
+    const name = parseCreatedEntityName(msg);
+    const t = activeCreation.type;
+    const badge =
+      t === 'character' ? 'CHARACTER'
+      : t === 'background' ? 'BACKGROUND'
+      : t === 'video' ? 'VIDEO'
+      : 'PROJECT';
+    const entityLabel =
+      t === 'character' ? 'Personaje'
+      : t === 'background' ? 'Fondo'
+      : t === 'video' ? 'Vídeo'
+      : 'Proyecto';
+    const createdEntityKind =
+      t === 'character' ? 'character'
+      : t === 'background' ? 'background'
+      : t === 'video' ? 'video'
+      : 'project';
+    injectAssistantMessage({
+      content: '',
+      creationSuccess: {
+        name,
+        entityLabel,
+        badge,
+        nextSteps: defaultNextSteps(t),
+        createdEntityKind,
+        entityId: ctx?.entityId,
+        videoShortId: ctx?.videoShortId,
+        projectShortId: ctx?.projectShortId,
+      },
+    });
+
+    if (t === 'project' && ctx?.projectShortId?.trim()) {
+      router.push(`/project/${ctx.projectShortId.trim()}`);
+    }
+
+    const messageId = activeCreation.messageId;
+    setTimeout(() => {
+      setActiveCreation((cur) => (cur?.messageId === messageId ? null : cur));
+    }, 2500);
+  }, [activeCreation, defaultNextSteps, injectAssistantMessage, parseCreatedEntityName, router]);
+
+  // UX: el chat no debe hacerse ilegible por culpa del historial.
+  const CHAT_MIN_WIDTH = 450;
+  // El separador/“strip” visible debe ser fino para que no se note separación.
+  // `w-px` = 1px.
+  const RESIZE_HANDLE_WIDTH = 1;
+  // No ponemos un mínimo rígido: si el panel lateral es más estrecho,
+  // el clamp permitirá que el historial baje por debajo de este valor.
+  const HISTORY_MIN_WIDTH = 160;
+
+  const clampHistoryWidth = useCallback((w: number) => {
+    if (typeof window === 'undefined') return w;
+
+    // Historial máximo = 75% del viewport
+    const capByPercent = window.innerWidth * 0.75;
+    // Historial máximo para mantener chat >= 450px EXCLUYENDO el separador
+    // (limitado por viewport)
+    const capByChatViewport = window.innerWidth - (CHAT_MIN_WIDTH + RESIZE_HANDLE_WIDTH);
+    // Historial máximo para mantener chat >= 450px dentro del panel real
+    const capByChatPanel = sidebarWidth - (CHAT_MIN_WIDTH + RESIZE_HANDLE_WIDTH);
+
+    const maxAllowed = Math.floor(Math.min(capByPercent, capByChatViewport, capByChatPanel));
+    if (maxAllowed <= 0) return 0;
+
+    // Si el viewport no permite ni 450px de chat + historial mínimo, degradamos
+    // (mejor que desbordar/romper el layout).
+    if (maxAllowed < HISTORY_MIN_WIDTH) return Math.floor(Math.min(maxAllowed, w));
+
+    return Math.floor(Math.max(HISTORY_MIN_WIDTH, Math.min(maxAllowed, w)));
+  }, [sidebarWidth]);
+
+  const handleHistoryToggle = useCallback(() => {
+    // Sólo tiene sentido en expanded mode, pero lo protegemos igual.
+    if (!isExpandedMode) return;
+    setHistoryOpen((v) => !v);
+  }, [isExpandedMode]);
 
   // ---- Parse URL context ----
   const projectShortId = useMemo(() => {
     const m = pathname.match(/\/project\/([^/]+)/);
     return m ? m[1] : null;
   }, [pathname]);
+
+  /** Slug del proyecto en URL: prop explícita > store > segmento actual. */
+  const effectiveProjectShortId = useMemo(() => {
+    const fromProp = projectSlugProp?.trim();
+    if (fromProp) return fromProp;
+    if (projectSlugStore) return projectSlugStore;
+    return projectShortId;
+  }, [projectSlugProp, projectSlugStore, projectShortId]);
 
   const videoShortId = useMemo(() => {
     const m = pathname.match(/\/video\/([^/]+)/);
@@ -105,10 +357,178 @@ export function KiyokoChat({ mode, onClose }: KiyokoChatProps) {
     return 'dashboard';
   }, [sceneShortId, videoShortId, projectShortId, isOrgRoute]);
 
+  const projectLoadingStrip = Boolean(projectShortId && !projectTitle);
+
+  useEffect(() => {
+    if (!chatProjectId) {
+      setProjectStats(null);
+      setStatsLoading(false);
+      return;
+    }
+    setStatsLoading(true);
+    let cancelled = false;
+    void fetchProjectContextStats(chatProjectId, chatVideoId)
+      .then((s) => {
+        if (!cancelled) setProjectStats(s);
+      })
+      .finally(() => {
+        if (!cancelled) setStatsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [chatProjectId, chatVideoId]);
+
+  useEffect(() => {
+    if (chatProjectId) {
+      setDashboardStats(null);
+      setDashboardStatsLoading(false);
+      return;
+    }
+    setDashboardStatsLoading(true);
+    let cancelled = false;
+    void fetchDashboardContextStats(currentOrgId ?? null)
+      .then((s) => {
+        if (!cancelled) setDashboardStats(s);
+      })
+      .finally(() => {
+        if (!cancelled) setDashboardStatsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [chatProjectId, currentOrgId]);
+
+  /** Al volver a la pestaña, refrescar conteos (tareas, BYOK) sin spinner completo. */
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (chatProjectId) {
+        void fetchProjectContextStats(chatProjectId, chatVideoId).then(setProjectStats);
+      } else {
+        void fetchDashboardContextStats(currentOrgId ?? null).then(setDashboardStats);
+      }
+      void fetchActiveUserApiKeyCount().then(setUserApiKeyCount);
+      void fetchProfileCreativeContext().then(setProfileCreative);
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, [chatProjectId, chatVideoId, currentOrgId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setUserApiKeyLoading(true);
+    void fetchActiveUserApiKeyCount()
+      .then((n) => {
+        if (!cancelled) setUserApiKeyCount(n);
+      })
+      .finally(() => {
+        if (!cancelled) setUserApiKeyLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => {
+      void fetchProfileCreativeContext().then((p) => {
+        if (!cancelled) setProfileCreative(p);
+      });
+    };
+    load();
+    const onProfileUpdated = () => load();
+    window.addEventListener('kiyoko-profile-updated', onProfileUpdated);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('kiyoko-profile-updated', onProfileUpdated);
+    };
+  }, []);
+
+  const clientHintForApi = useMemo(
+    () =>
+      buildContextClientHint({
+        contextLevel: chatContextLevel,
+        projectTitle,
+        videoTitle,
+        sceneLabel,
+        projectId: chatProjectId,
+        videoId: chatVideoId,
+        sceneId: chatSceneId,
+        stats: projectStats,
+        dashboardStats: chatProjectId ? null : dashboardStats,
+        activeUserApiKeyCount: userApiKeyCount,
+        profileCreative,
+      }),
+    [
+      chatContextLevel,
+      projectTitle,
+      videoTitle,
+      sceneLabel,
+      chatProjectId,
+      chatVideoId,
+      chatSceneId,
+      projectStats,
+      dashboardStats,
+      userApiKeyCount,
+      profileCreative,
+    ],
+  );
+
+  useEffect(() => {
+    useKiyokoChat.setState({ contextClientHint: clientHintForApi });
+  }, [clientHintForApi]);
+
+  useEffect(() => {
+    if (!sceneShortId) {
+      setSceneLabel(null);
+      return;
+    }
+    const supabase = createClient();
+    void supabase
+      .from('scenes')
+      .select('scene_number, title')
+      .eq('short_id', sceneShortId)
+      .single()
+      .then(({ data, error }) => {
+        if (error || !data) {
+          setSceneLabel(null);
+          return;
+        }
+        const num = data.scene_number ?? '?';
+        const t = (data.title as string)?.trim();
+        setSceneLabel(`#${num}${t ? ` · ${t}` : ''}`);
+      });
+  }, [sceneShortId]);
+
+  const contextStrip = (
+    <ChatContextStrip
+      contextLevel={chatContextLevel}
+      projectTitle={projectTitle}
+      videoTitle={videoTitle}
+      sceneLabel={sceneLabel}
+      projectLoading={projectLoadingStrip}
+      stats={chatProjectId ? projectStats : null}
+      statsLoading={Boolean(chatProjectId && statsLoading)}
+      dashboardStats={chatProjectId ? null : dashboardStats}
+      dashboardStatsLoading={Boolean(!chatProjectId && dashboardStatsLoading)}
+      userApiKeyCount={userApiKeyCount}
+      userApiKeyLoading={userApiKeyLoading}
+    />
+  );
+
   // ---- Persist historyWidth ----
   useEffect(() => {
     localStorage.setItem(HISTORY_WIDTH_KEY, historyWidth.toString());
   }, [historyWidth]);
+
+  // Clamp para que siempre respetemos:
+  // - historial <= 75vw
+  // - chat >= 450px (si el viewport lo permite)
+  useEffect(() => {
+    setHistoryWidth((w) => clampHistoryWidth(w));
+  }, [clampHistoryWidth]);
 
   // ---- Fetch project info from URL ----
   useEffect(() => {
@@ -125,10 +545,12 @@ export function KiyokoChat({ mode, onClose }: KiyokoChatProps) {
         if (!videoShortId) setContext('project', null, null);
       } else {
         setProject(null, null);
-        if (!videoShortId) setContext('dashboard', null, null);
+        if (!videoShortId) {
+          setContext(isOrgRoute ? 'organization' : 'dashboard', null, null);
+        }
       }
     });
-  }, [projectShortId, videoShortId, setProject, setContext]);
+  }, [projectShortId, videoShortId, isOrgRoute, setProject, setContext]);
 
   // ---- Fetch video info from URL + update context level ----
   // RULE (Section 16): New conversation every time user enters a video.
@@ -232,6 +654,7 @@ export function KiyokoChat({ mode, onClose }: KiyokoChatProps) {
         timestamp: new Date(),
       };
       useKiyokoChat.setState({ messages: [...msgs, userMsg, assistantMsg] });
+      void persistConversationNow();
       router.push(`/project/${projectShortId}/video/${video.short_id}`);
       return true;
     }
@@ -255,6 +678,7 @@ export function KiyokoChat({ mode, onClose }: KiyokoChatProps) {
           { id: crypto.randomUUID(), role: 'assistant' as const, content: assistantContent, timestamp: new Date() },
         ],
       });
+      void persistConversationNow();
     };
 
     // ---- "muestrame los personajes" / "ver personajes" ----
@@ -428,6 +852,7 @@ export function KiyokoChat({ mode, onClose }: KiyokoChatProps) {
   // ---- Detect creation commands and show forms instantly (no AI round-trip) ----
   const CREATION_PATTERNS: Array<{ pattern: RegExp; block: string }> = useMemo(() => [
     { pattern: /^(crear|nuevo|new|create)\s*(un\s+)?v[ií]deo$/i, block: '[CREATE:video]\n{"title":"","platform":"instagram_reels","target_duration_seconds":30,"description":""}\n[/CREATE]' },
+    { pattern: /^(crear|nuevo|new|create)\s*(un\s+)?proyecto$/i, block: '[CREATE:project]\n{"title":"","description":"","client_name":"","style":"pixar"}\n[/CREATE]' },
     { pattern: /^(crear|nuevo|new|create|a[ñn]adir)\s*(un\s+)?personaje$/i, block: '[CREATE:character]\n{"name":"","role":"protagonista","description":"","personality":"","visual_description":""}\n[/CREATE]' },
     { pattern: /^(crear|nuevo|new|create|a[ñn]adir)\s*(un\s+)?fondo$/i, block: '[CREATE:background]\n{"name":"","location_type":"exterior","time_of_day":"dia","description":""}\n[/CREATE]' },
     { pattern: /^(crear|nuevo|new|create|a[ñn]adir)\s*(un\s+)?(background|locaci[oó]n)$/i, block: '[CREATE:background]\n{"name":"","location_type":"exterior","time_of_day":"dia","description":""}\n[/CREATE]' },
@@ -454,6 +879,7 @@ export function KiyokoChat({ mode, onClose }: KiyokoChatProps) {
     useKiyokoChat.setState({
       messages: [...currentMessages, userMsg, assistantMsg],
     });
+    void persistConversationNow();
     return true;
   }, [CREATION_PATTERNS]);
 
@@ -479,6 +905,27 @@ export function KiyokoChat({ mode, onClose }: KiyokoChatProps) {
       }
     },
     [sendMessage, injectCreationForm, tryNavigate, trySmartCommand],
+  );
+
+  const handlePostCreationStep = useCallback(
+    (label: string, message: KiyokoMessage) => {
+      const cs = message.creationSuccess;
+      if (!cs?.createdEntityKind) {
+        void sendMessage(label);
+        return;
+      }
+      const route = resolveNextStepRoute({
+        label,
+        projectShortId: effectiveProjectShortId,
+        createdEntityKind: cs.createdEntityKind,
+        createdEntityId: cs.entityId,
+        videoShortId: cs.videoShortId,
+        createdProjectShortId: cs.projectShortId,
+      });
+      if (route) router.push(route);
+      else void sendMessage(label);
+    },
+    [effectiveProjectShortId, router, sendMessage],
   );
 
   const handleQuickAction = useCallback(
@@ -527,6 +974,9 @@ export function KiyokoChat({ mode, onClose }: KiyokoChatProps) {
   const handleNewChat = useCallback(() => {
     startNewConversation();
     localStorage.removeItem(LAST_CONVERSATION_KEY);
+    setActiveCreation(null);
+    setPendingCreation(null);
+    useAIStore.getState().setCreating(false);
   }, [startNewConversation]);
 
   // ---- Resize handler (expanded history) ----
@@ -535,8 +985,11 @@ export function KiyokoChat({ mode, onClose }: KiyokoChatProps) {
     const startX = e.clientX;
     const startW = historyWidth;
     const onMove = (ev: MouseEvent) => {
-      const newW = Math.max(180, Math.min(480, startW + (ev.clientX - startX)));
-      setHistoryWidth(newW);
+      // El handle irá a la izquierda del historial: arrastrar hacia la derecha
+      // reduce el ancho del historial y "empuja" el chat.
+      const dx = ev.clientX - startX;
+      const raw = startW - dx;
+      setHistoryWidth(clampHistoryWidth(raw));
     };
     const onUp = () => {
       document.removeEventListener('mousemove', onMove);
@@ -548,7 +1001,22 @@ export function KiyokoChat({ mode, onClose }: KiyokoChatProps) {
     document.addEventListener('mouseup', onUp);
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
-  }, [historyWidth]);
+  }, [historyWidth, clampHistoryWidth]);
+
+  // UX: si el historial está abierto, expandimos el panel lateral para que el chat
+  // no se reduzca visualmente (comportamiento tipo Cursor).
+  useEffect(() => {
+    if (!isExpandedMode) return;
+    // Cuando el historial está abierto añadimos también el ancho del separador.
+    const requiredSidebarWidth = historyOpen
+      ? (CHAT_MIN_WIDTH + RESIZE_HANDLE_WIDTH + historyWidth)
+      : CHAT_MIN_WIDTH;
+    const target = typeof window === 'undefined' ? requiredSidebarWidth : Math.min(window.innerWidth, requiredSidebarWidth);
+
+    // No queremos “pisar” el resize del usuario.
+    // Sólo aumentamos el sidebar si hace falta para mantener el chat >= 450px.
+    if (sidebarWidth + 1 < target) setSidebarWidth(target);
+  }, [isExpandedMode, historyOpen, historyWidth, sidebarWidth, setSidebarWidth, CHAT_MIN_WIDTH, RESIZE_HANDLE_WIDTH]);
 
   // ---- Placeholder ----
   const placeholder = projectTitle
@@ -559,42 +1027,24 @@ export function KiyokoChat({ mode, onClose }: KiyokoChatProps) {
     <div className="flex flex-col h-full bg-background text-foreground relative overflow-hidden">
 
       {/* ================================================================
-          Expanded mode layout: LEFT history sidebar (always) + RIGHT main
+          Expanded mode layout: LEFT main chat + RIGHT history sidebar
           ================================================================ */}
       {isExpandedMode ? (
         <div className="flex flex-1 min-h-0">
-          {/* History sidebar — always visible when expanded, resizable */}
-          <div
-            className="shrink-0 h-full overflow-hidden"
-            style={{ width: historyWidth }}
-          >
-            <ChatHistorySidebar
-              conversations={conversations}
-              activeConversationId={conversationId}
-              onSelect={handleHistorySelect}
-              onNewChat={handleNewChat}
-            />
-          </div>
-
-          {/* Resize handle */}
-          <div
-            className="w-1 shrink-0 cursor-col-resize bg-transparent hover:bg-teal-500/40 active:bg-teal-500/60 relative group"
-            onMouseDown={handleHistoryResizeMouseDown}
-          >
-            <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-px bg-border group-hover:bg-teal-500/40 transition-colors" />
-          </div>
-
           {/* Main chat */}
           <div className="flex flex-col flex-1 min-w-0 h-full">
             <KiyokoHeader
               contextLabel={contextLabel}
               isStreaming={isStreaming}
               onNewChat={handleNewChat}
+              onHistoryToggle={handleHistoryToggle}
+              compact
             />
             <ChatBody
               messages={messages}
               suggestions={suggestions}
               isStreaming={isStreaming}
+              isThinking={isThinking}
               activeAgent={activeAgent}
               projectId={chatProjectId}
               handleQuickAction={handleQuickAction}
@@ -615,8 +1065,44 @@ export function KiyokoChat({ mode, onClose }: KiyokoChatProps) {
               contextType={contextType}
               prefillText={prefillText}
               onPrefillConsumed={handlePrefillConsumed}
+              compactHeader
+              hideCreateCards
+              onCreateCardRequested={handleCreateCardRequested}
+              activeCreation={activeCreation}
+              pendingCreation={pendingCreation}
+              onActiveCreationCancel={handleActiveCreationCancel}
+              onActiveCreationCreated={handleActiveCreationCreated}
+              onPostCreationStep={handlePostCreationStep}
+              contextStrip={contextStrip}
             />
           </div>
+
+          {historyOpen && (
+            <>
+              {/* Resize handle (a la izquierda del historial) */}
+              <div
+                className="w-px shrink-0 cursor-col-resize bg-transparent relative group"
+                onMouseDown={handleHistoryResizeMouseDown}
+              >
+                <div
+                  className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-px bg-border group-hover:bg-[#3E4452] group-active:bg-[#3E4452] transition-colors"
+                />
+              </div>
+
+              {/* History sidebar — visible when expanded, resizable */}
+              <div
+                className="shrink-0 h-full overflow-hidden"
+                style={{ width: historyWidth }}
+              >
+                <ChatHistorySidebar
+                  conversations={conversations}
+                  activeConversationId={conversationId}
+                  onSelect={handleHistorySelect}
+                  onNewChat={handleNewChat}
+                />
+              </div>
+            </>
+          )}
         </div>
 
       ) : (
@@ -630,12 +1116,12 @@ export function KiyokoChat({ mode, onClose }: KiyokoChatProps) {
               contextLabel={contextLabel}
               isStreaming={isStreaming}
               onNewChat={handleNewChat}
-              onHistoryToggle={() => {}}
             />
             <ChatBody
               messages={messages}
               suggestions={suggestions}
               isStreaming={isStreaming}
+              isThinking={isThinking}
               activeAgent={activeAgent}
               projectId={chatProjectId}
               handleQuickAction={handleQuickAction}
@@ -656,6 +1142,14 @@ export function KiyokoChat({ mode, onClose }: KiyokoChatProps) {
               contextType={contextType}
               prefillText={prefillText}
               onPrefillConsumed={handlePrefillConsumed}
+              hideCreateCards
+              onCreateCardRequested={handleCreateCardRequested}
+              activeCreation={activeCreation}
+              pendingCreation={pendingCreation}
+              onActiveCreationCancel={handleActiveCreationCancel}
+              onActiveCreationCreated={handleActiveCreationCreated}
+              onPostCreationStep={handlePostCreationStep}
+              contextStrip={contextStrip}
             />
           </div>
         </div>
@@ -672,6 +1166,8 @@ interface ChatBodyProps {
   messages: KiyokoMessage[];
   suggestions: string[];
   isStreaming: boolean;
+  /** Fase THINK (V8): puntos antes del stream visible */
+  isThinking: boolean;
   activeAgent: string;
   projectId: string | null;
   handleQuickAction: (prompt: string) => void;
@@ -692,12 +1188,39 @@ interface ChatBodyProps {
   contextType: 'dashboard' | 'organization' | 'project' | 'video' | 'scene';
   prefillText: string | null;
   onPrefillConsumed: () => void;
+  compactHeader?: boolean;
+  // [CREATE:*] blocks → no deben renderizar cards dentro del historial.
+  hideCreateCards?: boolean;
+  onCreateCardRequested?: (payload: {
+    messageId: string;
+    type: 'character' | 'background' | 'video' | 'project';
+    prefill: Record<string, unknown>;
+  }) => void;
+
+  // Overlay UI (arriba del input)
+  activeCreation?: null | {
+    messageId: string;
+    type: 'character' | 'background' | 'video' | 'project';
+    prefill: Record<string, unknown>;
+  };
+  /** Stream aún en curso: el formulario se abrirá al terminar (tras handoff). */
+  pendingCreation?: null | {
+    messageId: string;
+    type: 'character' | 'background' | 'video' | 'project';
+    prefill: Record<string, unknown>;
+  };
+  onActiveCreationCancel?: () => void;
+  onActiveCreationCreated?: (msg: string, ctx?: CreationSaveContext) => void;
+  onPostCreationStep?: (label: string, message: KiyokoMessage) => void;
+  /** Jerarquía Dashboard → Proyecto → Vídeo → Escena (paridad con el prompt) */
+  contextStrip?: ReactNode;
 }
 
 function ChatBody({
   messages,
   suggestions,
   isStreaming,
+  isThinking,
   activeAgent,
   projectId,
   handleQuickAction,
@@ -717,13 +1240,44 @@ function ChatBody({
   contextType,
   prefillText,
   onPrefillConsumed,
+  compactHeader,
+  hideCreateCards,
+  onCreateCardRequested,
+  activeCreation,
+  pendingCreation = null,
+  onActiveCreationCancel,
+  onActiveCreationCreated,
+  onPostCreationStep,
+  contextStrip,
 }: ChatBodyProps) {
   const { isCreating, creatingLabel } = useAIStore();
+  const inputPlaceholder =
+    activeCreation || pendingCreation || isCreating ? (creatingLabel ?? 'Creando...') : placeholder;
+
+  const lastUserPromptForSkeleton = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'user') return messages[i].content;
+    }
+    return null;
+  }, [messages]);
+
+  const messagesAreaClass = compactHeader
+    ? 'flex-1 overflow-y-auto min-h-0 px-5 sm:px-7 pt-3 pb-3 space-y-4 overscroll-contain'
+    : 'flex-1 overflow-y-auto min-h-0 px-6 sm:px-8 pt-4 pb-4 space-y-4 overscroll-contain';
 
   return (
-    <div className="flex flex-col flex-1 min-h-0">
-      {/* Messages area */}
-      <div className="flex-1 overflow-y-auto min-h-0 px-4 py-4 space-y-4 overscroll-contain">
+    <div className="flex flex-col flex-1 min-h-0 pt-2 px-3 sm:px-5">
+      {/* Messages area — se atenúa mientras el formulario de creación está anclado al input */}
+      <div
+        className={cn(
+          messagesAreaClass,
+          'relative z-0 transition-opacity duration-200',
+          (activeCreation || pendingCreation) && CHAT_THREAD_DIM_CLASS,
+        )}
+      >
+        {contextStrip ? (
+          <div className="sticky top-0 z-10 -mx-1 sm:-mx-2 mb-2 shrink-0">{contextStrip}</div>
+        ) : null}
         {/* Empty state — contextual quick actions (Section 23.8) */}
         {messages.length === 0 && (
           <KiyokoEmptyState
@@ -742,35 +1296,39 @@ function ChatBody({
             projectId={projectId ?? undefined}
             isLastMessage={idx === messages.length - 1}
             isStreaming={isStreaming}
+            hideCreateCards={hideCreateCards}
+            onCreateCardRequested={onCreateCardRequested}
             onExecute={handleExecute}
             onCancel={handleCancel}
             onModify={handleModify}
             onSend={handleSend}
+            onPostCreationStep={onPostCreationStep}
             onUndo={undoBatch}
             onWorkflowAction={handleWorkflowAction}
+            isAssistantThinking={
+              idx === messages.length - 1 &&
+              isStreaming &&
+              isThinking &&
+              message.role === 'assistant' &&
+              !message.content.trim()
+            }
+            userPromptHint={lastUserPromptForSkeleton}
           />
         ))}
 
-        {/* Suggestions — inline after last message */}
-        {suggestions.length > 0 && !isStreaming && (
-          <div className="pl-6.5 flex flex-wrap gap-2">
-            {suggestions.map((suggestion, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => handleSuggestionClick(suggestion)}
-                className="relative px-3.5 py-2 rounded-full text-xs font-medium text-foreground bg-card border border-border hover:border-transparent transition-all duration-200 group overflow-hidden"
-              >
-                <span className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-linear-to-r from-teal-500 via-blue-500 to-purple-500 p-px">
-                  <span className="block size-full rounded-full bg-card" />
-                </span>
-                <span className="relative">{suggestion}</span>
-              </button>
-            ))}
+        {/* Sugerencias — lista vertical con chevrón (misma línea que post-creación) */}
+        {suggestions.length > 0 && !isStreaming && !isThinking && !isCreating && !activeCreation && !pendingCreation && (
+          <div className="pl-1 sm:pl-2 max-w-[min(100%,42rem)]">
+            <ChatFollowUpList
+              title="Sugerencias"
+              items={suggestions}
+              staggerMs={V8_SUGGESTION_STAGGER_MS}
+              onSelect={(suggestion) => handleSuggestionClick(suggestion)}
+            />
           </div>
         )}
 
-        {/* Creating animation — shown while saving to Supabase */}
+        {/* Actividad de creación / guardado (visible también con el formulario anclado al input) */}
         {isCreating && creatingLabel && (
           <StreamingWave label={creatingLabel} />
         )}
@@ -778,21 +1336,124 @@ function ChatBody({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input — always visible, send disabled while creating */}
-      <div className="shrink-0">
-        <ChatInput
-          onSend={handleSend}
-          onStop={stopStreaming}
-          onClearConversation={onClearConversation}
-          isStreaming={isStreaming || isCreating}
-          activeProvider={activeProvider}
-          allowFiles
-          placeholder={isCreating ? (creatingLabel ?? 'Creando...') : placeholder}
-          contextLabel={contextLabel}
-          contextType={contextType}
-          prefillText={prefillText}
-          onPrefillConsumed={onPrefillConsumed}
-        />
+      {/* Compositor: un solo borde redondeado; el formulario crece encima del input */}
+      <div
+        className={cn(
+          'shrink-0 relative z-20',
+          CHAT_COMPOSER_MAX_WIDTH_CLASS,
+          activeCreation ? 'px-3 pb-3' : '',
+        )}
+      >
+        {activeCreation ? (
+          <div className={CHAT_COMPOSER_UNIFIED_SHELL_CLASS}>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={`${activeCreation.type}-${activeCreation.messageId}`}
+                className={cn(CHAT_CREATION_DOCK_CLASS, 'shrink-0 flex flex-col')}
+                initial={CHAT_DOCK_OVERLAY_INITIAL}
+                animate={CHAT_DOCK_OVERLAY_ANIMATE}
+                exit={CHAT_DOCK_OVERLAY_EXIT}
+                transition={CHAT_DOCK_OVERLAY_TRANSITION}
+              >
+                {activeCreation.type === 'character' && (
+                  <CharacterCreationCard
+                    dock
+                    projectId={projectId ?? undefined}
+                    prefill={{
+                      name: String(activeCreation.prefill.name ?? ''),
+                      role: String(activeCreation.prefill.role ?? 'protagonista'),
+                      description: String(activeCreation.prefill.description ?? ''),
+                      personality: String(activeCreation.prefill.personality ?? ''),
+                      visual_description: String(activeCreation.prefill.visual_description ?? ''),
+                    }}
+                    onCreated={(msg, ctx) => onActiveCreationCreated?.(msg, ctx)}
+                    onCancel={() => onActiveCreationCancel?.()}
+                  />
+                )}
+
+                {activeCreation.type === 'background' && (
+                  <BackgroundCreationCard
+                    dock
+                    projectId={projectId ?? undefined}
+                    prefill={{
+                      name: String(activeCreation.prefill.name ?? ''),
+                      location_type: String(activeCreation.prefill.location_type ?? 'exterior'),
+                      time_of_day: String(activeCreation.prefill.time_of_day ?? 'dia'),
+                      description: String(activeCreation.prefill.description ?? ''),
+                    }}
+                    onCreated={(msg, ctx) => onActiveCreationCreated?.(msg, ctx)}
+                    onCancel={() => onActiveCreationCancel?.()}
+                  />
+                )}
+
+                {activeCreation.type === 'video' && (
+                  <VideoCreationCard
+                    dock
+                    projectId={projectId ?? undefined}
+                    prefill={{
+                      title: String(activeCreation.prefill.title ?? ''),
+                      platform: String(activeCreation.prefill.platform ?? 'instagram_reels'),
+                      target_duration_seconds: activeCreation.prefill.target_duration_seconds
+                        ? Number(activeCreation.prefill.target_duration_seconds)
+                        : undefined,
+                      description: String(activeCreation.prefill.description ?? ''),
+                    }}
+                    onCreated={(msg, ctx) => onActiveCreationCreated?.(msg, ctx)}
+                    onCancel={() => onActiveCreationCancel?.()}
+                  />
+                )}
+
+                {activeCreation.type === 'project' && (
+                  <ProjectCreationCard
+                    dock
+                    prefill={{
+                      title: String(activeCreation.prefill.title ?? ''),
+                      description: String(activeCreation.prefill.description ?? ''),
+                      client_name: String(activeCreation.prefill.client_name ?? ''),
+                      style: String(activeCreation.prefill.style ?? 'pixar'),
+                    }}
+                    onCreated={(msg, ctx) => onActiveCreationCreated?.(msg, ctx)}
+                    onCancel={() => onActiveCreationCancel?.()}
+                  />
+                )}
+              </motion.div>
+            </AnimatePresence>
+
+            <ChatInput
+              onSend={handleSend}
+              onStop={stopStreaming}
+              onClearConversation={onClearConversation}
+              isStreaming={isStreaming || isCreating}
+              activeProvider={activeProvider}
+              allowFiles
+              placeholder={inputPlaceholder}
+              contextLabel={contextLabel}
+              contextType={contextType}
+              prefillText={prefillText}
+              onPrefillConsumed={onPrefillConsumed}
+              creationDockOpen
+              dockTail
+              embeddedInComposer
+            />
+          </div>
+        ) : (
+          <ChatInput
+            onSend={handleSend}
+            onStop={stopStreaming}
+            onClearConversation={onClearConversation}
+            isStreaming={isStreaming || isCreating}
+            activeProvider={activeProvider}
+            allowFiles
+            placeholder={inputPlaceholder}
+            contextLabel={contextLabel}
+            contextType={contextType}
+            prefillText={prefillText}
+            onPrefillConsumed={onPrefillConsumed}
+            creationDockOpen={false}
+            dockTail={false}
+            embeddedInComposer={false}
+          />
+        )}
       </div>
     </div>
   );

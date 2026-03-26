@@ -26,7 +26,7 @@ import type { Task, TaskStatus, TaskPriority, TaskCategory } from '@/types';
 
 /* ── Column definitions ────────────────────────────────── */
 const COLUMNS = [
-  { id: 'pending' as const, label: 'Pendiente', color: 'border-t-zinc-500', icon: Circle, iconColor: 'text-zinc-400' },
+  { id: 'pending' as const, label: 'Pendiente', color: 'border-t-zinc-500', icon: Circle, iconColor: 'text-muted-foreground' },
   { id: 'in_progress' as const, label: 'En progreso', color: 'border-t-amber-500', icon: Clock, iconColor: 'text-amber-400' },
   { id: 'in_review' as const, label: 'En revision', color: 'border-t-purple-500', icon: Eye, iconColor: 'text-purple-400' },
   { id: 'completed' as const, label: 'Completado', color: 'border-t-emerald-500', icon: CheckCircle2, iconColor: 'text-emerald-400' },

@@ -67,8 +67,8 @@ function getEntityConfig(entityType: string): EntityTypeConfig {
       return {
         labelEs: entityType,
         icon: <Clapperboard size={12} />,
-        iconBg: 'bg-gray-200 dark:bg-zinc-700/60',
-        iconColor: 'text-gray-500 dark:text-zinc-400',
+        iconBg: 'bg-muted',
+        iconColor: 'text-muted-foreground',
       };
   }
 }
@@ -97,8 +97,8 @@ function EntityRow({ entity, isSelected, onSelect, config }: EntityRowProps) {
       className={cn(
         'w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors',
         isSelected
-          ? 'bg-teal-500/10 dark:bg-teal-500/12'
-          : 'hover:bg-gray-50 dark:hover:bg-white/4',
+          ? 'bg-primary/10 dark:bg-primary/12'
+          : 'hover:bg-muted dark:hover:bg-white/4',
       )}
       aria-pressed={isSelected}
     >
@@ -107,11 +107,11 @@ function EntityRow({ entity, isSelected, onSelect, config }: EntityRowProps) {
         className={cn(
           'flex items-center justify-center size-7 rounded-lg shrink-0',
           isSelected
-            ? 'bg-teal-500/20 dark:bg-teal-500/25'
+            ? 'bg-primary/20 dark:bg-primary/25'
             : config.iconBg,
         )}
       >
-        <span className={cn(isSelected ? 'text-teal-600 dark:text-teal-400' : config.iconColor)}>
+        <span className={cn(isSelected ? 'text-primary dark:text-primary' : config.iconColor)}>
           {config.icon}
         </span>
       </div>
@@ -122,14 +122,14 @@ function EntityRow({ entity, isSelected, onSelect, config }: EntityRowProps) {
           className={cn(
             'text-xs font-semibold truncate leading-snug',
             isSelected
-              ? 'text-teal-700 dark:text-teal-300'
-              : 'text-gray-900 dark:text-zinc-100',
+              ? 'text-primary'
+              : 'text-foreground',
           )}
         >
           {entity.label}
         </p>
         {entity.sublabel && (
-          <p className="text-[11px] text-gray-400 dark:text-zinc-500 truncate leading-snug mt-0.5">
+          <p className="text-[11px] text-muted-foreground truncate leading-snug mt-0.5">
             {entity.sublabel}
           </p>
         )}
@@ -138,16 +138,16 @@ function EntityRow({ entity, isSelected, onSelect, config }: EntityRowProps) {
       {/* Right: badge + indicator */}
       <div className="flex items-center gap-1.5 shrink-0">
         {entity.badge && !isSelected && (
-          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-white/8 text-gray-500 dark:text-zinc-400 border border-gray-200 dark:border-white/8">
+          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
             {entity.badge}
           </span>
         )}
         {isSelected ? (
-          <div className="flex items-center justify-center size-5 rounded-full bg-teal-500">
+          <div className="flex items-center justify-center size-5 rounded-full bg-primary">
             <Check size={10} className="text-white" />
           </div>
         ) : (
-          <ChevronRight size={14} className="text-gray-300 dark:text-zinc-600" />
+          <ChevronRight size={14} className="text-muted-foreground" />
         )}
       </div>
     </button>
@@ -166,17 +166,17 @@ export function EntitySelector({ entityType, entities, onSelect, selected }: Ent
   const labelEs = config.labelEs;
 
   return (
-    <div className="rounded-xl border border-gray-200 dark:border-white/8 bg-gray-50/70 dark:bg-white/3 overflow-hidden">
+    <div className="rounded-xl border border-border bg-muted overflow-hidden">
       {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-200 dark:border-white/8 bg-white/60 dark:bg-white/2">
+      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-card">
         <div className={cn('flex items-center justify-center size-5 rounded-md', config.iconBg)}>
           <span className={config.iconColor}>{config.icon}</span>
         </div>
-        <span className="text-sm font-semibold text-gray-900 dark:text-zinc-100">
+        <span className="text-sm font-semibold text-foreground">
           Selecciona {labelEs}:
         </span>
         {entities.length > 0 && (
-          <span className="text-xs text-gray-400 dark:text-zinc-500 ml-auto">
+          <span className="text-xs text-muted-foreground ml-auto">
             {entities.length} disponible{entities.length !== 1 ? 's' : ''}
           </span>
         )}
@@ -185,7 +185,7 @@ export function EntitySelector({ entityType, entities, onSelect, selected }: Ent
       {/* Entity list or empty state */}
       {entities.length === 0 ? (
         <div className="px-4 py-5 text-center">
-          <p className="text-xs text-gray-400 dark:text-zinc-500">
+          <p className="text-xs text-muted-foreground">
             No hay {labelEs}{labelEs === 'personaje' ? 's' : labelEs === 'escena' ? 's' : 's'} disponibles
           </p>
         </div>
@@ -193,7 +193,7 @@ export function EntitySelector({ entityType, entities, onSelect, selected }: Ent
         <div
           ref={listRef}
           className={cn(
-            'divide-y divide-gray-100 dark:divide-white/5',
+            'divide-y divide-border',
             entities.length > MAX_VISIBLE && 'overflow-y-auto',
           )}
           style={entities.length > MAX_VISIBLE ? { maxHeight: `${MAX_VISIBLE * 52}px` } : undefined}
@@ -212,8 +212,8 @@ export function EntitySelector({ entityType, entities, onSelect, selected }: Ent
 
       {/* Selection summary footer */}
       {selected && (
-        <div className="px-4 py-2 border-t border-gray-200 dark:border-white/8 bg-teal-50/50 dark:bg-teal-500/5">
-          <p className="text-[11px] text-teal-700 dark:text-teal-400 font-medium">
+        <div className="px-4 py-2 border-t border-border bg-primary/5">
+          <p className="text-[11px] text-primary font-medium">
             {capitalize(labelEs)} seleccionad{labelEs === 'fondo' || labelEs === 'video' ? 'o' : 'a'}
           </p>
         </div>

@@ -15,6 +15,7 @@ import {
   Check,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
+import { Button } from '@/components/ui/button';
 import { KiyokoIcon } from '@/components/ui/logo';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useAIStore } from '@/stores/ai-store';
@@ -51,18 +52,31 @@ interface KiyokoHeaderProps {
   isStreaming: boolean;
   onNewChat: () => void;
   onHistoryToggle?: () => void;
+  compact?: boolean;
 }
 
-export function KiyokoHeader({ contextLabel, isStreaming, onNewChat, onHistoryToggle }: KiyokoHeaderProps) {
+export function KiyokoHeader({
+  contextLabel,
+  isStreaming,
+  onNewChat,
+  onHistoryToggle,
+  compact,
+}: KiyokoHeaderProps) {
   const { mode, setMode, closeChat, activeAgent } = useAIStore();
   const [modeOpen, setModeOpen] = useState(false);
   const agent = AGENT_CONFIG[activeAgent];
   const currentModeOption = MODE_OPTIONS.find((o) => o.value === mode) || MODE_OPTIONS[0];
 
   return (
-    <div className="flex items-center gap-1.5 h-11 px-2.5 shrink-0 border-b border-border bg-card/90 backdrop-blur-sm">
+    <div
+      className={cn(
+        'flex items-center gap-1.5 shrink-0 border-b border-border bg-card/90 backdrop-blur-sm',
+        // Alineación vertical del navbar del chat: 47px (h-11.75).
+        'h-11.75 px-2.5',
+      )}
+    >
       {/* Avatar */}
-      <div className="flex items-center justify-center size-6 rounded-lg bg-teal-600 shrink-0">
+      <div className="flex items-center justify-center size-6 rounded-lg bg-primary shrink-0">
         <KiyokoIcon size={12} className="text-white" />
       </div>
 
@@ -86,7 +100,7 @@ export function KiyokoHeader({ contextLabel, isStreaming, onNewChat, onHistoryTo
 
       {/* Streaming indicator */}
       {isStreaming && (
-        <span className="size-1.5 rounded-full bg-teal-500 animate-pulse shrink-0" />
+        <span className="size-1.5 rounded-full bg-primary animate-pulse shrink-0" />
       )}
 
       {/* Divider */}
@@ -94,39 +108,46 @@ export function KiyokoHeader({ contextLabel, isStreaming, onNewChat, onHistoryTo
 
       {/* Action buttons */}
       {onHistoryToggle && (
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="xs"
+          isIconOnly
           onClick={onHistoryToggle}
-          className="flex items-center justify-center size-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          className="size-7"
           title="Historial"
         >
           <History size={14} />
-        </button>
+        </Button>
       )}
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="xs"
+        isIconOnly
         onClick={onNewChat}
-        className="flex items-center justify-center size-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+        className="size-7"
         title="Nuevo chat"
       >
         <Plus size={14} />
-      </button>
+      </Button>
 
       {/* Mode switcher popover */}
       <Popover open={modeOpen} onOpenChange={setModeOpen}>
         <PopoverTrigger asChild>
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="xs"
+            isIconOnly
             className={cn(
-              'flex items-center justify-center size-7 rounded-md transition-colors',
-              modeOpen
-                ? 'text-teal-500 bg-teal-500/10'
-                : 'text-muted-foreground hover:text-foreground hover:bg-accent',
+              'size-7',
+              modeOpen && 'text-primary bg-primary/10',
             )}
             title="Cambiar vista"
           >
             <currentModeOption.Icon size={14} />
-          </button>
+          </Button>
         </PopoverTrigger>
         <PopoverContent
           side="bottom"
@@ -137,12 +158,14 @@ export function KiyokoHeader({ contextLabel, isStreaming, onNewChat, onHistoryTo
           {MODE_OPTIONS.map((option) => {
             const isActive = option.value === mode;
             return (
-              <button
+              <Button
                 key={option.value}
                 type="button"
+                variant="ghost"
+                fullWidth
                 onClick={() => { setMode(option.value); setModeOpen(false); }}
                 className={cn(
-                  'flex items-center gap-2.5 w-full px-2.5 py-2 rounded-md text-left transition-colors',
+                  'flex items-center gap-2.5 px-2.5 py-2 rounded-md text-left h-auto',
                   isActive
                     ? 'bg-accent text-foreground'
                     : 'text-muted-foreground hover:bg-accent hover:text-foreground',
@@ -153,21 +176,24 @@ export function KiyokoHeader({ contextLabel, isStreaming, onNewChat, onHistoryTo
                   <p className="text-xs font-medium">{option.label}</p>
                   <p className="text-[10px] text-muted-foreground leading-tight">{option.description}</p>
                 </div>
-                {isActive && <Check size={12} className="text-teal-500 shrink-0" />}
-              </button>
+                {isActive && <Check size={12} className="text-primary shrink-0" />}
+              </Button>
             );
           })}
         </PopoverContent>
       </Popover>
 
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="xs"
+        isIconOnly
         onClick={closeChat}
-        className="flex items-center justify-center size-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+        className="size-7"
         title="Cerrar"
       >
         <X size={14} />
-      </button>
+      </Button>
     </div>
   );
 }

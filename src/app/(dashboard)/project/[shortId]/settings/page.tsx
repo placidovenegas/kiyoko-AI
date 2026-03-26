@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { IconUpload, IconX, IconPhoto } from '@tabler/icons-react';
+import { Button } from '@/components/ui/button';
 
 interface ProjectForm {
   title: string;
@@ -333,12 +334,12 @@ export default function ProjectSettingsPage() {
 
       {/* Actions */}
       <div className="flex justify-end gap-3">
-        <button className="rounded-lg border border-red-500/20 px-4 py-2 text-sm font-medium text-red-500 transition hover:bg-red-500/10">
+        <Button variant="bordered" className="border-red-500/20 text-red-500 hover:bg-red-500/10">
           Eliminar proyecto
-        </button>
-        <button className="rounded-lg bg-primary px-6 py-2 text-sm font-medium text-white transition hover:bg-primary/90">
+        </Button>
+        <Button>
           Guardar cambios
-        </button>
+        </Button>
       </div>
     </div>
   );

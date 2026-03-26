@@ -32,6 +32,13 @@ Consecuencia:
   - `message.audioUrl`, o
   - un marcador del texto con regex `"[AUDIO: https://...]"`.
 
+- Además, el sistema tiene generación TTS en endpoints dedicados:
+  - `POST /api/ai/generate-voice` (`src/app/api/ai/generate-voice/route.ts`)
+    - persiste audio en `video_narrations` si se envía `videoId` (y `projectId`).
+  - `POST /api/ai/generate-narration` (`src/app/api/ai/generate-narration/route.ts`)
+    - genera texto de narración (mode `continuous` o `per_scene`)
+    - y persiste `video_narrations` si se envía `videoId`.
+
 ## 4) Recomendación V6 (para audio perfecto)
 1. Añadir “entrada audio”:
    - Extender `ChatInput` con `accept="audio/*"` (o UI con mic/recording).

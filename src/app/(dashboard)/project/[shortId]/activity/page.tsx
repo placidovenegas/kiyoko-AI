@@ -60,7 +60,7 @@ function getActionColor(action: string): string {
     case 'generate': return 'bg-purple-500/20 text-purple-400';
     case 'update': return 'bg-blue-500/20 text-blue-400';
     case 'publish': return 'bg-amber-500/20 text-amber-400';
-    default: return 'bg-zinc-500/20 text-zinc-400';
+    default: return 'bg-zinc-500/20 text-muted-foreground';
   }
 }
 

@@ -15,13 +15,13 @@ const FEATURES = [
     icon: Layers,
     title: 'Storyboard Visual',
     desc: 'Tres vistas: compacto, grid y timeline con arco narrativo integrado. Drag & drop para reordenar.',
-    gradient: 'from-[#058B96] to-[#2AAD9D]',
+    gradient: 'from-brand-teal to-[#2AAD9D]',
   },
   {
     icon: Sparkles,
     title: 'IA Generativa',
     desc: 'Genera prompts de imagen y video en inglés + descripción en español. La IA entiende tu proyecto.',
-    gradient: 'from-[#FE6A3C] to-[#FF9A4A]',
+    gradient: 'from-brand-coral to-[#FF9A4A]',
   },
   {
     icon: Video,
@@ -68,9 +68,9 @@ const PLANS = [
 
 export function LandingPage() {
   return (
-    <div className="min-h-screen bg-[#0A0B1E] text-white">
+    <div className="min-h-screen bg-brand-dark text-white">
       {/* ---- Navbar ---- */}
-      <nav className="sticky top-0 z-50 border-b border-white/5 bg-[#0A0B1E]/80 backdrop-blur-xl">
+      <nav className="sticky top-0 z-50 border-b border-white/5 bg-brand-dark/80 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
           <Link href="/">
             <KiyokoLogoBrand variant="dark" size={28} textClassName="text-white" />
@@ -84,7 +84,7 @@ export function LandingPage() {
             </Link>
             <Link
               href="/register"
-              className="rounded-lg bg-linear-to-r from-[#058B96] to-[#2AAD9D] px-5 py-2 text-sm font-medium text-white shadow-lg shadow-[#058B96]/25 transition hover:shadow-[#058B96]/40"
+              className="rounded-lg bg-linear-to-r from-brand-teal to-[#2AAD9D] px-5 py-2 text-sm font-medium text-white shadow-lg shadow-brand-teal/25 transition hover:shadow-brand-teal/40"
             >
               Empezar gratis
             </Link>
@@ -95,9 +95,9 @@ export function LandingPage() {
       {/* ---- Hero ---- */}
       <section className="relative overflow-hidden pb-24 pt-20 lg:pb-32 lg:pt-28">
         {/* BG orbs */}
-        <div className="absolute -left-40 -top-40 h-[600px] w-[600px] rounded-full bg-[#058B96]/15 blur-[150px]" />
-        <div className="absolute -right-32 top-20 h-[500px] w-[500px] rounded-full bg-[#FE6A3C]/10 blur-[130px]" />
-        <div className="absolute bottom-0 left-1/2 h-[400px] w-[400px] -translate-x-1/2 rounded-full bg-[#8B5CF6]/8 blur-[100px]" />
+        <div className="absolute -left-40 -top-40 h-[600px] w-[600px] rounded-full bg-brand-teal/15 blur-[150px]" />
+        <div className="absolute -right-32 top-20 h-[500px] w-[500px] rounded-full bg-brand-coral/10 blur-[130px]" />
+        <div className="absolute bottom-0 left-1/2 h-[400px] w-[400px] -translate-x-1/2 rounded-full bg-brand-purple/8 blur-[100px]" />
 
         {/* Grid */}
         <div
@@ -110,8 +110,8 @@ export function LandingPage() {
 
         <div className="relative mx-auto max-w-6xl px-6 text-center">
           {/* Badge */}
-          <div className="mx-auto mb-8 inline-flex items-center gap-2 rounded-full border border-[#058B96]/30 bg-[#058B96]/10 px-5 py-2 text-sm font-medium text-[#58DAAC]">
-            <span className="h-2 w-2 rounded-full bg-[#58DAAC] animate-pulse" />
+          <div className="mx-auto mb-8 inline-flex items-center gap-2 rounded-full border border-brand-teal/30 bg-brand-teal/10 px-5 py-2 text-sm font-medium text-brand-green">
+            <span className="h-2 w-2 rounded-full bg-brand-green animate-pulse" />
             AI Storyboard Production Studio
           </div>
 
@@ -122,11 +122,11 @@ export function LandingPage() {
 
           <h1 className="mx-auto max-w-4xl text-4xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl lg:text-7xl">
             Crea videos con{' '}
-            <span className="bg-linear-to-r from-[#58DAAC] via-[#2AAD9D] to-[#058B96] bg-clip-text text-transparent">
+            <span className="bg-linear-to-r from-brand-green via-[#2AAD9D] to-brand-teal bg-clip-text text-transparent">
               inteligencia
             </span>
             <br />
-            <span className="bg-linear-to-r from-[#FE6A3C] via-[#FF9A4A] to-[#FED657] bg-clip-text text-transparent">
+            <span className="bg-linear-to-r from-brand-coral via-[#FF9A4A] to-[#FED657] bg-clip-text text-transparent">
               artificial
             </span>
           </h1>
@@ -139,7 +139,7 @@ export function LandingPage() {
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link
               href="/register"
-              className="group inline-flex items-center gap-2.5 rounded-xl bg-linear-to-r from-[#058B96] to-[#2AAD9D] px-8 py-3.5 text-sm font-semibold text-white shadow-xl shadow-[#058B96]/30 transition hover:shadow-[#058B96]/50"
+              className="group inline-flex items-center gap-2.5 rounded-xl bg-linear-to-r from-brand-teal to-[#2AAD9D] px-8 py-3.5 text-sm font-semibold text-white shadow-xl shadow-brand-teal/30 transition hover:shadow-brand-teal/50"
             >
               Empezar gratis
               <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
@@ -160,7 +160,7 @@ export function LandingPage() {
               { value: 'TTS', label: 'Narración con voz' },
             ].map((s) => (
               <div key={s.label} className="text-center">
-                <p className="text-2xl font-bold text-[#58DAAC]">{s.value}</p>
+                <p className="text-2xl font-bold text-brand-green">{s.value}</p>
                 <p className="mt-1 text-xs text-white/40">{s.label}</p>
               </div>
             ))}
@@ -170,10 +170,10 @@ export function LandingPage() {
 
       {/* ---- Features ---- */}
       <section id="features" className="relative py-24">
-        <div className="absolute inset-0 bg-linear-to-b from-transparent via-[#058B96]/5 to-transparent" />
+        <div className="absolute inset-0 bg-linear-to-b from-transparent via-brand-teal/5 to-transparent" />
         <div className="relative mx-auto max-w-6xl px-6">
           <div className="text-center">
-            <p className="text-sm font-semibold uppercase tracking-widest text-[#FE6A3C]">Características</p>
+            <p className="text-sm font-semibold uppercase tracking-widest text-brand-coral">Características</p>
             <h2 className="mt-3 text-3xl font-bold lg:text-4xl">Todo lo que necesitas</h2>
             <p className="mt-3 text-white/50">
               De la idea al video final, Kiyoko te acompaña en cada paso.
@@ -200,7 +200,7 @@ export function LandingPage() {
       <section className="py-24">
         <div className="mx-auto max-w-6xl px-6">
           <div className="text-center">
-            <p className="text-sm font-semibold uppercase tracking-widest text-[#58DAAC]">Flujo de trabajo</p>
+            <p className="text-sm font-semibold uppercase tracking-widest text-brand-green">Flujo de trabajo</p>
             <h2 className="mt-3 text-3xl font-bold lg:text-4xl">4 pasos para tu video</h2>
           </div>
           <div className="mt-16 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -208,11 +208,11 @@ export function LandingPage() {
               <div key={s.title} className="relative text-center">
                 {/* Connector line */}
                 {i < STEPS.length - 1 && (
-                  <div className="absolute left-1/2 top-8 hidden h-px w-full bg-linear-to-r from-[#058B96]/40 to-transparent lg:block" />
+                  <div className="absolute left-1/2 top-8 hidden h-px w-full bg-linear-to-r from-brand-teal/40 to-transparent lg:block" />
                 )}
                 <div className="relative mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
-                  <s.icon className="h-7 w-7 text-[#58DAAC]" />
-                  <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#FE6A3C] text-[10px] font-bold text-white">
+                  <s.icon className="h-7 w-7 text-brand-green" />
+                  <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-brand-coral text-[10px] font-bold text-white">
                     {i + 1}
                   </span>
                 </div>
@@ -252,9 +252,9 @@ export function LandingPage() {
 
       {/* ---- Pricing ---- */}
       <section className="relative py-24">
-        <div className="absolute inset-0 bg-linear-to-b from-transparent via-[#FE6A3C]/3 to-transparent" />
+        <div className="absolute inset-0 bg-linear-to-b from-transparent via-brand-coral/3 to-transparent" />
         <div className="relative mx-auto max-w-6xl px-6 text-center">
-          <p className="text-sm font-semibold uppercase tracking-widest text-[#FE6A3C]">Precios</p>
+          <p className="text-sm font-semibold uppercase tracking-widest text-brand-coral">Precios</p>
           <h2 className="mt-3 text-3xl font-bold lg:text-4xl">Empieza gratis</h2>
           <p className="mt-3 text-white/50">
             Plan gratuito con proyectos limitados. Escala cuando lo necesites.
@@ -265,12 +265,12 @@ export function LandingPage() {
                 key={plan.name}
                 className={`relative flex flex-col rounded-2xl border p-7 text-left transition ${
                   plan.popular
-                    ? 'border-[#058B96]/50 bg-[#058B96]/5 shadow-xl shadow-[#058B96]/10'
+                    ? 'border-brand-teal/50 bg-brand-teal/5 shadow-xl shadow-brand-teal/10'
                     : 'border-white/5 bg-white/[0.02]'
                 }`}
               >
                 {plan.popular && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-linear-to-r from-[#058B96] to-[#2AAD9D] px-4 py-1 text-xs font-bold text-white shadow-lg">
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-linear-to-r from-brand-teal to-[#2AAD9D] px-4 py-1 text-xs font-bold text-white shadow-lg">
                     Popular
                   </span>
                 )}
@@ -282,7 +282,7 @@ export function LandingPage() {
                 <ul className="mt-6 flex-1 space-y-2.5">
                   {plan.features.map((f) => (
                     <li key={f} className="flex items-center gap-2.5 text-sm text-white/60">
-                      <CheckCircle className="h-4 w-4 shrink-0 text-[#58DAAC]" />
+                      <CheckCircle className="h-4 w-4 shrink-0 text-brand-green" />
                       {f}
                     </li>
                   ))}
@@ -291,7 +291,7 @@ export function LandingPage() {
                   href="/register"
                   className={`mt-8 block rounded-xl px-4 py-3 text-center text-sm font-semibold transition ${
                     plan.popular
-                      ? 'bg-linear-to-r from-[#058B96] to-[#2AAD9D] text-white shadow-lg shadow-[#058B96]/25 hover:shadow-[#058B96]/40'
+                      ? 'bg-linear-to-r from-brand-teal to-[#2AAD9D] text-white shadow-lg shadow-brand-teal/25 hover:shadow-brand-teal/40'
                       : 'border border-white/10 text-white/60 hover:bg-white/5 hover:text-white'
                   }`}
                 >
@@ -305,9 +305,9 @@ export function LandingPage() {
 
       {/* ---- CTA ---- */}
       <section className="relative overflow-hidden py-24">
-        <div className="absolute inset-0 bg-linear-to-r from-[#058B96]/20 via-[#0A0B1E] to-[#FE6A3C]/10" />
-        <div className="absolute -left-20 bottom-0 h-[300px] w-[300px] rounded-full bg-[#058B96]/20 blur-[100px]" />
-        <div className="absolute -right-20 top-0 h-[300px] w-[300px] rounded-full bg-[#FE6A3C]/15 blur-[100px]" />
+        <div className="absolute inset-0 bg-linear-to-r from-brand-teal/20 via-brand-dark to-brand-coral/10" />
+        <div className="absolute -left-20 bottom-0 h-[300px] w-[300px] rounded-full bg-brand-teal/20 blur-[100px]" />
+        <div className="absolute -right-20 top-0 h-[300px] w-[300px] rounded-full bg-brand-coral/15 blur-[100px]" />
 
         <div className="relative mx-auto max-w-3xl px-6 text-center">
           <KiyokoLogo variant="dark" size={56} className="mx-auto mb-6" />
@@ -319,7 +319,7 @@ export function LandingPage() {
           </p>
           <Link
             href="/register"
-            className="group mt-8 inline-flex items-center gap-2.5 rounded-xl bg-linear-to-r from-[#FE6A3C] to-[#FF9A4A] px-8 py-3.5 text-sm font-semibold text-white shadow-xl shadow-[#FE6A3C]/25 transition hover:shadow-[#FE6A3C]/40"
+            className="group mt-8 inline-flex items-center gap-2.5 rounded-xl bg-linear-to-r from-brand-coral to-[#FF9A4A] px-8 py-3.5 text-sm font-semibold text-white shadow-xl shadow-brand-coral/25 transition hover:shadow-brand-coral/40"
           >
             Crear cuenta gratis
             <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />

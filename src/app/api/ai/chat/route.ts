@@ -34,6 +34,8 @@ interface ChatRequestBody {
   projectId?: string;
   videoId?: string;
   sceneId?: string;
+  /** Resumen alineado con la UI (títulos + IDs) — se añade al system prompt */
+  contextClientHint?: string;
   aiMode?: string;
   conversationId?: string;
   images?: string[];
@@ -66,6 +68,7 @@ export async function POST(request: Request) {
       aiMode = 'auto',
       images,
       preferredProvider,
+      contextClientHint,
     } = (await request.json()) as ChatRequestBody;
 
     if (!messages?.length) {
@@ -307,9 +310,48 @@ export async function POST(request: Request) {
       }
     } catch { /* continuar con claves del servidor */ }
 
-    // If images are present, prioritize vision-capable models (Gemini, Claude, OpenAI)
+    // If images are present, prioritize vision-capable models (Gemini, Claude, OpenAI).
+    // If no vision provider is available, we must not send multimodal image payloads to text-only models.
     const VISION_PROVIDERS: string[] = ['gemini', 'claude', 'openai'];
-    if (hasImages) {
+    const canUseVision = hasImages && availableModels.some((m) => VISION_PROVIDERS.includes(m.providerId));
+
+    if (hasImages && !canUseVision) {
+      // System-level fallback so the assistant gives the user prompts to analyze externally.
+      systemPrompt += `
+
+[AVISO — IMAGENES SIN VISION INTEGRADA]
+El usuario adjuntó una o más imágenes reales, pero en esta sesión NO hay provider/modelo de visión disponible (no puedes ver/analisar imágenes aquí).
+Debes:
+1) decir claramente que no puedes analizar la imagen dentro de la app en este modo,
+2) recomendar analizar fuera en https://gemini.google.com/app,
+3) entregar prompts listos para pegar (Personaje / Fondo / Estilo-Cámara en inglés),
+4) pedir que el usuario pegue aquí el resultado del análisis para continuar creando prompts y escenas.
+No inventes análisis visual detallado sin visión.
+`.trim();
+
+      // Remove image parts from AI SDK input so text-only models won't fail.
+      const NO_VISION_USER_NOTE =
+        'Adjunté imagen(es), pero esta sesión no puede analizarlas. Sigue el fallback: analizar fuera en Gemini y pega el análisis aquí.';
+
+      for (const m of aiMessages as Array<{ content: unknown }>) {
+        if (!Array.isArray(m.content)) continue;
+        const parts = m.content as Array<{ type: string; text?: string; image?: string }>;
+        const textOnly = parts.filter((p) => p.type === 'text' && typeof p.text === 'string')
+          .map((p) => p.text)
+          .join('\n')
+          .trim();
+        const hadImage = parts.some((p) => p.type === 'image' && typeof p.image === 'string');
+
+        m.content = (textOnly || '') + (hadImage ? `\n\n${NO_VISION_USER_NOTE}` : '');
+
+        // Ensure we always pass some content (the assistant must still respond).
+        if (typeof m.content !== 'string' || (m.content as string).trim().length === 0) {
+          m.content = NO_VISION_USER_NOTE;
+        }
+      }
+    }
+
+    if (canUseVision) {
       const visionFirst: ResolvedModel[] = [];
       const rest: ResolvedModel[] = [];
       for (const m of availableModels) {
@@ -321,7 +363,7 @@ export async function POST(request: Request) {
     }
 
     // Reordenar según preferencias del agente (si hay)
-    if (preferredProviderIds.length > 0 && !hasImages) {
+    if (preferredProviderIds.length > 0 && !canUseVision) {
       const reordered: ResolvedModel[] = [];
       for (const pid of preferredProviderIds) {
         const found = availableModels.find((m) => m.providerId === pid);
@@ -360,6 +402,14 @@ export async function POST(request: Request) {
         JSON.stringify({ error: 'No hay proveedores de IA disponibles.' }),
         { status: 503, headers: { 'Content-Type': 'application/json' } },
       );
+    }
+
+    if (contextClientHint?.trim()) {
+      systemPrompt += `
+
+=== CONTEXTO DE PANTALLA (confirmado por el cliente) ===
+${contextClientHint.trim()}
+`;
     }
 
     console.log(`[chat] level=${level} agent=${activeAgent} temp=${agentTemperature} prompt_len=${systemPrompt.length} providers=[${availableModels.map((m) => m.providerId).join(', ')}]`);

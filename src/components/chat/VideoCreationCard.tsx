@@ -7,6 +7,14 @@ import { createClient } from '@/lib/supabase/client';
 import { useAiAssist } from '@/hooks/useAiAssist';
 import { useAIStore } from '@/stores/ai-store';
 import { toast } from 'sonner';
+import { CreationSaveProgress, type CreationSaveStep } from '@/components/chat/CreationSaveProgress';
+import type { CreationDoneCallback } from '@/types/chat-v8';
+import {
+  CHAT_DOCK_FIELD_CLASS,
+  CHAT_DOCK_FOOTER_BAR_CLASS,
+  CHAT_DOCK_SECTION_HEADER_CLASS,
+  CHAT_DOCK_TEXTAREA_CLASS,
+} from '@/components/chat/chatDockOverlay';
 
 const PLATFORMS = [
   { value: 'instagram_reels', label: 'Instagram Reels', aspect: '9:16' },
@@ -24,6 +32,24 @@ const DURATIONS = [
   { value: 300, label: '5 min' },
 ] as const;
 
+async function withTimeout<T>(promise: PromiseLike<T>, ms: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  try {
+    return await Promise.race([
+      Promise.resolve(promise),
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`Timeout: ${label}`)), ms);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+function sleep(ms: number) {
+  return new Promise<void>((r) => setTimeout(r, ms));
+}
+
 export interface VideoCreationData {
   title: string;
   platform: string;
@@ -35,20 +61,25 @@ interface VideoCreationCardProps {
   prefill?: Partial<VideoCreationData>;
   projectId?: string;
   /** Called after successful save — sends confirmation to chat */
-  onCreated?: (msg: string) => void;
+  onCreated?: CreationDoneCallback;
   onCancel: () => void;
+  /** Sandbox UI: simula guardado sin Supabase */
+  sandbox?: boolean;
+  /** Anclado encima del input (mismo patrón que ChatQuestionPrompt overlay) */
+  dock?: boolean;
 }
 
 function generateShortId(): string {
   return Math.random().toString(36).slice(2, 8);
 }
 
-export function VideoCreationCard({ prefill, projectId, onCreated, onCancel }: VideoCreationCardProps) {
+export function VideoCreationCard({ prefill, projectId, onCreated, onCancel, sandbox = false, dock = false }: VideoCreationCardProps) {
   const [title, setTitle] = useState(prefill?.title ?? '');
   const [platform, setPlatform] = useState(prefill?.platform ?? 'instagram_reels');
   const [duration, setDuration] = useState(prefill?.target_duration_seconds ?? 30);
   const [description, setDescription] = useState(prefill?.description ?? '');
   const [saving, setSaving] = useState(false);
+  const [saveStep, setSaveStep] = useState<CreationSaveStep>(0);
   const [saved, setSaved] = useState(false);
 
   const { assist, loading: aiLoading } = useAiAssist();
@@ -77,57 +108,96 @@ export function VideoCreationCard({ prefill, projectId, onCreated, onCancel }: V
   // ---- Save directly to Supabase ----
   const handleSave = useCallback(async () => {
     if (!title.trim()) { toast.error('Escribe un titulo para el video'); return; }
-    if (!projectId) { toast.error('No se pudo detectar el proyecto. Recarga la pagina.'); return; }
+    if (!sandbox && !projectId) { toast.error('No se pudo detectar el proyecto. Recarga la pagina.'); return; }
     setSaving(true);
+    setSaveStep(0);
     useAIStore.getState().setCreating(true, `Creando video "${title.trim()}"...`);
 
     try {
-      const supabase = createClient();
-      const shortId = generateShortId();
-      const slug = title.toLowerCase()
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').slice(0, 50);
+      await sleep(200);
+      setSaveStep(1);
 
-      // Map platform to video_type
-      const VIDEO_TYPE_MAP: Record<string, string> = {
-        instagram_reels: 'reel',
-        tiktok: 'short',
-        youtube: 'long',
-        tv_commercial: 'ad',
-        web: 'long',
-      };
-      const videoType = VIDEO_TYPE_MAP[platform] || 'custom';
+      if (sandbox) {
+        await withTimeout(new Promise((r) => setTimeout(r, 900)), 30000, 'simulando guardado');
+      } else {
+        const supabase = createClient();
+        const shortId = generateShortId();
+        const slug = title.toLowerCase()
+          .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+          .replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').slice(0, 50);
 
-      const { data, error } = await supabase.from('videos').insert({
-        project_id: projectId,
-        title: title.trim(),
-        short_id: shortId,
-        slug: `${slug}-${shortId}`,
-        platform: platform as never,
-        video_type: videoType as never,
-        target_duration_seconds: duration,
-        description: description.trim() || null,
-        status: 'draft' as never,
-        aspect_ratio: selectedPlatform.aspect,
-      } as never).select('id, title, short_id').single();
+        const VIDEO_TYPE_MAP: Record<string, string> = {
+          instagram_reels: 'reel',
+          tiktok: 'short',
+          youtube: 'long',
+          tv_commercial: 'ad',
+          web: 'long',
+        };
+        const videoType = VIDEO_TYPE_MAP[platform] || 'custom';
 
-      if (error) throw error;
+        const insertRes = await withTimeout(
+          supabase.from('videos').insert({
+            project_id: projectId,
+            title: title.trim(),
+            short_id: shortId,
+            slug: `${slug}-${shortId}`,
+            platform: platform as never,
+            video_type: videoType as never,
+            target_duration_seconds: duration,
+            description: description.trim() || null,
+            status: 'draft' as never,
+            aspect_ratio: selectedPlatform.aspect,
+          } as never).select('id, title, short_id').single(),
+          30000,
+          'guardando video',
+        );
+
+        const { data, error } = insertRes;
+        if (error) throw error;
+
+        setSaveStep(2);
+        await sleep(350);
+        setSaveStep(3);
+        await sleep(180);
+
+        setSaved(true);
+        toast.success(`Video "${title}" creado`);
+        onCreated?.(
+          `Video "${data?.title}" creado correctamente (ID: ${(data as Record<string, unknown>)?.short_id}). Ya puedes empezar a trabajar en el.`,
+          {
+            entityId: String((data as { id: string }).id),
+            videoShortId: String((data as { short_id: string }).short_id),
+          },
+        );
+        return;
+      }
+
+      setSaveStep(2);
+      await sleep(350);
+      setSaveStep(3);
+      await sleep(180);
 
       setSaved(true);
       toast.success(`Video "${title}" creado`);
-      onCreated?.(`Video "${data?.title}" creado correctamente (ID: ${(data as Record<string, unknown>)?.short_id}). Ya puedes empezar a trabajar en el.`);
+      onCreated?.(`Video "${title.trim()}" creado correctamente (sandbox).`);
     } catch (err) {
+      setSaveStep(0);
       const msg = err instanceof Error ? err.message : 'Error desconocido';
       toast.error(`Error al crear video: ${msg}`);
     } finally {
       setSaving(false);
       useAIStore.getState().setCreating(false);
     }
-  }, [isValid, projectId, title, platform, duration, description, selectedPlatform.aspect, onCreated]);
+  }, [sandbox, projectId, title, platform, duration, description, selectedPlatform.aspect, onCreated]);
 
   if (saved) {
     return (
-      <div className="mt-2 rounded-lg border border-emerald-500/30 bg-emerald-50 dark:bg-emerald-950/20 p-4 flex items-center gap-3">
+      <div
+        className={cn(
+          'rounded-lg border border-emerald-500/30 bg-emerald-50 dark:bg-emerald-950/20 p-4 flex items-center gap-3',
+          dock ? 'mt-0 rounded-none border-0' : 'mt-2',
+        )}
+      >
         <Check size={18} className="text-emerald-500 shrink-0" />
         <div>
           <p className="text-sm font-semibold text-foreground">Video "{title}" creado</p>
@@ -138,14 +208,26 @@ export function VideoCreationCard({ prefill, projectId, onCreated, onCancel }: V
   }
 
   return (
-    <div className="mt-2 rounded-lg border border-border bg-card overflow-hidden">
+    <div
+      className={cn(
+        'border border-border bg-card overflow-hidden',
+        dock ? 'mt-0 rounded-none border-0 bg-transparent' : 'mt-2 rounded-lg',
+      )}
+    >
       {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-2.5 bg-muted/50 border-b border-border">
+      <div
+        className={cn(
+          dock
+            ? CHAT_DOCK_SECTION_HEADER_CLASS
+            : 'flex items-center gap-2 px-4 py-2.5 bg-muted/50 border-b border-border',
+        )}
+      >
         <Film size={14} className="text-blue-500 shrink-0" />
         <span className="text-sm font-semibold text-foreground">Nuevo video</span>
       </div>
 
-      <div className="p-4 space-y-3">
+      {!saving ? (
+        <div className="p-4 space-y-3">
         {/* Title + AI suggest */}
         <div>
           <div className="flex items-center justify-between mb-1">
@@ -153,8 +235,8 @@ export function VideoCreationCard({ prefill, projectId, onCreated, onCancel }: V
             <button
               type="button"
               onClick={suggestTitle}
-              disabled={!!aiLoading}
-              className="flex items-center gap-1 text-[10px] text-teal-600 dark:text-teal-400 hover:text-teal-500 transition-colors disabled:opacity-50"
+              disabled={!!aiLoading || saving}
+              className="flex items-center gap-1 text-[10px] text-primary dark:text-primary hover:text-primary transition-colors disabled:opacity-50"
             >
               {aiLoading === 'title' ? <Loader2 size={9} className="animate-spin" /> : <Sparkles size={9} />}
               Sugerir
@@ -163,9 +245,14 @@ export function VideoCreationCard({ prefill, projectId, onCreated, onCancel }: V
           <input
             type="text"
             value={title}
+            disabled={saving}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Titulo del video"
-            className="w-full px-3 py-2 rounded-md border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-teal-500/50"
+            className={cn(
+              dock
+                ? CHAT_DOCK_FIELD_CLASS
+                : 'w-full px-3 py-2 rounded-md border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring/50',
+            )}
             autoFocus
           />
         </div>
@@ -178,12 +265,17 @@ export function VideoCreationCard({ prefill, projectId, onCreated, onCancel }: V
               <button
                 key={p.value}
                 type="button"
-                onClick={() => setPlatform(p.value)}
+                onClick={() => {
+                  if (saving) return;
+                  setPlatform(p.value);
+                }}
+                disabled={saving}
                 className={cn(
-                  'px-2.5 py-1.5 rounded-md text-[11px] font-medium border transition-colors',
-                  p.value === platform
-                    ? 'border-teal-500/40 bg-teal-500/10 text-teal-600 dark:text-teal-400'
-                    : 'border-border text-muted-foreground hover:bg-accent',
+                  'rounded-lg px-2.5 py-1.5 text-[11px] font-medium border transition-colors',
+                  dock && p.value === platform && 'border-primary/50 bg-primary/15 text-primary shadow-sm dark:text-primary',
+                  dock && p.value !== platform && 'border-border/60 bg-background/40 hover:bg-accent/90 text-muted-foreground',
+                  !dock && p.value === platform && 'border-primary/40 bg-primary/10 text-primary dark:text-primary',
+                  !dock && p.value !== platform && 'border-border text-muted-foreground hover:bg-accent',
                 )}
               >
                 {p.label}
@@ -201,12 +293,17 @@ export function VideoCreationCard({ prefill, projectId, onCreated, onCancel }: V
               <button
                 key={d.value}
                 type="button"
-                onClick={() => setDuration(d.value)}
+                onClick={() => {
+                  if (saving) return;
+                  setDuration(d.value);
+                }}
+                disabled={saving}
                 className={cn(
-                  'flex-1 px-2 py-1.5 rounded-md text-xs font-medium border transition-colors text-center',
-                  d.value === duration
-                    ? 'border-teal-500/40 bg-teal-500/10 text-teal-600 dark:text-teal-400'
-                    : 'border-border text-muted-foreground hover:bg-accent',
+                  'flex-1 rounded-lg px-2 py-1.5 text-xs font-medium border transition-colors text-center',
+                  dock && d.value === duration && 'border-primary/50 bg-primary/15 text-primary shadow-sm dark:text-primary',
+                  dock && d.value !== duration && 'border-border/60 bg-background/40 hover:bg-accent/90 text-muted-foreground',
+                  !dock && d.value === duration && 'border-primary/40 bg-primary/10 text-primary dark:text-primary',
+                  !dock && d.value !== duration && 'border-border text-muted-foreground hover:bg-accent',
                 )}
               >
                 {d.label}
@@ -223,8 +320,8 @@ export function VideoCreationCard({ prefill, projectId, onCreated, onCancel }: V
               <button
                 type="button"
                 onClick={suggestDescription}
-                disabled={!!aiLoading}
-                className="flex items-center gap-1 text-[10px] text-teal-600 dark:text-teal-400 hover:text-teal-500 transition-colors disabled:opacity-50"
+                disabled={!!aiLoading || saving}
+                className="flex items-center gap-1 text-[10px] text-primary dark:text-primary hover:text-primary transition-colors disabled:opacity-50"
               >
                 {aiLoading === 'description' ? <Loader2 size={9} className="animate-spin" /> : <Sparkles size={9} />}
                 Generar
@@ -233,25 +330,46 @@ export function VideoCreationCard({ prefill, projectId, onCreated, onCancel }: V
           </div>
           <textarea
             value={description}
+            disabled={saving}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Descripcion breve del video (opcional)"
             rows={2}
-            className="w-full px-3 py-1.5 rounded-md border border-border bg-background text-xs text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-teal-500/50"
+            className={cn(
+              dock
+                ? CHAT_DOCK_TEXTAREA_CLASS
+                : 'w-full px-3 py-1.5 rounded-md border border-border bg-background text-xs text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring/50',
+            )}
           />
         </div>
 
         {/* Summary badge */}
-        <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-muted text-[10px] text-muted-foreground">
+        <div
+          className={cn(
+            'flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-[10px] text-muted-foreground',
+            dock ? 'border-border/50 bg-background/35' : 'border-transparent bg-muted',
+          )}
+        >
           <Film size={10} className="shrink-0" />
           {selectedPlatform.label} · {selectedPlatform.aspect} · {duration}s
         </div>
       </div>
+      ) : (
+        <CreationSaveProgress step={saveStep} entityName={title.trim()} />
+      )}
 
       {/* Actions */}
-      <div className="flex items-center justify-end gap-2 px-4 py-2.5 border-t border-border bg-muted/30">
+      {!saving && (
+      <div
+        className={cn(
+          dock
+            ? CHAT_DOCK_FOOTER_BAR_CLASS
+            : 'flex items-center justify-end gap-2 px-4 py-2.5 border-t border-border bg-muted/30',
+        )}
+      >
         <button
           type="button"
-          onClick={onCancel}
+          onClick={() => { if (!saving) onCancel(); }}
+          disabled={saving}
           className="px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
         >
           Cancelar
@@ -263,7 +381,7 @@ export function VideoCreationCard({ prefill, projectId, onCreated, onCancel }: V
           className={cn(
             'flex items-center gap-1.5 px-4 py-1.5 rounded-md text-xs font-semibold transition-colors',
             isValid && !saving
-              ? 'bg-teal-600 text-white hover:bg-teal-500'
+              ? 'bg-primary text-white hover:bg-primary'
               : 'bg-muted text-muted-foreground cursor-not-allowed',
           )}
         >
@@ -271,6 +389,7 @@ export function VideoCreationCard({ prefill, projectId, onCreated, onCancel }: V
           {saving ? 'Creando...' : 'Crear video'}
         </button>
       </div>
+      )}
     </div>
   );
 }

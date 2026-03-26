@@ -25,7 +25,7 @@ import type { Publication } from '@/types';
 type ViewMode = 'grid' | 'calendar';
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  draft: { label: 'Borrador', color: 'text-zinc-400', bg: 'bg-zinc-500/10' },
+  draft: { label: 'Borrador', color: 'text-muted-foreground', bg: 'bg-zinc-500/10' },
   scheduled: { label: 'Programado', color: 'text-blue-400', bg: 'bg-blue-500/10' },
   published: { label: 'Publicado', color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
   failed: { label: 'Fallido', color: 'text-red-400', bg: 'bg-red-500/10' },

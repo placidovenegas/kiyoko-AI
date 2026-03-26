@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { X, Plus, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils/cn';
@@ -25,7 +26,7 @@ const CATEGORIES = [
 ] as const;
 
 const PRIORITIES = [
-  { value: 'low', label: 'Baja', color: 'bg-gray-500/20 text-gray-400' },
+  { value: 'low', label: 'Baja', color: 'bg-muted0/20 text-muted-foreground' },
   { value: 'medium', label: 'Media', color: 'bg-blue-500/20 text-blue-400' },
   { value: 'high', label: 'Alta', color: 'bg-amber-500/20 text-amber-400' },
   { value: 'urgent', label: 'Urgente', color: 'bg-red-500/20 text-red-400' },
@@ -80,9 +81,9 @@ export function TaskCreateModal({ open, onClose, projectId, onCreated }: TaskCre
       <div className="mx-4 w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-bold text-foreground">Nueva Tarea</h3>
-          <button type="button" onClick={onClose} className="rounded-md p-1 text-muted-foreground hover:bg-card hover:text-foreground">
+          <Button type="button" variant="ghost" size="xs" isIconOnly onClick={onClose}>
             <X className="h-5 w-5" />
-          </button>
+          </Button>
         </div>
 
         <div className="space-y-4">

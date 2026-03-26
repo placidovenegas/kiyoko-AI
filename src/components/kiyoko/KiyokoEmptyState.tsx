@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Rocket,
   CheckCircle2,
@@ -12,8 +13,15 @@ import {
   Volume2,
   BarChart3,
   Sparkles,
+  ListTodo,
+  ClipboardList,
+  FolderOpen,
+  Palette,
 } from 'lucide-react';
+import { useOrgStore } from '@/stores/useOrgStore';
+import { fetchDashboardContextStats } from '@/lib/chat/fetch-dashboard-context-stats';
 import { KiyokoIcon } from '@/components/ui/logo';
+import { cn } from '@/lib/utils/cn';
 import type { ContextLevel } from '@/types/ai-context';
 import {
   getQuickActions as getBaseQuickActions,
@@ -35,6 +43,12 @@ const ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: 
   storyboard:      BarChart3,
   narration:       Volume2,
   improve:         Sparkles,
+  tasks_summary:   ListTodo,
+  project_ideas:   Sparkles,
+  video_ideas:     Sparkles,
+  new_task:        ClipboardList,
+  review_projects: FolderOpen,
+  explore_styles:  Palette,
   // Fallbacks for base quick actions
   new_project:     Rocket,
   suggestions:     Sparkles,
@@ -62,14 +76,24 @@ function getVideoQuickActions(
   hasCharacters: boolean,
   hasBackgrounds: boolean,
 ): QuickAction[] {
+  const ideasVideo: QuickAction = {
+    id: 'video_ideas',
+    label: 'Ideas para el vídeo',
+    icon: '',
+    prompt:
+      'Dame ideas creativas para este vídeo (gancho, tono, estructura, mensaje); usa el contexto del vídeo abierto',
+  };
+
   if (!hasScenes) {
     if (!hasCharacters && !hasBackgrounds) {
       return [
+        ideasVideo,
         { id: 'start_scratch', label: 'Empezar desde cero', icon: '', prompt: 'Empezar desde cero' },
         { id: 'have_resources', label: 'Ya tengo recursos', icon: '', prompt: 'Ya tengo personajes y fondos' },
       ];
     }
     return [
+      ideasVideo,
       { id: 'create_scenes', label: 'Crear escenas', icon: '', prompt: 'Crea las escenas para este video' },
       { id: 'add_character', label: 'Crear personaje', icon: '', prompt: 'Crear personaje' },
       { id: 'add_background', label: 'Crear fondo', icon: '', prompt: 'Crear fondo' },
@@ -78,6 +102,7 @@ function getVideoQuickActions(
 
   if (!hasPrompts) {
     return [
+      ideasVideo,
       { id: 'gen_prompts', label: 'Generar prompts', icon: '', prompt: 'Genera los prompts de imagen y video para todas las escenas' },
       { id: 'edit_scene', label: 'Editar escena', icon: '', prompt: 'Quiero editar una escena' },
       { id: 'cameras', label: 'Configurar camaras', icon: '', prompt: 'Configura las camaras de las escenas' },
@@ -85,6 +110,7 @@ function getVideoQuickActions(
   }
 
   return [
+    ideasVideo,
     { id: 'storyboard', label: 'Revisar storyboard', icon: '', prompt: 'Muestrame el storyboard del video' },
     { id: 'narration', label: 'Crear narracion', icon: '', prompt: 'Genera la narracion del video' },
     { id: 'edit_scene', label: 'Editar escena', icon: '', prompt: 'Quiero editar una escena' },
@@ -94,9 +120,17 @@ function getVideoQuickActions(
 
 function contextToLocation(contextLevel: ContextLevel): ChatLocation {
   switch (contextLevel) {
-    case 'project': return { type: 'project', shortId: '' };
-    case 'scene': return { type: 'scene', shortId: '', videoShortId: '', sceneShortId: '' };
-    default: return { type: contextLevel as 'dashboard' };
+    case 'project':
+      return { type: 'project', shortId: '' };
+    case 'video':
+      return { type: 'video', shortId: '', videoShortId: '' };
+    case 'scene':
+      return { type: 'scene', shortId: '', videoShortId: '', sceneShortId: '' };
+    case 'organization':
+      return { type: 'dashboard' };
+    case 'dashboard':
+    default:
+      return { type: 'dashboard' };
   }
 }
 
@@ -128,11 +162,19 @@ export function KiyokoEmptyState({
     return getBaseQuickActions(contextToLocation(contextLevel));
   }, [contextLevel, hasScenes, hasPrompts, hasCharacters, hasBackgrounds]);
 
+  const { currentOrgId } = useOrgStore();
+  const { data: dashStats } = useQuery({
+    queryKey: ['kiyoko-chat-empty-dashboard', currentOrgId],
+    enabled: contextLevel === 'dashboard',
+    queryFn: () => fetchDashboardContextStats(currentOrgId ?? null),
+    staleTime: 60 * 1000,
+  });
+
   return (
-    <div className="flex flex-col items-center justify-center h-full text-center px-6">
+    <div className="flex flex-col items-center justify-center h-full text-center px-4 sm:px-6">
       {/* Avatar */}
-      <div className="flex items-center justify-center size-14 rounded-2xl bg-teal-600/10 mb-3 border border-teal-500/15">
-        <KiyokoIcon size={28} className="text-teal-500" />
+      <div className="flex items-center justify-center size-14 rounded-2xl bg-primary/10 mb-3 border border-primary/15">
+        <KiyokoIcon size={28} className="text-primary" />
       </div>
 
       <p className="text-sm font-semibold text-foreground mb-0.5">Kiyoko AI</p>
@@ -148,10 +190,35 @@ export function KiyokoEmptyState({
         </p>
       )}
 
-      {!statusSummary && <div className="mb-3" />}
+      {contextLevel === 'dashboard' && dashStats && (
+        <div className="text-[11px] text-muted-foreground max-w-md mb-3 leading-relaxed text-left space-y-1.5">
+          <p className="text-foreground/90 font-medium">Tu espacio de trabajo</p>
+          <p className="text-foreground/85">
+            {dashStats.projectCount === 1 ? '1 proyecto' : `${dashStats.projectCount} proyectos`} ·{' '}
+            {dashStats.videoCount === 1 ? '1 vídeo' : `${dashStats.videoCount} vídeos`} ·{' '}
+            {dashStats.sceneCount === 1 ? '1 escena' : `${dashStats.sceneCount} escenas`} ·{' '}
+            {dashStats.openTaskCount === 1
+              ? '1 tarea abierta'
+              : `${dashStats.openTaskCount} tareas abiertas`}{' '}
+            ({dashStats.totalTaskCount} tareas en total)
+          </p>
+          <p className="text-muted-foreground/90 text-[10px] pt-0.5">
+            Personajes y fondos se ven al abrir un proyecto; aquí el foco es cuenta y prioridades.
+          </p>
+          <p className="text-muted-foreground pt-0.5">Elige una acción o escribe abajo.</p>
+        </div>
+      )}
+
+      {!statusSummary && contextLevel !== 'dashboard' && <div className="mb-3" />}
+      {contextLevel === 'dashboard' && !dashStats && !statusSummary && <div className="mb-3" />}
 
       {/* Quick actions — Lucide icons */}
-      <div className="grid grid-cols-2 gap-1.5 max-w-sm w-full">
+      <div
+        className={cn(
+          'grid gap-1.5 w-full',
+          contextLevel === 'dashboard' ? 'grid-cols-2 sm:grid-cols-3 max-w-lg' : 'grid-cols-2 max-w-sm',
+        )}
+      >
         {quickActions.map((action) => {
           const Icon = ICON_MAP[action.id] || Sparkles;
           return (
@@ -159,7 +226,7 @@ export function KiyokoEmptyState({
               key={action.id}
               type="button"
               onClick={() => onQuickAction(action.prompt)}
-              className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-left text-xs font-medium text-muted-foreground bg-card border border-border hover:border-teal-500/30 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-teal-500/5 transition-all duration-150"
+              className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-left text-xs font-medium text-muted-foreground bg-card border border-border hover:border-primary/30 hover:text-primary dark:hover:text-primary hover:bg-primary/5 transition-all duration-150"
             >
               <Icon size={14} className="shrink-0" />
               <span>{action.label}</span>

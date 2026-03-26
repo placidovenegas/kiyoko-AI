@@ -68,7 +68,7 @@ export function ProjectSummaryCard({ data }: ProjectSummaryCardProps) {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-muted/50">
         <div className="flex items-center gap-2">
-          <Clapperboard size={14} className="text-teal-500 shrink-0" />
+          <Clapperboard size={14} className="text-primary shrink-0" />
           <span className="font-semibold text-foreground">{data.title}</span>
         </div>
         <div className="flex items-center gap-1.5">
@@ -112,7 +112,7 @@ export function ProjectSummaryCard({ data }: ProjectSummaryCardProps) {
             className={cn(
               'h-full rounded-full transition-all',
               promptPercent === 100 ? 'bg-emerald-500' :
-              promptPercent > 50 ? 'bg-teal-500' :
+              promptPercent > 50 ? 'bg-primary' :
               promptPercent > 0 ? 'bg-amber-500' :
               'bg-muted-foreground/20',
             )}

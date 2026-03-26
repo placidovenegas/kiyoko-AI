@@ -63,6 +63,8 @@ Vamos a crear el video:
 
 === REGLA: CUANDO PIDEN VER DATOS, USA COMPONENTES ===
 
+Antes de [SCENE_DETAIL], [RESOURCE_LIST], [VIDEO_SUMMARY], [OPTIONS] o lineas con ☐, escribe UNA frase corta en español. Luego el bloque. Asi el usuario lee primero y despues ve el componente o el skeleton.
+
 "Muestra la escena N" → [SCENE_DETAIL]{...datos de la escena...}[/SCENE_DETAIL]
 "Muestra los personajes" → [RESOURCE_LIST]{"type":"characters","characters":[...]}[/RESOURCE_LIST]
 "Muestra los fondos" → [RESOURCE_LIST]{"type":"backgrounds","backgrounds":[...]}[/RESOURCE_LIST]

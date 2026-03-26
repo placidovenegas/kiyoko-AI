@@ -37,15 +37,15 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  draft: 'bg-gray-500/20 text-gray-400',
+  draft: 'bg-muted0/20 text-muted-foreground',
   in_progress: 'bg-primary/20 text-primary',
   review: 'bg-purple-500/20 text-purple-400',
   completed: 'bg-emerald-500/20 text-emerald-400',
-  archived: 'bg-gray-500/10 text-gray-500',
+  archived: 'bg-muted0/10 text-muted-foreground',
 };
 
 const VIDEO_STATUS_COLORS: Record<string, string> = {
-  draft: 'bg-gray-500/20 text-gray-400',
+  draft: 'bg-muted0/20 text-muted-foreground',
   prompting: 'bg-blue-500/20 text-blue-400',
   generating: 'bg-amber-500/20 text-amber-400',
   review: 'bg-purple-500/20 text-purple-400',
@@ -222,7 +222,7 @@ function VideoRow({
 
           {/* Row 4: Status + updated */}
           <div className="flex items-center gap-2">
-            <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-medium', VIDEO_STATUS_COLORS[video.status] ?? 'bg-gray-500/20 text-gray-400')}>
+            <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-medium', VIDEO_STATUS_COLORS[video.status] ?? 'bg-muted0/20 text-muted-foreground')}>
               {VIDEO_STATUS_LABELS[video.status] ?? video.status}
             </span>
             {video.updated_at && (

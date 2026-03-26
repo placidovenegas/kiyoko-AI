@@ -25,8 +25,8 @@ export function KiyokoButton({ className }: KiyokoButtonProps) {
       className={cn(
         'fixed bottom-5 right-5 z-50',
         'flex items-center justify-center size-12 rounded-full',
-        'bg-teal-600 hover:bg-teal-500 active:scale-95',
-        'shadow-lg shadow-teal-500/25 hover:shadow-xl hover:shadow-teal-500/30',
+        'bg-primary hover:bg-primary active:scale-95',
+        'shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30',
         'transition-all duration-200',
         'group',
         className,
@@ -35,7 +35,7 @@ export function KiyokoButton({ className }: KiyokoButtonProps) {
     >
       <KiyokoIcon size={22} className="text-white group-hover:scale-110 transition-transform" />
       {/* Pulse animation */}
-      <span className="absolute inset-0 rounded-full bg-teal-500/20 animate-ping pointer-events-none" />
+      <span className="absolute inset-0 rounded-full bg-primary/20 animate-ping pointer-events-none" />
     </button>
   );
 }

@@ -10,6 +10,8 @@ import { cn } from '@/lib/utils/cn';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import type { Profile } from '@/types';
 import { Switch } from '@/components/ui/switch';
 import {
   Select,
@@ -136,7 +138,14 @@ function SettingsSelect({ value, onChange, options }: {
 function PerfilSection() {
   const supabase = createClient();
   const queryClient = useQueryClient();
-  const [form, setForm] = useState({ full_name: '' });
+  const [form, setForm] = useState({
+    full_name: '',
+    creative_video_types: '',
+    creative_platforms: '',
+    creative_use_context: '',
+    creative_purpose: '',
+    creative_typical_duration: '',
+  });
   const [dirty, setDirty] = useState(false);
 
   const { data: profile, isLoading } = useQuery({
@@ -145,7 +154,7 @@ function PerfilSection() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
       const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-      return data;
+      return data as Profile | null;
     },
     staleTime: 5 * 60 * 1000,
   });
@@ -160,19 +169,40 @@ function PerfilSection() {
   });
 
   useEffect(() => {
-    if (profile) setForm({ full_name: profile.full_name ?? '' });
+    if (!profile) return;
+    setForm({
+      full_name: profile.full_name ?? '',
+      creative_video_types: profile.creative_video_types ?? '',
+      creative_platforms: profile.creative_platforms ?? '',
+      creative_use_context: profile.creative_use_context ?? '',
+      creative_purpose: profile.creative_purpose ?? '',
+      creative_typical_duration: profile.creative_typical_duration ?? '',
+    });
   }, [profile]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!authUser) throw new Error('No autenticado');
-      const { error } = await supabase.from('profiles').update({ full_name: form.full_name }).eq('id', authUser.id);
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          full_name: form.full_name,
+          creative_video_types: form.creative_video_types.trim() || null,
+          creative_platforms: form.creative_platforms.trim() || null,
+          creative_use_context: form.creative_use_context.trim() || null,
+          creative_purpose: form.creative_purpose.trim() || null,
+          creative_typical_duration: form.creative_typical_duration.trim() || null,
+        })
+        .eq('id', authUser.id);
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success('Perfil guardado');
       setDirty(false);
       queryClient.invalidateQueries({ queryKey: ['profile', 'me'] });
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('kiyoko-profile-updated'));
+      }
     },
     onError: () => toast.error('Error al guardar'),
   });
@@ -190,7 +220,7 @@ function PerfilSection() {
       {/* Avatar card */}
       <SettingsCard className="mb-6">
         <div className="flex items-center gap-5 p-5">
-          <div className="h-16 w-16 rounded-xl bg-teal-500/20 text-teal-500 flex items-center justify-center text-xl font-bold shrink-0">
+          <div className="h-16 w-16 rounded-xl bg-primary/20 text-primary flex items-center justify-center text-xl font-bold shrink-0">
             {profile?.avatar_url
               // eslint-disable-next-line @next/next/no-img-element
               ? <img src={profile.avatar_url} alt="avatar" className="h-16 w-16 rounded-xl object-cover" />
@@ -215,7 +245,10 @@ function PerfilSection() {
             variant="bordered"
             label="Nombre completo"
             value={form.full_name}
-            onChange={(e) => { setForm({ full_name: e.target.value }); setDirty(true); }}
+            onChange={(e) => {
+              setForm((f) => ({ ...f, full_name: e.target.value }));
+              setDirty(true);
+            }}
             placeholder="Tu nombre completo"
           />
           <div>
@@ -228,6 +261,101 @@ function PerfilSection() {
               placeholder="email"
             />
             <p className="text-[11px] text-muted-foreground mt-1.5">El email no se puede cambiar desde aquí.</p>
+          </div>
+        </div>
+      </SettingsCard>
+
+      <SettingsCard className="mb-6">
+        <div className="p-5 space-y-4">
+          <div>
+            <p className="text-[13px] font-medium text-foreground mb-1">Tu contenido creativo</p>
+            <p className="text-[11px] text-muted-foreground mb-3 leading-relaxed">
+              Kiyoko usa esto para dar ideas y tono más acordes a ti (no sustituye abrir un proyecto o vídeo cuando haga falta).
+            </p>
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="creative_video_types" className="text-[13px] font-medium text-foreground">
+              Qué tipo de vídeos haces
+            </label>
+            <Textarea
+              id="creative_video_types"
+              value={form.creative_video_types}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, creative_video_types: e.target.value }));
+                setDirty(true);
+              }}
+              placeholder="Ej. reels para Instagram, anuncios para pymes, tutoriales largos..."
+              className="min-h-[88px] text-[13px] resize-y"
+              rows={3}
+            />
+            <p className="text-[11px] text-muted-foreground">Formato o estilo (ej. reels, anuncios, cursos); separa con comas si quieres.</p>
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="creative_platforms" className="text-[13px] font-medium text-foreground">
+              Plataformas y formatos
+            </label>
+            <Textarea
+              id="creative_platforms"
+              value={form.creative_platforms}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, creative_platforms: e.target.value }));
+                setDirty(true);
+              }}
+              placeholder="Ej. TikTok, Instagram Reels, YouTube largos, Facebook Ads, presentaciones PowerPoint, webinars..."
+              className="min-h-[80px] text-[13px] resize-y"
+              rows={3}
+            />
+            <p className="text-[11px] text-muted-foreground">Dónde publicas o en qué formato entregas (redes, B2B, pitch…).</p>
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="creative_use_context" className="text-[13px] font-medium text-foreground">
+              Uso: empresa, personal, clientes…
+            </label>
+            <Textarea
+              id="creative_use_context"
+              value={form.creative_use_context}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, creative_use_context: e.target.value }));
+                setDirty(true);
+              }}
+              placeholder="Ej. contenido para mi empresa, marca personal, proyectos de clientes, uso personal / hobby, freelance profesional..."
+              className="min-h-[80px] text-[13px] resize-y"
+              rows={3}
+            />
+            <p className="text-[11px] text-muted-foreground">Así la IA ajusta tono (más corporativo, más cercano, etc.).</p>
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="creative_purpose" className="text-[13px] font-medium text-foreground">
+              Para qué y para quién
+            </label>
+            <Textarea
+              id="creative_purpose"
+              value={form.creative_purpose}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, creative_purpose: e.target.value }));
+                setDirty(true);
+              }}
+              placeholder="Ej. promocionar mi marca, enseñar a principiantes, entretenimiento..."
+              className="min-h-[88px] text-[13px] resize-y"
+              rows={3}
+            />
+            <p className="text-[11px] text-muted-foreground">Objetivo, audiencia o marca que quieres que la IA tenga en cuenta.</p>
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="creative_typical_duration" className="text-[13px] font-medium text-foreground">
+              Duración habitual
+            </label>
+            <Input
+              id="creative_typical_duration"
+              variant="bordered"
+              value={form.creative_typical_duration}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, creative_typical_duration: e.target.value }));
+                setDirty(true);
+              }}
+              placeholder="Ej. 15–60 s en reels, 2–5 min en YouTube, diapositivas 30–45 min..."
+            />
+            <p className="text-[11px] text-muted-foreground">Rango o duración típica para calibrar ritmo y estructura.</p>
           </div>
         </div>
       </SettingsCard>
@@ -253,13 +381,69 @@ function PerfilSection() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function PreferenciasSection() {
+  const supabase = createClient();
+  const queryClient = useQueryClient();
   const { theme, setTheme } = useUIStore();
   const [cookieStatus, setCookieStatus] = useState<'accepted' | 'declined' | null>(null);
+  const [prefsForm, setPrefsForm] = useState<{ language: string; timezone: string }>({
+    language: 'es',
+    timezone: 'Europe/Madrid',
+  });
+  const [prefsDirty, setPrefsDirty] = useState(false);
 
   useEffect(() => {
     const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('kiyoko-cookies') : null;
     if (stored === 'accepted' || stored === 'declined') setCookieStatus(stored);
   }, []);
+
+  // Preferencias persistidas en profiles.preferences (V6 canon)
+  const { data: profile, isLoading: profileLoading } = useQuery({
+    queryKey: ['profile', 'me'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+      return data;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  useEffect(() => {
+    if (!profile) return;
+    const prefs = (profile.preferences ?? {}) as unknown as Record<string, unknown>;
+    const nextLanguage = typeof prefs.language === 'string' ? prefs.language : 'es';
+    const nextTimezone = typeof prefs.timezone === 'string' ? prefs.timezone : 'Europe/Madrid';
+    setPrefsForm({ language: nextLanguage, timezone: nextTimezone });
+    setPrefsDirty(false);
+  }, [profile]);
+
+  const savePreferences = useMutation({
+    mutationFn: async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error('No autenticado');
+
+      const currentPrefs = (profile?.preferences ?? {}) as unknown as Record<string, unknown>;
+      const nextPreferences = {
+        ...currentPrefs,
+        language: prefsForm.language,
+        timezone: prefsForm.timezone,
+      };
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({ preferences: nextPreferences })
+        .eq('id', user.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Preferencias guardadas');
+      setPrefsDirty(false);
+      queryClient.invalidateQueries({ queryKey: ['profile', 'me'] });
+    },
+    onError: () => toast.error('Error al guardar preferencias'),
+  });
 
   const applyTheme = (v: 'light' | 'dark' | 'system') => {
     setTheme(v);
@@ -294,23 +478,32 @@ function PreferenciasSection() {
       <PrefGroup title="Idioma y región" />
       <Row label="Idioma" description="Elige el idioma de la aplicación">
         <SettingsSelect
-          value="es"
-          onChange={() => toast.info('Inglés disponible próximamente')}
+          value={prefsForm.language}
+          onChange={(v) => {
+            setPrefsForm((p) => ({ ...p, language: v }));
+            setPrefsDirty(true);
+          }}
           options={[
             { value: 'es', label: 'Español' },
-            { value: 'en', label: 'English (próx.)' },
+            { value: 'en', label: 'English' },
+            { value: 'fr', label: 'Français' },
+            { value: 'pt', label: 'Português' },
           ]}
         />
       </Row>
       <Row label="Zona horaria" description="Usada para mostrar fechas y horas correctamente">
         <SettingsSelect
-          value="Europe/Madrid"
-          onChange={() => {}}
+          value={prefsForm.timezone}
+          onChange={(v) => {
+            setPrefsForm((p) => ({ ...p, timezone: v }));
+            setPrefsDirty(true);
+          }}
           options={[
             { value: 'Europe/Madrid', label: '(GMT+1) Madrid' },
             { value: 'Europe/London', label: '(GMT+0) Londres' },
             { value: 'America/New_York', label: '(GMT-5) Nueva York' },
             { value: 'America/Los_Angeles', label: '(GMT-8) Los Ángeles' },
+            { value: 'UTC', label: '(UTC) Universal' },
           ]}
         />
       </Row>
@@ -352,6 +545,19 @@ function PreferenciasSection() {
           }}
         />
       </Row>
+
+      <div className="flex justify-end mt-5">
+        <Button
+          variant="solid"
+          color="primary"
+          size="md"
+          onClick={() => savePreferences.mutate()}
+          disabled={profileLoading || !prefsDirty || savePreferences.isPending}
+          isLoading={savePreferences.isPending}
+        >
+          Guardar preferencias
+        </Button>
+      </div>
     </div>
   );
 }
@@ -491,9 +697,9 @@ function TwoFactorCard() {
             <p className="text-[11px] text-muted-foreground mb-1.5">O introduce el código manualmente:</p>
             <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
               <code className="flex-1 text-[12px] font-mono text-foreground tracking-widest">{secret}</code>
-              <button onClick={() => { navigator.clipboard.writeText(secret); toast.success('Copiado'); }} className="text-muted-foreground hover:text-foreground transition-colors">
+              <Button variant="ghost" size="xs" isIconOnly onClick={() => { navigator.clipboard.writeText(secret); toast.success('Copiado'); }} className="text-muted-foreground hover:text-foreground transition-colors">
                 <Check size={13} />
-              </button>
+              </Button>
             </div>
           </div>
           <div>
@@ -572,7 +778,7 @@ function SeguridadSection() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const ORG_TYPE_COLORS: Record<string, string> = {
-  personal:  'bg-teal-500/20 text-teal-500',
+  personal:  'bg-primary/20 text-primary',
   freelance: 'bg-blue-500/20 text-blue-500',
   team:      'bg-purple-500/20 text-purple-500',
   agency:    'bg-orange-500/20 text-orange-500',
@@ -896,7 +1102,7 @@ function OrgMiembrosSection() {
             return (
               <div key={m.user_id} className="flex items-center gap-4 px-4 py-3 border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
                 <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <div className="h-8 w-8 rounded-lg bg-teal-500/15 text-teal-500 flex items-center justify-center text-[11px] font-bold shrink-0">
+                  <div className="h-8 w-8 rounded-lg bg-primary/15 text-primary flex items-center justify-center text-[11px] font-bold shrink-0">
                     {p?.avatar_url
                       // eslint-disable-next-line @next/next/no-img-element
                       ? <img src={p.avatar_url} alt={memberName} className="h-8 w-8 rounded-lg object-cover" />
@@ -1036,9 +1242,9 @@ function ApiKeysSection() {
                           className="font-mono pr-8"
                           autoFocus
                           endContent={
-                            <button type="button" onClick={() => setShowKey(!showKey)} className="text-muted-foreground hover:text-foreground">
+                            <Button variant="ghost" size="xs" isIconOnly type="button" onClick={() => setShowKey(!showKey)} className="text-muted-foreground hover:text-foreground">
                               {showKey ? <EyeOff size={13} /> : <Eye size={13} />}
-                            </button>
+                            </Button>
                           }
                         />
                       </div>

@@ -7,6 +7,8 @@ import type { ContextLevel } from '@/types/ai-context';
 import { useAIStore } from '@/stores/ai-store';
 import type { KiyokoActiveAgent } from '@/stores/ai-store';
 import { toast } from 'sonner';
+import { randomThinkDurationMs } from '@/types/chat-v8';
+import type { CreatedEntityKind } from '@/lib/chat/resolve-next-step-route';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -29,6 +31,21 @@ export interface KiyokoMessage {
   executionResults?: AiActionResult[];
   executedBatchId?: string;
   isExecuting?: boolean;
+  /** Aviso persistente de cancelación de flujo de creación (dock) */
+  creationCancelled?: { subtitle?: string };
+  /** Post-creación V8: tarjeta de éxito + siguiente paso */
+  creationSuccess?: {
+    name: string;
+    entityLabel: string;
+    badge: string;
+    nextSteps: string[];
+    /** Ausente en conversaciones guardadas antes de V8 routing */
+    createdEntityKind?: CreatedEntityKind;
+    entityId?: string;
+    videoShortId?: string;
+    /** Tras CREATE proyecto: short_id del nuevo proyecto (siguiente paso / navegación) */
+    projectShortId?: string;
+  };
 }
 
 interface Conversation {
@@ -52,6 +69,8 @@ interface KiyokoChatState {
   // State
   messages: KiyokoMessage[];
   isStreaming: boolean;
+  /** Fase THINK (V8): puntos antes de mostrar tokens del asistente en el hilo */
+  isThinking: boolean;
   conversationId: string | null;
   projectId: string | null;
   projectSlug: string | null;
@@ -66,6 +85,8 @@ interface KiyokoChatState {
   contextLevel: ContextLevel;
   videoId: string | null;         // UUID del video activo (distinto de activeVideoCutId que es legado)
   sceneId: string | null;         // UUID de la escena activa
+  /** Texto para system prompt (`buildContextClientHint`) */
+  contextClientHint: string | null;
 
   // Methods
   setProject: (id: string | null, slug: string | null) => void;
@@ -80,6 +101,7 @@ interface KiyokoChatState {
   deleteConversation: (id: string) => Promise<void>;
   renameConversation: (id: string, title: string) => Promise<void>;
   startNewConversation: () => void;
+  persistConversationNow: () => Promise<void>;
   toggleExpanded: () => void;
   setExpanded: (expanded: boolean) => void;
   addImages: (files: File[]) => void;
@@ -165,10 +187,13 @@ async function uploadImage(file: File, projectId: string | null): Promise<string
 
 // AbortController stored outside Zustand (not serializable)
 let currentAbortController: AbortController | null = null;
+/** Timer fase THINK (V8) — limpiar en stopStreaming / abort */
+let activeThinkTimer: ReturnType<typeof setTimeout> | null = null;
 
 export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
   messages: [],
   isStreaming: false,
+  isThinking: false,
   conversationId: null,
   projectId: null,
   projectSlug: null,
@@ -183,6 +208,8 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
   contextLevel: 'dashboard',
   videoId: null,
   sceneId: null,
+  /** Resumen enviado al API (`buildContextClientHint`) — lo actualiza KiyokoChat */
+  contextClientHint: null as string | null,
 
   // ---- Context (v5) -------------------------------------------------------
 
@@ -304,7 +331,11 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
       currentAbortController.abort();
       currentAbortController = null;
     }
-    set({ isStreaming: false, activeProvider: null });
+    if (activeThinkTimer) {
+      clearTimeout(activeThinkTimer);
+      activeThinkTimer = null;
+    }
+    set({ isStreaming: false, activeProvider: null, isThinking: false });
   },
 
   // ---- Send message (SSE streaming) -------------------------------------
@@ -327,7 +358,8 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
       imageUrls = results.filter((url): url is string => url !== null);
     }
 
-    // 2. Add user message
+    // 2. User message + placeholder del asistente (evita zona vacía hasta el primer token)
+    const assistantId = generateId();
     const userMessage: KiyokoMessage = {
       id: generateId(),
       role: 'user',
@@ -335,9 +367,16 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
       timestamp: new Date(),
       images: imageUrls.length > 0 ? imageUrls : undefined,
     };
+    const assistantPlaceholder: KiyokoMessage = {
+      id: assistantId,
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+    };
     set({
-      messages: [...messages, userMessage],
+      messages: [...messages, userMessage, assistantPlaceholder],
       isStreaming: true,
+      isThinking: true,
       attachedImages: [],
       suggestions: [],
     });
@@ -355,9 +394,48 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
         : m.content,
     }));
 
-    // 4. Prepare assistant message placeholder
-    const assistantId = generateId();
+    // 4. Fase THINK (V8) — el placeholder del asistente ya está en el hilo
     let accumulated = '';
+    const thinkMs = randomThinkDurationMs();
+    let thinkDone = false;
+
+    const flushAssistantToStore = () => {
+      set((state) => {
+        const existing = state.messages.find((m) => m.id === assistantId);
+        if (existing) {
+          return {
+            messages: state.messages.map((m) =>
+              m.id === assistantId ? { ...m, content: accumulated } : m,
+            ),
+          };
+        }
+        return {
+          messages: [
+            ...state.messages,
+            {
+              id: assistantId,
+              role: 'assistant' as const,
+              content: accumulated,
+              timestamp: new Date(),
+            },
+          ],
+        };
+      });
+    };
+
+    if (activeThinkTimer) {
+      clearTimeout(activeThinkTimer);
+      activeThinkTimer = null;
+    }
+    activeThinkTimer = setTimeout(() => {
+      activeThinkTimer = null;
+      thinkDone = true;
+      // No quitar "pensando" si aún no hay texto: evita pantalla vacía entre fin THINK y primer token
+      if (accumulated.length > 0) {
+        flushAssistantToStore();
+        set({ isThinking: false });
+      }
+    }, thinkMs);
 
     try {
       // Read user's preferred provider from localStorage (set by ChatInput)
@@ -375,6 +453,7 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
           projectId,
           videoId: videoId ?? activeVideoCutId ?? undefined,
           sceneId: sceneId ?? undefined,
+          contextClientHint: get().contextClientHint?.trim() || undefined,
           images: imageUrls.length > 0 ? imageUrls : undefined,
           preferredProvider: preferredProvider || undefined,
         }),
@@ -416,29 +495,14 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
 
           // Vercel AI SDK Data Stream Protocol: `<type>:<JSON-value>`
           if (line.startsWith('0:')) {
-            // Text delta
             try {
               const text = JSON.parse(line.slice(2));
               if (typeof text === 'string') accumulated += text;
             } catch { /* ignore */ }
-            // Update the message bubble in real-time during streaming
-            set((state) => {
-              const existing = state.messages.find((m) => m.id === assistantId);
-              if (existing) {
-                return {
-                  messages: state.messages.map((m) =>
-                    m.id === assistantId ? { ...m, content: accumulated } : m,
-                  ),
-                };
-              }
-              // First chunk: add the placeholder
-              return {
-                messages: [
-                  ...state.messages,
-                  { id: assistantId, role: 'assistant' as const, content: accumulated, timestamp: new Date() },
-                ],
-              };
-            });
+            if (thinkDone) {
+              flushAssistantToStore();
+              if (accumulated.length > 0) set({ isThinking: false });
+            }
             continue;
           }
           if (line.startsWith('3:')) {
@@ -471,20 +535,10 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
             // Non-JSON lines — skip
           }
 
-          set((state) => {
-            const updated = state.messages.filter((m) => m.id !== assistantId);
-            return {
-              messages: [
-                ...updated,
-                {
-                  id: assistantId,
-                  role: 'assistant' as const,
-                  content: accumulated,
-                  timestamp: new Date(),
-                },
-              ],
-            };
-          });
+          if (thinkDone) {
+            flushAssistantToStore();
+            if (accumulated.length > 0) set({ isThinking: false });
+          }
         }
       }
 
@@ -520,6 +574,7 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
             },
           ],
           suggestions: parsed.suggestions,
+          isThinking: false,
         };
       });
 
@@ -528,8 +583,11 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
     } catch (err) {
       // Aborted by user — not an error
       if (err instanceof DOMException && err.name === 'AbortError') {
-        // Keep the partial response as-is
-        set({ isStreaming: false, activeProvider: null });
+        if (activeThinkTimer) {
+          clearTimeout(activeThinkTimer);
+          activeThinkTimer = null;
+        }
+        set({ isStreaming: false, activeProvider: null, isThinking: false });
         return;
       }
 
@@ -537,6 +595,10 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
         err instanceof Error ? err.message : 'Error de conexion con Kiyoko AI';
       toast.error(errorMessage);
 
+      if (activeThinkTimer) {
+        clearTimeout(activeThinkTimer);
+        activeThinkTimer = null;
+      }
       set((state) => {
         const updated = state.messages.filter((m) => m.id !== assistantId);
         return {
@@ -549,11 +611,16 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
               timestamp: new Date(),
             },
           ],
+          isThinking: false,
         };
       });
     } finally {
       currentAbortController = null;
-      set({ isStreaming: false, activeProvider: null });
+      if (activeThinkTimer) {
+        clearTimeout(activeThinkTimer);
+        activeThinkTimer = null;
+      }
+      set({ isStreaming: false, activeProvider: null, isThinking: false });
     }
   },
 
@@ -730,6 +797,8 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
       actionPlan?: AiActionPlan;
       executionResults?: AiActionResult[];
       executedBatchId?: string;
+      creationCancelled?: { subtitle?: string };
+      creationSuccess?: KiyokoMessage['creationSuccess'];
     }>;
 
     const restored: KiyokoMessage[] = (rawMessages ?? []).map((m) => ({
@@ -741,6 +810,8 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
       actionPlan: m.actionPlan,
       executionResults: m.executionResults,
       executedBatchId: m.executedBatchId,
+      creationCancelled: m.creationCancelled,
+      creationSuccess: m.creationSuccess,
     }));
 
     set({ conversationId: convId, messages: restored, suggestions: [] });
@@ -750,6 +821,13 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
 
   startNewConversation() {
     set({ conversationId: null, messages: [], suggestions: [] });
+  },
+
+  // Persistir al BD también para “acciones instantáneas”
+  // (smart commands / formularios) que no pasan por sendMessage().
+  persistConversationNow: async () => {
+    const state = get();
+    await saveConversation(get, set, state.conversationId, state.projectId);
   },
 }));
 
@@ -781,6 +859,8 @@ async function saveConversation(
     actionPlan: m.actionPlan,
     executionResults: m.executionResults,
     executedBatchId: m.executedBatchId,
+    creationCancelled: m.creationCancelled,
+    creationSuccess: m.creationSuccess,
   }));
 
   const firstUser = messages.find((m) => m.role === 'user');

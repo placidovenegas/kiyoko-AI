@@ -8,6 +8,7 @@ import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { Dialog, DialogPortal, DialogOverlay } from '@/components/ui/dialog';
 import { useUIStore } from '@/stores/useUIStore';
 import { cn } from '@/lib/utils/cn';
+import { Button } from '@/components/ui/button';
 import {
   Search, FolderOpen, Film, Clapperboard, Users, Settings,
   LayoutDashboard, Calendar, Key, ArrowRight,
@@ -564,9 +565,9 @@ export function SearchModal() {
                   Nueva pestaña
                 </span>
               </div>
-              <button type="button" className="text-muted-foreground/40 hover:text-muted-foreground transition-colors">
+              <Button type="button" variant="ghost" size="xs" isIconOnly className="h-6 w-6 text-muted-foreground/40 hover:text-muted-foreground">
                 <Settings size={13} />
-              </button>
+              </Button>
             </div>
           </div>
 

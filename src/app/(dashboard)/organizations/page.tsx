@@ -19,7 +19,7 @@ const ORG_TYPE_ICONS: Record<string, React.ReactNode> = {
 };
 
 const ORG_TYPE_COLORS: Record<string, string> = {
-  personal: 'bg-teal-500/15 text-teal-400',
+  personal: 'bg-primary/15 text-primary',
   freelance: 'bg-blue-500/15 text-blue-400',
   team: 'bg-purple-500/15 text-purple-400',
   agency: 'bg-amber-500/15 text-amber-400',
@@ -94,7 +94,7 @@ export default function WorkspacesPage() {
           {canCreateOrg && (
             <button
               onClick={openWorkspaceModal}
-              className="flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-teal-500"
+              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-primary"
             >
               <Plus className="h-4 w-4" />
               Nuevo workspace
@@ -120,8 +120,8 @@ export default function WorkspacesPage() {
                   className={cn(
                     'group w-full rounded-xl border bg-card p-5 text-left transition-all',
                     isActive
-                      ? 'border-teal-500/50 ring-1 ring-teal-500/20'
-                      : 'border-border hover:border-border/80 hover:bg-[#1A1A1D]',
+                      ? 'border-primary/50 ring-1 ring-primary/20'
+                      : 'border-border hover:border-border/80 hover:bg-accent',
                   )}
                 >
                   <div className="flex items-center gap-4">
@@ -135,7 +135,7 @@ export default function WorkspacesPage() {
                       <div className="flex items-center gap-2">
                         <p className="font-semibold text-foreground">{org.name}</p>
                         {isActive && (
-                          <span className="flex items-center gap-1 rounded-full bg-teal-500/10 px-2 py-0.5 text-[10px] font-medium text-teal-400">
+                          <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
                             <CheckCircle2 className="h-3 w-3" />
                             Activo
                           </span>

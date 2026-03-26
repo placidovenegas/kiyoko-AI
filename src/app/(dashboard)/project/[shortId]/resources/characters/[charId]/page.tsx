@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
+import { Button } from '@/components/ui/button';
 import { useProject } from '@/contexts/ProjectContext';
 import { queryKeys } from '@/lib/query/keys';
 import type { Character, CharacterImage, CharacterUpdate } from '@/types';
@@ -233,12 +234,12 @@ export default function CharacterDetailPage() {
 
             {/* Action buttons */}
             <div className="mt-3 flex gap-2">
-              <button className="flex-1 text-xs bg-secondary hover:bg-secondary text-foreground py-2 px-3 rounded-lg transition-colors border border-border">
+              <Button variant="bordered" size="sm" className="flex-1 text-xs">
                 Subir imagen
-              </button>
-              <button className="flex-1 text-xs bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 py-2 px-3 rounded-lg transition-colors border border-blue-500/30">
+              </Button>
+              <Button variant="solid" color="primary" size="sm" className="flex-1 text-xs">
                 Generar con IA
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -334,7 +335,7 @@ export default function CharacterDetailPage() {
                       <li key={i} className="flex items-start gap-2 text-xs text-foreground">
                         <span className="text-green-500 mt-0.5">+</span>
                         <span className="flex-1">{r}</span>
-                        <button onClick={() => removeRule('always', i)} className="text-muted-foreground/50 hover:text-red-400 shrink-0">x</button>
+                        <Button variant="ghost" size="xs" isIconOnly className="h-5 w-5 text-xs text-muted-foreground/50 hover:text-red-400 shrink-0" onClick={() => removeRule('always', i)}>x</Button>
                       </li>
                     ))}
                   </ul>
@@ -352,7 +353,7 @@ export default function CharacterDetailPage() {
                       <li key={i} className="flex items-start gap-2 text-xs text-foreground">
                         <span className="text-red-500 mt-0.5">-</span>
                         <span className="flex-1">{r}</span>
-                        <button onClick={() => removeRule('never', i)} className="text-muted-foreground/50 hover:text-red-400 shrink-0">x</button>
+                        <Button variant="ghost" size="xs" isIconOnly className="h-5 w-5 text-xs text-muted-foreground/50 hover:text-red-400 shrink-0" onClick={() => removeRule('never', i)}>x</Button>
                       </li>
                     ))}
                   </ul>
@@ -494,19 +495,12 @@ function EditableSection({
             className="w-full bg-secondary border border-border text-foreground text-sm rounded-lg p-3 resize-y placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
           />
           <div className="flex gap-2 justify-end">
-            <button
-              onClick={onCancel}
-              className="text-xs text-muted-foreground hover:text-foreground px-3 py-1.5"
-            >
+            <Button variant="bordered" size="sm" onClick={onCancel}>
               Cancelar
-            </button>
-            <button
-              onClick={() => onSave(fieldKey)}
-              disabled={saving}
-              className="text-xs bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white px-4 py-1.5 rounded-lg transition-colors"
-            >
+            </Button>
+            <Button variant="solid" color="primary" size="sm" onClick={() => onSave(fieldKey)} disabled={saving}>
               {saving ? 'Guardando...' : 'Guardar'}
-            </button>
+            </Button>
           </div>
         </div>
       ) : (

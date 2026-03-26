@@ -24,7 +24,7 @@ const WORKSPACE_TYPES: {
   placeholder: string;
 }[] = [
   { value: 'team',      icon: Building2,     color: 'text-purple-500', bg: 'bg-purple-500/10', label: 'Empresa',   description: 'Proyectos de empresa, equipo o marca',  placeholder: 'Mi empresa' },
-  { value: 'personal',  icon: Home,          color: 'text-teal-500',   bg: 'bg-teal-500/10',   label: 'Personal',  description: 'Proyectos propios y experimentación',   placeholder: 'Mi espacio personal' },
+  { value: 'personal',  icon: Home,          color: 'text-primary',   bg: 'bg-primary/10',   label: 'Personal',  description: 'Proyectos propios y experimentación',   placeholder: 'Mi espacio personal' },
   { value: 'freelance', icon: Laptop,        color: 'text-blue-500',   bg: 'bg-blue-500/10',   label: 'Freelance', description: 'Trabajo para múltiples clientes',        placeholder: 'Mi estudio freelance' },
   { value: 'school',    icon: GraduationCap, color: 'text-rose-500',   bg: 'bg-rose-500/10',   label: 'Educación', description: 'Proyectos académicos o formativos',      placeholder: 'Mi proyecto educativo' },
 ];

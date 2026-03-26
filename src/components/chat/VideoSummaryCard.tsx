@@ -13,6 +13,7 @@ import {
   Clapperboard,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
+import { Button } from '@/components/ui/button';
 
 export interface VideoSummaryData {
   title: string;
@@ -64,7 +65,7 @@ function ProgressRow({
       <span className="text-muted-foreground flex-1">{label}</span>
       <span className="font-semibold text-foreground tabular-nums">{done}/{total}</span>
       <div className="w-12 h-1.5 rounded-full bg-muted overflow-hidden">
-        <div className={cn('h-full rounded-full', pct === 100 ? 'bg-emerald-500' : pct > 0 ? 'bg-teal-500' : 'bg-muted-foreground/20')} style={{ width: `${pct}%` }} />
+        <div className={cn('h-full rounded-full', pct === 100 ? 'bg-emerald-500' : pct > 0 ? 'bg-primary' : 'bg-muted-foreground/20')} style={{ width: `${pct}%` }} />
       </div>
     </div>
   );
@@ -136,20 +137,23 @@ export function VideoSummaryCard({ data, onAction }: VideoSummaryCardProps) {
       {onAction && (
         <div className="flex flex-wrap gap-1.5 px-4 py-2.5 bg-muted/30 border-t border-border">
           {data.prompts_image_done < data.prompts_total && (
-            <button type="button" onClick={() => onAction('Genera los prompts de imagen que faltan')}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-medium border border-teal-500/30 text-teal-600 dark:text-teal-400 bg-teal-500/5 hover:bg-teal-500/10 transition-colors">
+            <Button type="button" variant="bordered" color="primary" size="xs" radius="sm"
+              onClick={() => onAction('Genera los prompts de imagen que faltan')}
+              className="text-[10px]">
               <Sparkles size={10} /> Generar prompts
-            </button>
+            </Button>
           )}
-          <button type="button" onClick={() => onAction('Editar una escena')}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-medium border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+          <Button type="button" variant="bordered" color="default" size="xs" radius="sm"
+            onClick={() => onAction('Editar una escena')}
+            className="text-[10px]">
             <Clapperboard size={10} /> Editar escena
-          </button>
+          </Button>
           {!data.has_narration && (
-            <button type="button" onClick={() => onAction('Crear narracion para el video')}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-medium border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+            <Button type="button" variant="bordered" color="default" size="xs" radius="sm"
+              onClick={() => onAction('Crear narracion para el video')}
+              className="text-[10px]">
               <Volume2 size={10} /> Crear narracion
-            </button>
+            </Button>
           )}
         </div>
       )}

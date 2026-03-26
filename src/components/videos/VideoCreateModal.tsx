@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { X, Plus, Sparkles, Video, Monitor, Tv } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils/cn';
@@ -118,9 +119,9 @@ export function VideoCreateModal({ open, onClose, projectId, onCreated }: VideoC
               <p className="text-xs text-muted-foreground">Añade un video al proyecto</p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-card hover:text-foreground">
+          <Button type="button" variant="ghost" size="xs" isIconOnly onClick={onClose}>
             <X className="h-5 w-5" />
-          </button>
+          </Button>
         </div>
 
         <div className="space-y-5 p-6">

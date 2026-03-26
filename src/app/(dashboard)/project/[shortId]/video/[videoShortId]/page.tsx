@@ -39,7 +39,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  draft: 'bg-zinc-500/20 text-zinc-400 border-zinc-500/20',
+  draft: 'bg-zinc-500/20 text-muted-foreground border-zinc-500/20',
   prompting: 'bg-blue-500/20 text-blue-400 border-blue-500/20',
   generating: 'bg-amber-500/20 text-amber-400 border-amber-500/20',
   review: 'bg-purple-500/20 text-purple-400 border-purple-500/20',
@@ -263,7 +263,7 @@ export default function VideoOverviewPage() {
         </div>
         <span className={cn(
           'shrink-0 rounded-full border px-3 py-1 text-xs font-medium',
-          STATUS_COLORS[video.status] ?? 'bg-zinc-500/20 text-zinc-400 border-zinc-500/20',
+          STATUS_COLORS[video.status] ?? 'bg-zinc-500/20 text-muted-foreground border-zinc-500/20',
         )}>
           {STATUS_LABELS[video.status] ?? video.status}
         </span>
