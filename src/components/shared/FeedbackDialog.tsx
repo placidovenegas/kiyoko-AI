@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { X, AlertTriangle, Lightbulb, Send, Image as ImageIcon } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@heroui/react';
 import { cn } from '@/lib/utils/cn';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
@@ -74,7 +74,7 @@ export function FeedbackDialog({ open, onClose }: FeedbackDialogProps) {
           <p className="text-sm font-semibold text-foreground">
             {step === 'choose' ? 'Que quieres compartir?' : type === 'issue' ? 'Reportar problema' : 'Compartir idea'}
           </p>
-          <Button type="button" variant="ghost" size="xs" isIconOnly onClick={handleClose} className="h-6 w-6">
+          <Button type="button" variant="ghost" size="sm" isIconOnly onPress={handleClose} className="h-6 w-6">
             <X size={16} />
           </Button>
         </div>

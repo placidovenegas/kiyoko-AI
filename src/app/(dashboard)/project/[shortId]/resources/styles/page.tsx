@@ -5,7 +5,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import { useProject } from '@/contexts/ProjectContext';
 import { queryKeys } from '@/lib/query/keys';
-import { KButton } from '@/components/ui/kiyoko-button';
 import { Button } from '@/components/ui/button';
 import {
   Loader2, Palette, Plus, Star, Pencil, X, Save,
@@ -71,9 +70,9 @@ export default function StylesPage() {
             <span className="font-normal text-muted-foreground">({presets.length})</span>
           </h1>
         </div>
-        <KButton variant="primary" size="md" icon={<Plus className="h-4 w-4" />}>
+        <Button variant="primary" size="md" startContent={<Plus className="h-4 w-4" />} className="rounded-md">
           Nuevo estilo
-        </KButton>
+        </Button>
       </div>
 
       {/* Empty state */}
@@ -84,9 +83,9 @@ export default function StylesPage() {
           <p className="mb-6 max-w-sm text-center text-sm text-muted-foreground">
             Crea presets de estilo para mantener consistencia visual en tu proyecto.
           </p>
-          <KButton variant="primary" size="lg" icon={<Plus className="h-4 w-4" />}>
+          <Button variant="primary" size="lg" startContent={<Plus className="h-4 w-4" />} className="rounded-md">
             Crear primer estilo
-          </KButton>
+          </Button>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -100,7 +99,7 @@ export default function StylesPage() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-medium text-primary">Editando</span>
-                    <Button variant="ghost" size="xs" isIconOnly className="h-6 w-6" onClick={() => setEditingId(null)}>
+                    <Button variant="ghost" size="sm" isIconOnly className="h-6 w-6" onClick={() => setEditingId(null)}>
                       <X className="h-4 w-4" />
                     </Button>
                   </div>
@@ -118,19 +117,20 @@ export default function StylesPage() {
                     placeholder="Prompt prefix"
                   />
                   <div className="flex justify-end">
-                    <KButton
+                    <Button
                       variant="primary"
                       size="sm"
-                      icon={<Save className="h-3.5 w-3.5" />}
+                      startContent={<Save className="h-3.5 w-3.5" />}
                       onClick={() =>
                         updatePreset.mutate({
                           id: preset.id,
                           updates: { name: editName, prompt_prefix: editPrefix || null },
                         })
                       }
+                      className="rounded-md"
                     >
                       Guardar
-                    </KButton>
+                    </Button>
                   </div>
                 </div>
               ) : (

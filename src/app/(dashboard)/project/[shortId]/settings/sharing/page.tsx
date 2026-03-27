@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import { useProject } from '@/contexts/ProjectContext';
 import { queryKeys } from '@/lib/query/keys';
-import { KButton } from '@/components/ui/kiyoko-button';
+import { Button } from '@/components/ui/button';
 import {
   Loader2, Users, UserPlus, Shield, Mail, Check, Clock, Trash2,
 } from 'lucide-react';
@@ -114,15 +114,16 @@ export default function SharingSettingsPage() {
             <option value="editor">Editor</option>
             <option value="admin">Admin</option>
           </select>
-          <KButton
+          <Button
             variant="primary"
             size="md"
-            icon={<Mail className="h-4 w-4" />}
+            startContent={<Mail className="h-4 w-4" />}
             onClick={() => inviteMutation.mutate()}
             disabled={!inviteEmail.trim() || inviteMutation.isPending}
+            className="rounded-md"
           >
             {inviteMutation.isPending ? 'Enviando...' : 'Invitar'}
-          </KButton>
+          </Button>
         </div>
         {inviteMutation.isError && (
           <p className="mt-2 text-xs text-red-400">

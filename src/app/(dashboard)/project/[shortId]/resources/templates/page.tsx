@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import { useProject } from '@/contexts/ProjectContext';
 import { queryKeys } from '@/lib/query/keys';
-import { KButton } from '@/components/ui/kiyoko-button';
+import { Button } from '@/components/ui/button';
 import {
   Loader2, FileCode, Plus, Tag, Braces,
 } from 'lucide-react';
@@ -55,9 +55,9 @@ export default function TemplatesPage() {
             <span className="font-normal text-muted-foreground">({templates.length})</span>
           </h1>
         </div>
-        <KButton variant="primary" size="md" icon={<Plus className="h-4 w-4" />}>
+        <Button variant="primary" size="md" startContent={<Plus className="h-4 w-4" />} className="rounded-md">
           Nueva plantilla
-        </KButton>
+        </Button>
       </div>
 
       {/* Empty state */}
@@ -68,9 +68,9 @@ export default function TemplatesPage() {
           <p className="mb-6 max-w-sm text-center text-sm text-muted-foreground">
             Crea plantillas de prompts reutilizables para acelerar la generacion de contenido.
           </p>
-          <KButton variant="primary" size="lg" icon={<Plus className="h-4 w-4" />}>
+          <Button variant="primary" size="lg" startContent={<Plus className="h-4 w-4" />} className="rounded-md">
             Crear primera plantilla
-          </KButton>
+          </Button>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

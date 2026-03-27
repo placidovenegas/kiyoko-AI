@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useProject } from '@/contexts/ProjectContext';
 import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils/cn';
-import { KButton } from '@/components/ui/kiyoko-button';
+import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import {
   Plus,
@@ -243,23 +243,25 @@ export default function TasksPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <KButton
-              variant="ai"
+            <Button
+              variant="secondary"
               size="sm"
-              icon={<Sparkles className="h-3.5 w-3.5" />}
+              startContent={<Sparkles className="h-3.5 w-3.5" />}
               onClick={() =>
                 toast.info('Proximamente: generar plan de tareas con IA')
               }
+              className="rounded-md"
             >
               Generar con IA
-            </KButton>
-            <KButton
+            </Button>
+            <Button
               size="sm"
-              icon={<Plus className="h-3.5 w-3.5" />}
+              startContent={<Plus className="h-3.5 w-3.5" />}
               onClick={() => setCreateModalOpen(true)}
+              className="rounded-md"
             >
               Nueva tarea
-            </KButton>
+            </Button>
           </div>
         </div>
 

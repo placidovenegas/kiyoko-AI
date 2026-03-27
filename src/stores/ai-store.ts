@@ -6,7 +6,7 @@ import type { AiActionPlan } from '@/types/ai-actions';
 export type KiyokoPanelMode = 'minimized' | 'sidebar' | 'floating' | 'fullscreen';
 
 // ---- Active agent indicator ----
-export type KiyokoActiveAgent = 'router' | 'scenes' | 'prompts' | 'editor';
+export type KiyokoActiveAgent = 'router' | 'scenes' | 'prompts' | 'editor' | 'characters' | 'backgrounds' | 'tasks' | 'ideation' | 'project';
 
 interface AIState {
   // ---- Chat panel UI ----

@@ -6,11 +6,14 @@ import type { StreamingSkeletonVariant } from '@/components/chat/chatDockOverlay
 /**
  * Animated Kiyoko logo SVG — draws itself like a pen stroke.
  * Used as AI thinking/generating indicator.
+ *
+ * Shows the animated SVG logo + pulsing dots + contextual label.
+ * Always visible during streaming; serves as the primary "alive" indicator.
  */
 export function StreamingWave({ label = 'Generando' }: { label?: string }) {
   return (
-    <div className="flex items-center gap-2.5 py-1">
-      <div className="w-8 h-5 overflow-hidden">
+    <div className="flex items-center gap-2.5 py-1.5">
+      <div className="w-8 h-5 overflow-hidden shrink-0">
         <svg
           viewBox="0 0 545.48 357.17"
           className="w-full h-full"
@@ -27,7 +30,13 @@ export function StreamingWave({ label = 'Generando' }: { label?: string }) {
           />
         </svg>
       </div>
-      <span className="text-xs text-muted-foreground">{label}</span>
+      {/* Pulsing dots — visual heartbeat next to logo */}
+      <span className="flex items-center gap-0.5" aria-hidden>
+        <span className="size-1 rounded-full bg-muted-foreground/40 animate-pulse" style={{ animationDelay: '0ms' }} />
+        <span className="size-1 rounded-full bg-muted-foreground/40 animate-pulse" style={{ animationDelay: '150ms' }} />
+        <span className="size-1 rounded-full bg-muted-foreground/40 animate-pulse" style={{ animationDelay: '300ms' }} />
+      </span>
+      <span className="text-xs text-muted-foreground/70 select-none">{label}</span>
     </div>
   );
 }

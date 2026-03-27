@@ -7,7 +7,7 @@ import { queryKeys } from '@/lib/query/keys';
 import { fetchVideoAnalysis } from '@/lib/queries/videos';
 import { ScoreGauge } from '@/components/analysis/ScoreGauge';
 import { AnalysisCard } from '@/components/analysis/AnalysisCard';
-import { KButton } from '@/components/ui/kiyoko-button';
+import { Button } from '@/components/ui/button';
 import { RefreshCw, Loader2, BarChart3 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns/formatDistanceToNow';
 import { es } from 'date-fns/locale/es';
@@ -82,14 +82,15 @@ export default function VideoAnalysisPage() {
             Ejecuta un analisis con IA para obtener puntuacion, fortalezas, debilidades y sugerencias.
           </p>
         </div>
-        <KButton
+        <Button
           variant="primary"
           size="lg"
-          icon={<BarChart3 className="h-4 w-4" />}
+          startContent={<BarChart3 className="h-4 w-4" />}
           onClick={handleReAnalyze}
+          className="rounded-md"
         >
           Analizar video
-        </KButton>
+        </Button>
       </div>
     );
   }
@@ -115,18 +116,19 @@ export default function VideoAnalysisPage() {
             )}
           </p>
         </div>
-        <KButton
+        <Button
           variant="secondary"
           size="md"
-          icon={<RefreshCw className="h-3.5 w-3.5" />}
-          loading={isFetching}
+          startContent={<RefreshCw className="h-3.5 w-3.5" />}
+          isLoading={isFetching}
           onClick={() => {
             handleReAnalyze();
             void refetch();
           }}
+          className="rounded-md"
         >
           Re-analizar
-        </KButton>
+        </Button>
       </div>
 
       {/* Score + Summary */}

@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { KButton } from '@/components/ui/kiyoko-button';
+import { Button } from '@/components/ui/button';
 import { ShieldX, LogOut } from 'lucide-react';
 import { AuthCard } from '@/components/auth';
 
@@ -27,15 +27,15 @@ export default function BlockedPage() {
         Tu cuenta ha sido bloqueada por un administrador. Si crees que esto
         es un error, contacta al soporte.
       </p>
-      <KButton
+      <Button
         variant="outline"
         size="lg"
         onClick={handleSignOut}
-        icon={<LogOut className="h-4 w-4" />}
-        className="mt-6"
+        startContent={<LogOut className="h-4 w-4" />}
+        className="mt-6 rounded-md"
       >
         Cerrar sesión
-      </KButton>
+      </Button>
     </AuthCard>
   );
 }

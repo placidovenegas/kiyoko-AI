@@ -18,11 +18,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { Tooltip } from '@heroui/react';
 
 interface PromptEditorProps {
   label: string;
@@ -111,58 +107,41 @@ export function PromptEditor({
               text={value}
               className="h-7 px-2 text-[11px] opacity-60 hover:opacity-100"
             />
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <button
-                    type="button"
-                    onClick={handleTranslate}
-                    disabled={disabled || translating}
-                    aria-label="Traducir prompt al espanol"
-                    className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-card hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  />
-                }
+            <Tooltip content={showTranslation ? 'Ocultar traduccion' : 'Traducir al espanol'} placement="top">
+              <button
+                type="button"
+                onClick={handleTranslate}
+                disabled={disabled || translating}
+                aria-label="Traducir prompt al espanol"
+                className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-card hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <Languages className="h-3 w-3" />
-              </TooltipTrigger>
-              <TooltipContent className="text-xs">
-                {showTranslation ? 'Ocultar traduccion' : 'Traducir al espanol'}
-              </TooltipContent>
+              </button>
             </Tooltip>
             {onImprove && (
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <button
-                      type="button"
-                      onClick={onImprove}
-                      disabled={disabled}
-                      aria-label="Mejorar prompt con IA"
-                      className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-medium text-scene-filler transition-colors hover:bg-scene-filler/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    />
-                  }
+              <Tooltip content="Mejorar con IA" placement="top">
+                <button
+                  type="button"
+                  onClick={onImprove}
+                  disabled={disabled}
+                  aria-label="Mejorar prompt con IA"
+                  className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-medium text-scene-filler transition-colors hover:bg-scene-filler/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <Sparkles className="h-3 w-3" /> IA
-                </TooltipTrigger>
-                <TooltipContent className="text-xs">Mejorar con IA</TooltipContent>
+                </button>
               </Tooltip>
             )}
             {onSave && !readOnly && (
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <button
-                      type="button"
-                      onClick={handleEdit}
-                      disabled={disabled}
-                      aria-label={`Editar ${label}`}
-                      className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-card hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    />
-                  }
+              <Tooltip content="Editar" placement="top">
+                <button
+                  type="button"
+                  onClick={handleEdit}
+                  disabled={disabled}
+                  aria-label={`Editar ${label}`}
+                  className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-card hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <Pencil className="h-3 w-3" />
-                </TooltipTrigger>
-                <TooltipContent className="text-xs">Editar</TooltipContent>
+                </button>
               </Tooltip>
             )}
           </div>

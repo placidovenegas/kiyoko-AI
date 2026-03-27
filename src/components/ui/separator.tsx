@@ -1,20 +1,28 @@
 "use client"
 
-import { Separator as SeparatorPrimitive } from "@base-ui/react/separator"
+/**
+ * Separator — Wrapper sobre HeroUI v3 Divider.
+ * Mantiene la API: <Separator orientation="horizontal|vertical" />.
+ */
 
+import { Separator as HeroSeparator } from "@heroui/react"
 import { cn } from "@/lib/utils"
 
 function Separator({
   className,
   orientation = "horizontal",
   ...props
-}: SeparatorPrimitive.Props) {
+}: {
+  className?: string;
+  orientation?: "horizontal" | "vertical";
+  [key: string]: unknown;
+}) {
   return (
-    <SeparatorPrimitive
-      data-slot="separator"
+    <HeroSeparator
       orientation={orientation}
       className={cn(
-        "shrink-0 bg-border data-horizontal:h-px data-horizontal:w-full data-vertical:w-px data-vertical:self-stretch",
+        "shrink-0 bg-border",
+        orientation === "horizontal" ? "h-px w-full" : "w-px self-stretch",
         className
       )}
       {...props}

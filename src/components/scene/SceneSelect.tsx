@@ -1,13 +1,6 @@
 'use client';
 
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, ListBoxItem } from '@heroui/react';
 import { cn } from '@/lib/utils/cn';
 
 export interface SceneSelectOption {
@@ -39,30 +32,30 @@ export function SceneSelect({
 }: SceneSelectProps) {
   return (
     <div className={cn('flex flex-col gap-1', className)}>
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        {label}
-      </span>
-      <Select value={value} onValueChange={onChange} disabled={disabled}>
-        <SelectTrigger
-          className="h-8 text-xs"
-          aria-label={ariaLabel ?? label}
-        >
-          <SelectValue placeholder={placeholder} />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectGroup>
-            {options.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                <div className="flex flex-col">
-                  <span>{opt.label}</span>
-                  {opt.description && (
-                    <span className="text-[10px] text-muted-foreground">{opt.description}</span>
-                  )}
-                </div>
-              </SelectItem>
-            ))}
-          </SelectGroup>
-        </SelectContent>
+      <Select
+        label={label}
+        selectedKeys={value ? [value] : []}
+        onSelectionChange={(keys) => {
+          const selected = [...keys][0];
+          if (selected) onChange(String(selected));
+        }}
+        isDisabled={disabled}
+        placeholder={placeholder}
+        aria-label={ariaLabel ?? label}
+        size="sm"
+        className="text-xs"
+        labelPlacement="outside"
+      >
+        {options.map((opt) => (
+          <ListBoxItem key={opt.value} textValue={opt.label}>
+            <div className="flex flex-col">
+              <span>{opt.label}</span>
+              {opt.description && (
+                <span className="text-[10px] text-muted-foreground">{opt.description}</span>
+              )}
+            </div>
+          </ListBoxItem>
+        ))}
       </Select>
     </div>
   );

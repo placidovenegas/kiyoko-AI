@@ -80,6 +80,7 @@ No crear componentes ad-hoc. Si falta uno, crearlo en `ui/` o `shared/`.
 - `/ui-audit` — Auditar consistencia visual y design system
 - `/refactor` — Reorganizar componentes por dominio
 - `/fix-error` — Diagnosticar y corregir errores
+- `/scene-engine` — Motor de escenas: crear escenas, prompts, timeline, camara, clips
 - `/supabase-migration` — Crear/modificar tablas, RLS, indices
 - `/analyze` — Análisis completo del proyecto (build, tipos, DB, dead code)
 - `/db-check` — Verificar estado de la base de datos

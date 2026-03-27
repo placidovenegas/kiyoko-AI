@@ -234,10 +234,10 @@ export default function CharacterDetailPage() {
 
             {/* Action buttons */}
             <div className="mt-3 flex gap-2">
-              <Button variant="bordered" size="sm" className="flex-1 text-xs">
+              <Button variant="outline" size="sm" className="flex-1 text-xs">
                 Subir imagen
               </Button>
-              <Button variant="solid" color="primary" size="sm" className="flex-1 text-xs">
+              <Button variant="primary" color="primary" size="sm" className="flex-1 text-xs">
                 Generar con IA
               </Button>
             </div>
@@ -335,7 +335,7 @@ export default function CharacterDetailPage() {
                       <li key={i} className="flex items-start gap-2 text-xs text-foreground">
                         <span className="text-green-500 mt-0.5">+</span>
                         <span className="flex-1">{r}</span>
-                        <Button variant="ghost" size="xs" isIconOnly className="h-5 w-5 text-xs text-muted-foreground/50 hover:text-red-400 shrink-0" onClick={() => removeRule('always', i)}>x</Button>
+                        <Button variant="ghost" size="sm" isIconOnly className="h-5 w-5 text-xs text-muted-foreground/50 hover:text-red-400 shrink-0" onClick={() => removeRule('always', i)}>x</Button>
                       </li>
                     ))}
                   </ul>
@@ -353,7 +353,7 @@ export default function CharacterDetailPage() {
                       <li key={i} className="flex items-start gap-2 text-xs text-foreground">
                         <span className="text-red-500 mt-0.5">-</span>
                         <span className="flex-1">{r}</span>
-                        <Button variant="ghost" size="xs" isIconOnly className="h-5 w-5 text-xs text-muted-foreground/50 hover:text-red-400 shrink-0" onClick={() => removeRule('never', i)}>x</Button>
+                        <Button variant="ghost" size="sm" isIconOnly className="h-5 w-5 text-xs text-muted-foreground/50 hover:text-red-400 shrink-0" onClick={() => removeRule('never', i)}>x</Button>
                       </li>
                     ))}
                   </ul>
@@ -495,10 +495,10 @@ function EditableSection({
             className="w-full bg-secondary border border-border text-foreground text-sm rounded-lg p-3 resize-y placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
           />
           <div className="flex gap-2 justify-end">
-            <Button variant="bordered" size="sm" onClick={onCancel}>
+            <Button variant="outline" size="sm" onClick={onCancel}>
               Cancelar
             </Button>
-            <Button variant="solid" color="primary" size="sm" onClick={() => onSave(fieldKey)} disabled={saving}>
+            <Button variant="primary" color="primary" size="sm" onClick={() => onSave(fieldKey)} isDisabled={saving}>
               {saving ? 'Guardando...' : 'Guardar'}
             </Button>
           </div>

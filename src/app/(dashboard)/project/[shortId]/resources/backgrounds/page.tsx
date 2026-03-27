@@ -7,7 +7,7 @@ import { useParams } from 'next/navigation';
 import { queryKeys } from '@/lib/query/keys';
 import Link from 'next/link';
 import { cn } from '@/lib/utils/cn';
-import { KButton } from '@/components/ui/kiyoko-button';
+import { Button } from '@/components/ui/button';
 import { Plus, MapPin, Film, Loader2, Clock, Camera } from 'lucide-react';
 import type { Background } from '@/types';
 
@@ -151,13 +151,14 @@ export default function BackgroundsPage() {
             <span className="text-muted-foreground font-normal">({backgrounds.length})</span>
           </h1>
         </div>
-        <KButton
+        <Button
           variant="primary"
           size="md"
-          icon={<Plus className="h-4 w-4" />}
+          startContent={<Plus className="h-4 w-4" />}
+          className="rounded-md"
         >
           Nuevo fondo
-        </KButton>
+        </Button>
       </div>
 
       {/* ── Empty state ── */}
@@ -170,13 +171,14 @@ export default function BackgroundsPage() {
           <p className="mb-6 max-w-sm text-center text-sm text-muted-foreground">
             Crea fondos y localizaciones para tu proyecto. Podras reutilizarlos en distintas escenas con angulos y horas del dia diferentes.
           </p>
-          <KButton
+          <Button
             variant="primary"
             size="lg"
-            icon={<Plus className="h-4 w-4" />}
+            startContent={<Plus className="h-4 w-4" />}
+            className="rounded-md"
           >
             Crear primer fondo
-          </KButton>
+          </Button>
         </div>
       ) : (
         /* ── Grid ── */

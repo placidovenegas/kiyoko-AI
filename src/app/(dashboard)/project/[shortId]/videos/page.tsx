@@ -14,15 +14,12 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import {
+  Dropdown,
+  DropdownTrigger,
   DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-} from '@/components/ui/dropdown-menu';
+  DropdownItem,
+  DropdownSection,
+} from '@heroui/react';
 import { VideoCreateModal } from '@/components/videos/VideoCreateModal';
 import { useActiveVideoStore } from '@/stores/useActiveVideoStore';
 import { generateShortId } from '@/lib/utils/nanoid';
@@ -123,52 +120,42 @@ function VideoRow({
           )}>
             {STATUS_LABELS[video.status] ?? video.status}
           </span>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="xs" isIconOnly className="h-7 w-7 opacity-0 group-hover:opacity-100">
+          <Dropdown>
+            <DropdownTrigger>
+              <Button variant="ghost" size="sm" isIconOnly className="h-7 w-7 opacity-0 group-hover:opacity-100">
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent side="left" align="start" className="w-48">
-              <DropdownMenuItem asChild>
-                <Link href={`/project/${projectShortId}/video/${video.short_id}`}>
-                  <ExternalLink className="mr-2 h-4 w-4" />
+            </DropdownTrigger>
+            <DropdownMenu aria-label="Video actions" className="w-48">
+              <DropdownSection>
+                <DropdownItem key="open" startContent={<ExternalLink className="h-4 w-4" />} href={`/project/${projectShortId}/video/${video.short_id}`}>
                   Abrir vídeo
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => onDuplicate(video)}>
-                <Copy className="mr-2 h-4 w-4" />
-                Duplicar
-              </DropdownMenuItem>
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <Pencil className="mr-2 h-4 w-4" />
-                  Cambiar estado
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
-                  {VIDEO_STATUSES.map((s) => (
-                    <DropdownMenuItem
-                      key={s}
-                      onClick={() => onStatusChange(video.id, s)}
-                      className={video.status === s ? 'text-primary' : ''}
-                    >
-                      {STATUS_LABELS[s]}
-                      {video.status === s && <CheckCircle2 className="ml-auto h-3.5 w-3.5" />}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-red-400 focus:text-red-400"
-                onClick={() => onDelete(video.id)}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Eliminar
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                </DropdownItem>
+              </DropdownSection>
+              <DropdownSection>
+                <DropdownItem key="duplicate" startContent={<Copy className="h-4 w-4" />} onClick={() => onDuplicate(video)}>
+                  Duplicar
+                </DropdownItem>
+              </DropdownSection>
+              <DropdownSection title="Cambiar estado">
+                {VIDEO_STATUSES.map((s) => (
+                  <DropdownItem
+                    key={s}
+                    onClick={() => onStatusChange(video.id, s)}
+                    className={video.status === s ? 'text-primary' : ''}
+                    endContent={video.status === s ? <CheckCircle2 className="h-3.5 w-3.5" /> : undefined}
+                  >
+                    {STATUS_LABELS[s]}
+                  </DropdownItem>
+                ))}
+              </DropdownSection>
+              <DropdownSection>
+                <DropdownItem key="delete" className="text-danger" color="danger" startContent={<Trash2 className="h-4 w-4" />} onClick={() => onDelete(video.id)}>
+                  Eliminar
+                </DropdownItem>
+              </DropdownSection>
+            </DropdownMenu>
+          </Dropdown>
         </div>
       </div>
 

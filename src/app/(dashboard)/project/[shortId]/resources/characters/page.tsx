@@ -7,18 +7,18 @@ import { useParams } from 'next/navigation';
 import { queryKeys } from '@/lib/query/keys';
 import Link from 'next/link';
 import { cn } from '@/lib/utils/cn';
-import { KButton } from '@/components/ui/kiyoko-button';
+import { Button } from '@/components/ui/button';
 import {
   Plus, Users, Image as ImageIcon, Film, Loader2,
   MoreHorizontal, Eye, Pencil, Copy, Trash2,
 } from 'lucide-react';
 import {
+  Dropdown,
+  DropdownTrigger,
   DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+  DropdownItem,
+  DropdownSection,
+} from '@heroui/react';
 import type { Character } from '@/types';
 
 // ─── Character Avatar ──────────────────────────────────────
@@ -100,8 +100,8 @@ function CharacterCard({
         </div>
 
         {/* Dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+        <Dropdown>
+          <DropdownTrigger>
             <button
               type="button"
               className={cn(
@@ -112,30 +112,26 @@ function CharacterCard({
             >
               <MoreHorizontal className="h-4 w-4" />
             </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuItem onClick={() => onAction?.('view', character)}>
-              <Eye className="mr-2 h-4 w-4" />
-              Ver detalle
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onAction?.('edit', character)}>
-              <Pencil className="mr-2 h-4 w-4" />
-              Editar
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onAction?.('duplicate', character)}>
-              <Copy className="mr-2 h-4 w-4" />
-              Duplicar
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-red-400 focus:text-red-400"
-              onClick={() => onAction?.('delete', character)}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Eliminar
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+          </DropdownTrigger>
+          <DropdownMenu aria-label="Character actions" className="w-44">
+            <DropdownSection>
+              <DropdownItem key="view" startContent={<Eye className="h-4 w-4" />} onClick={() => onAction?.('view', character)}>
+                Ver detalle
+              </DropdownItem>
+              <DropdownItem key="edit" startContent={<Pencil className="h-4 w-4" />} onClick={() => onAction?.('edit', character)}>
+                Editar
+              </DropdownItem>
+              <DropdownItem key="duplicate" startContent={<Copy className="h-4 w-4" />} onClick={() => onAction?.('duplicate', character)}>
+                Duplicar
+              </DropdownItem>
+            </DropdownSection>
+            <DropdownSection>
+              <DropdownItem key="delete" className="text-danger" color="danger" startContent={<Trash2 className="h-4 w-4" />} onClick={() => onAction?.('delete', character)}>
+                Eliminar
+              </DropdownItem>
+            </DropdownSection>
+          </DropdownMenu>
+        </Dropdown>
       </div>
     </div>
   );
@@ -223,13 +219,14 @@ export default function CharactersPage() {
             <span className="text-muted-foreground font-normal">({characters.length})</span>
           </h1>
         </div>
-        <KButton
+        <Button
           variant="primary"
           size="md"
-          icon={<Plus className="h-4 w-4" />}
+          startContent={<Plus className="h-4 w-4" />}
+          className="rounded-md"
         >
           Nuevo personaje
-        </KButton>
+        </Button>
       </div>
 
       {/* Empty state */}
@@ -242,13 +239,14 @@ export default function CharactersPage() {
           <p className="mb-6 max-w-sm text-center text-sm text-muted-foreground">
             Crea personajes para tu proyecto. Podras asignarlos a escenas y generar imagenes consistentes.
           </p>
-          <KButton
+          <Button
             variant="primary"
             size="lg"
-            icon={<Plus className="h-4 w-4" />}
+            startContent={<Plus className="h-4 w-4" />}
+            className="rounded-md"
           >
             Crear primer personaje
-          </KButton>
+          </Button>
         </div>
       ) : (
         /* Grid */

@@ -68,6 +68,48 @@ export interface PromptPreviewData {
 }
 
 // ============================================================
+// JSON repair — intenta corregir JSON malformado de LLMs
+// ============================================================
+
+function repairJson(raw: string): string {
+  let s = raw.trim();
+
+  // Trailing commas before } or ]
+  s = s.replace(/,\s*([}\]])/g, '$1');
+
+  // Unquoted keys: { key: → { "key":
+  s = s.replace(/([{,]\s*)(\w+)\s*:/g, '$1"$2":');
+
+  // Single quotes → double quotes (naive but helps)
+  // Only replace if not already valid JSON
+  try { JSON.parse(s); return s; } catch { /* continue */ }
+  s = s.replace(/'/g, '"');
+
+  // Missing closing bracket/brace
+  const opens = (s.match(/[{[]/g) || []).length;
+  const closes = (s.match(/[}\]]/g) || []).length;
+  if (opens > closes) {
+    for (let i = 0; i < opens - closes; i++) {
+      // Determine if last open was { or [
+      const lastOpen = s.lastIndexOf('{') > s.lastIndexOf('[') ? '}' : ']';
+      s += lastOpen;
+    }
+  }
+
+  return s;
+}
+
+function safeJsonParse(raw: string): unknown {
+  const trimmed = raw.trim();
+  // Try raw first
+  try { return JSON.parse(trimmed); } catch { /* continue */ }
+  // Try repaired
+  try { return JSON.parse(repairJson(trimmed)); } catch { /* continue */ }
+  // Return as string
+  return trimmed;
+}
+
+// ============================================================
 // Regex principal
 // Soporta: [TIPO]...[/TIPO] y [TIPO:subtipo]...[/TIPO]
 // ============================================================
@@ -109,12 +151,7 @@ export function parseAiMessage(content: string): ParsedMessage {
     const [baseType, subtype] = blockType.split(':') as [BlockType, string?];
     const trimmed = blockContent.trim();
 
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(trimmed);
-    } catch {
-      parsed = trimmed;
-    }
+    const parsed = safeJsonParse(trimmed);
 
     const block: ParsedBlock = { type: baseType, subtype, data: parsed, raw: trimmed };
     blocks.push(block);
@@ -138,20 +175,19 @@ export function parseAiMessage(content: string): ParsedMessage {
   if (!actionPlan) {
     LEGACY_ACTION_PLAN_REGEX.lastIndex = 0;
     while ((match = LEGACY_ACTION_PLAN_REGEX.exec(textContent)) !== null) {
-      try {
-        const parsed = JSON.parse(match[1].trim()) as Record<string, unknown>;
+      const parsed = safeJsonParse(match[1].trim());
+      if (typeof parsed === 'object' && parsed !== null) {
+        const p = parsed as Record<string, unknown>;
         // Es un action_plan legacy si tiene "type": "action_plan" y "actions"
-        if (parsed.type === 'action_plan' && Array.isArray(parsed.actions)) {
+        if (p.type === 'action_plan' && Array.isArray(p.actions)) {
           actionPlan = {
-            description: (parsed.summary_es as string) || '',
+            description: (p.summary_es as string) || '',
             requires_confirmation: true,
-            actions: (parsed.actions as ActionData[]) || [],
+            actions: (p.actions as ActionData[]) || [],
           };
           textContent = textContent.replace(match[0], '');
           blocks.push({ type: 'ACTION_PLAN', data: actionPlan, raw: match[1] });
         }
-      } catch {
-        // No es JSON válido, ignorar
       }
     }
   }
@@ -179,13 +215,11 @@ export function parseAiMessage(content: string): ParsedMessage {
     UNCLOSED_OPTIONS.lastIndex = 0;
     const optMatch = UNCLOSED_OPTIONS.exec(textContent);
     if (optMatch) {
-      try {
-        const parsed = JSON.parse(optMatch[1]);
-        if (Array.isArray(parsed)) {
-          blocks.push({ type: 'OPTIONS', data: parsed, raw: optMatch[1] });
-          textContent = textContent.replace(optMatch[0], '');
-        }
-      } catch { /* no es JSON valido */ }
+      const parsed = safeJsonParse(optMatch[1]);
+      if (Array.isArray(parsed)) {
+        blocks.push({ type: 'OPTIONS', data: parsed, raw: optMatch[1] });
+        textContent = textContent.replace(optMatch[0], '');
+      }
     }
   }
 
@@ -193,13 +227,11 @@ export function parseAiMessage(content: string): ParsedMessage {
     UNCLOSED_SUGGESTIONS.lastIndex = 0;
     const sugMatch = UNCLOSED_SUGGESTIONS.exec(textContent);
     if (sugMatch) {
-      try {
-        const parsed = JSON.parse(sugMatch[1]);
-        if (Array.isArray(parsed)) {
-          suggestions.push(...(parsed as string[]));
-          textContent = textContent.replace(sugMatch[0], '');
-        }
-      } catch { /* no es JSON valido */ }
+      const parsed = safeJsonParse(sugMatch[1]);
+      if (Array.isArray(parsed)) {
+        suggestions.push(...(parsed as string[]));
+        textContent = textContent.replace(sugMatch[0], '');
+      }
     }
   }
 
@@ -207,11 +239,11 @@ export function parseAiMessage(content: string): ParsedMessage {
     UNCLOSED_CREATE.lastIndex = 0;
     let createMatch: RegExpExecArray | null;
     while ((createMatch = UNCLOSED_CREATE.exec(textContent)) !== null) {
-      try {
-        const parsed = JSON.parse(createMatch[2]);
+      const parsed = safeJsonParse(createMatch[2]);
+      if (typeof parsed === 'object' && parsed !== null) {
         blocks.push({ type: 'CREATE', subtype: createMatch[1], data: parsed, raw: createMatch[2] });
         textContent = textContent.replace(createMatch[0], '');
-      } catch { /* no es JSON valido */ }
+      }
     }
   }
 

@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { KButton } from '@/components/ui/kiyoko-button';
+import { Button } from '@/components/ui/button';
 import { Clock, LogOut } from 'lucide-react';
 import { AuthCard } from '@/components/auth';
 
@@ -57,15 +57,15 @@ export default function PendingPage() {
       <div className="mt-2 text-xs text-muted-foreground">
         Comprobando estado automáticamente...
       </div>
-      <KButton
+      <Button
         variant="outline"
         size="lg"
         onClick={handleSignOut}
-        icon={<LogOut className="h-4 w-4" />}
-        className="mt-6"
+        startContent={<LogOut className="h-4 w-4" />}
+        className="mt-6 rounded-md"
       >
         Cerrar sesión
-      </KButton>
+      </Button>
     </AuthCard>
   );
 }

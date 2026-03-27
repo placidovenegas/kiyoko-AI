@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { ProjectCard, type Project } from './ProjectCard';
 import { Film, Sparkles, Plus } from 'lucide-react';
-import { KButton } from '@/components/ui/kiyoko-button';
+import { Button } from '@heroui/react';
 
 export function ProjectGrid({ projects }: { projects: Project[] }) {
   if (projects.length === 0) {
@@ -29,9 +29,9 @@ export function ProjectGrid({ projects }: { projects: Project[] }) {
         </div>
 
         <Link href="/new">
-          <KButton size="lg" icon={<Plus className="h-4 w-4" />}>
+          <Button size="lg" startContent={<Plus className="h-4 w-4" />} className="rounded-md">
             Nuevo Proyecto
-          </KButton>
+          </Button>
         </Link>
       </div>
     );

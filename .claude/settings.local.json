@@ -58,5 +58,11 @@
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "supabase"
-  ]
+  ],
+   "mcpServers": {
+    "heroui-migration": {
+      "type": "http",
+      "url": "https://migration-mcp.heroui.com"
+    }
+  }
 }

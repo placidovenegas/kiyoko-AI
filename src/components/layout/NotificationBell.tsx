@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Bell, Check, CheckCheck, ExternalLink } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Button } from '@/components/ui/button';
+import { Button } from '@heroui/react';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils/cn';
 import Link from 'next/link';
@@ -119,9 +119,9 @@ export function NotificationBell() {
       <Button
         type="button"
         variant="ghost"
-        size="xs"
+        size="sm"
         isIconOnly
-        onClick={() => setOpen(!open)}
+        onPress={() => setOpen(!open)}
         aria-label={`Notificaciones${unreadCount > 0 ? ` (${unreadCount} sin leer)` : ''}`}
         className="relative size-8"
       >
@@ -147,8 +147,8 @@ export function NotificationBell() {
                 <Button
                   type="button"
                   variant="ghost"
-                  size="xs"
-                  onClick={() => markAllReadMutation.mutate()}
+                  size="sm"
+                  onPress={() => markAllReadMutation.mutate()}
                   className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
                 >
                   <CheckCheck className="h-3 w-3" /> Marcar todas
@@ -202,8 +202,8 @@ export function NotificationBell() {
                           <Button
                             type="button"
                             variant="ghost"
-                            size="xs"
-                            onClick={() => markAsReadMutation.mutate(notif.id)}
+                            size="sm"
+                            onPress={() => markAsReadMutation.mutate(notif.id)}
                             className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-foreground h-auto py-0 px-1"
                           >
                             <Check className="h-2.5 w-2.5" /> Leida

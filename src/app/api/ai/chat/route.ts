@@ -122,8 +122,8 @@ export async function POST(request: Request) {
         let backgrounds: BackgroundContext[] = [];
         let videos: VideoContext[] = [];
 
-        // Siempre cargamos personajes y fondos del proyecto
-        const [charsRes, bgsRes, videosRes] = await Promise.all([
+        // Siempre cargamos personajes, fondos, videos + perfil creativo y stats de tareas
+        const [charsRes, bgsRes, videosRes, profileRes, taskStatsRes] = await Promise.all([
           supabase.from('characters')
             .select('id, name, role, description, visual_description, prompt_snippet, ai_prompt_description, hair_description, signature_clothing, accessories, color_accent, personality, initials, reference_image_url')
             .eq('project_id', projectId).order('name'),
@@ -133,11 +133,35 @@ export async function POST(request: Request) {
           supabase.from('videos')
             .select('id, title, short_id, platform, video_type, target_duration_seconds, status')
             .eq('project_id', projectId).order('created_at'),
+          supabase.from('profiles')
+            .select('creative_video_types, creative_platforms, creative_use_context, creative_purpose, creative_typical_duration')
+            .eq('id', user.id).maybeSingle(),
+          supabase.from('tasks')
+            .select('id, status, priority')
+            .eq('project_id', projectId),
         ]);
 
         characters = (charsRes.data ?? []) as unknown as CharacterContext[];
         backgrounds = (bgsRes.data ?? []) as unknown as BackgroundContext[];
         videos = (videosRes.data ?? []) as unknown as VideoContext[];
+
+        // Build creative profile for ideation agent
+        const profileData = profileRes.data as Record<string, string | null> | null;
+        const creativeProfile = profileData ? {
+          video_types: profileData.creative_video_types ?? null,
+          platforms: profileData.creative_platforms ?? null,
+          use_context: profileData.creative_use_context ?? null,
+          purpose: profileData.creative_purpose ?? null,
+          typical_duration: profileData.creative_typical_duration ?? null,
+        } : undefined;
+
+        // Build task stats for task agent
+        const taskRows = taskStatsRes.data ?? [];
+        const taskStats = {
+          open: taskRows.filter((t: Record<string, unknown>) => t.status !== 'completed' && t.status !== 'cancelled').length,
+          total: taskRows.length,
+          urgent: taskRows.filter((t: Record<string, unknown>) => t.priority === 'urgent' && t.status !== 'completed').length,
+        };
 
         // Si hay video activo, cargamos sus escenas con toda la info
         if (videoId && (level === 'video' || level === 'scene')) {
@@ -227,6 +251,8 @@ export async function POST(request: Request) {
             agentTone: agent?.tone ?? undefined,
             audioConfig,
             activeSceneId: sceneId,
+            creativeProfile,
+            taskStats,
           });
 
           // Append custom agent prompt as additional context, never replace
@@ -237,20 +263,53 @@ export async function POST(request: Request) {
           activeAgent = selected.agentName;
           preferredProviderIds = selected.preferredProviders;
         } else {
-          // project level → specialized project assistant prompt
-          // Custom agent system_prompt is APPENDED as additional context, never replaces
-          const basePrompt = buildProjectAssistantPrompt({
-            project,
-            videos,
-            characters,
-            backgrounds,
-            agentTone: agent?.tone ?? undefined,
-          });
-          systemPrompt = agent?.system_prompt
-            ? `${basePrompt}\n\n=== INSTRUCCIONES ADICIONALES DEL PROYECTO ===\n${agent.system_prompt}`
-            : basePrompt;
-          agentTemperature = 0.3;
-          preferredProviderIds = ['groq', 'gemini', 'mistral'];
+          // project level → detect intent + select agent (characters, backgrounds, tasks, etc.)
+          const lastMessage = messages[messages.length - 1]?.content ?? '';
+          const intent = detectIntent(lastMessage);
+
+          // Intents que los agentes especializados manejan mejor que el project-assistant
+          const specializedIntents = new Set([
+            'create_character', 'view_character', 'list_characters', 'edit_character',
+            'create_background', 'view_background', 'list_backgrounds', 'edit_background',
+            'create_task', 'list_tasks',
+            'generate_ideas', 'delete_entity',
+          ]);
+
+          if (specializedIntents.has(intent)) {
+            // Usar agente especializado (con video dummy vacío ya que estamos a nivel proyecto)
+            const dummyVideo: VideoContext = { id: '', title: '', short_id: '', platform: null, video_type: null, target_duration_seconds: null, status: 'draft' } as VideoContext;
+            const selected = selectAgent(intent, {
+              project,
+              video: dummyVideo,
+              scenes: [],
+              characters,
+              backgrounds,
+              agentTone: agent?.tone ?? undefined,
+              creativeProfile,
+              taskStats,
+            });
+            systemPrompt = agent?.system_prompt
+              ? `${selected.systemPrompt}\n\n=== INSTRUCCIONES ADICIONALES ===\n${agent.system_prompt}`
+              : selected.systemPrompt;
+            agentTemperature = selected.temperature;
+            activeAgent = selected.agentName;
+            preferredProviderIds = selected.preferredProviders;
+          } else {
+            // project-assistant para el resto (crear video, ver proyecto, etc.)
+            const basePrompt = buildProjectAssistantPrompt({
+              project,
+              videos,
+              characters,
+              backgrounds,
+              agentTone: agent?.tone ?? undefined,
+            });
+            systemPrompt = agent?.system_prompt
+              ? `${basePrompt}\n\n=== INSTRUCCIONES ADICIONALES DEL PROYECTO ===\n${agent.system_prompt}`
+              : basePrompt;
+            agentTemperature = 0.3;
+            activeAgent = 'project';
+            preferredProviderIds = ['groq', 'gemini', 'mistral'];
+          }
         }
       }
     }

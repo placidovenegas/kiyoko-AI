@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { KButton } from '@/components/ui/kiyoko-button';
+import { Button } from '@/components/ui/button';
 import {
   AuthCard,
   AuthHeader,
@@ -139,14 +139,14 @@ export default function RegisterPage() {
           }
         />
 
-        <KButton
+        <Button
           type="submit"
           size="lg"
-          loading={loading}
-          className="w-full shadow-lg shadow-primary/25"
+          isLoading={loading}
+          className="w-full shadow-lg shadow-primary/25 rounded-md"
         >
           Crear cuenta
-        </KButton>
+        </Button>
       </form>
 
       <p className="mt-6 text-center text-sm text-white/40 lg:text-muted-foreground">

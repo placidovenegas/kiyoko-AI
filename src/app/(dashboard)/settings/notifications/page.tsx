@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
-import { KButton } from '@/components/ui/kiyoko-button';
+import { Button } from '@/components/ui/button';
 import {
   Loader2, Bell, Save, Check,
 } from 'lucide-react';
@@ -111,15 +111,16 @@ export default function NotificationsPage() {
           <Bell className="h-5 w-5 text-primary" />
           <h1 className="text-lg font-semibold text-foreground">Preferencias de notificaciones</h1>
         </div>
-        <KButton
+        <Button
           variant="primary"
           size="md"
-          icon={saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
+          startContent={saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
           onClick={() => saveMutation.mutate()}
           disabled={saveMutation.isPending}
+          className="rounded-md"
         >
           {saved ? 'Guardado' : saveMutation.isPending ? 'Guardando...' : 'Guardar'}
-        </KButton>
+        </Button>
       </div>
 
       <div className="mx-auto w-full max-w-2xl space-y-8">

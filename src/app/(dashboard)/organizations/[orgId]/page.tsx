@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { queryKeys } from '@/lib/query/keys';
-import { KButton } from '@/components/ui/kiyoko-button';
+import { Button } from '@/components/ui/button';
 import { Loader2, Building2, UserPlus, Users, Mail, Shield } from 'lucide-react';
 import type { Organization, OrganizationMember, Profile } from '@/types';
 
@@ -95,13 +95,14 @@ export default function OrganizationPage() {
             </div>
           </div>
         </div>
-        <KButton
+        <Button
           variant="primary"
           size="md"
-          icon={<UserPlus className="h-4 w-4" />}
+          startContent={<UserPlus className="h-4 w-4" />}
+          className="rounded-md"
         >
           Invitar miembro
-        </KButton>
+        </Button>
       </div>
 
       {/* Info card */}

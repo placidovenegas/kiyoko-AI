@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import { queryKeys } from '@/lib/query/keys';
-import { KButton } from '@/components/ui/kiyoko-button';
+import { Button } from '@/components/ui/button';
 import {
   Loader2, CreditCard, Sparkles, CalendarDays, AlertTriangle,
 } from 'lucide-react';
@@ -112,13 +112,14 @@ export default function SubscriptionPage() {
           <p className="mb-4 text-sm text-muted-foreground">
             Desbloquea proyectos ilimitados, mas generaciones y funciones de colaboracion.
           </p>
-          <KButton
+          <Button
             variant="primary"
             size="lg"
-            icon={<Sparkles className="h-4 w-4" />}
+            startContent={<Sparkles className="h-4 w-4" />}
+            className="rounded-md"
           >
             Actualizar plan
-          </KButton>
+          </Button>
         </div>
       )}
 
@@ -128,13 +129,14 @@ export default function SubscriptionPage() {
           <p className="mb-4 text-sm text-muted-foreground">
             Enterprise incluye generaciones ilimitadas, acceso API y soporte prioritario.
           </p>
-          <KButton
+          <Button
             variant="primary"
             size="lg"
-            icon={<Sparkles className="h-4 w-4" />}
+            startContent={<Sparkles className="h-4 w-4" />}
+            className="rounded-md"
           >
             Contactar ventas
-          </KButton>
+          </Button>
         </div>
       )}
     </div>

@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
-import { Dialog, DialogPortal, DialogOverlay } from '@/components/ui/dialog';
 import { useUIStore } from '@/stores/useUIStore';
 import { cn } from '@/lib/utils/cn';
 import { Button } from '@/components/ui/button';
@@ -409,23 +408,24 @@ export function SearchModal() {
 
   /* ---- Render ---- */
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogPortal>
-        <DialogOverlay />
+    <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
         <DialogPrimitive.Content
-          onKeyDown={handleKeyDown}
           className={cn(
-            'fixed left-1/2 z-50 w-full max-w-180 overflow-hidden',
-            '-translate-x-1/2',
+            'fixed left-1/2 top-[8vh] z-50 -translate-x-1/2',
+            'w-full max-w-[720px] overflow-hidden',
             'border border-border/60 bg-background shadow-2xl rounded-xl',
-            // animation: slide in from top, not from center
-            'duration-200',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
-            'data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0',
-            'data-[state=open]:slide-in-from-top-6 data-[state=closed]:slide-out-to-top-6',
+            'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+            'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
+            'data-[state=closed]:slide-out-to-left-1/2 data-[state=open]:slide-in-from-left-1/2',
           )}
-          style={{ top: '8vh', height: 600 }}
+          style={{ height: 600 }}
         >
+          <DialogPrimitive.Title className="sr-only">Buscar</DialogPrimitive.Title>
+        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
+        <div onKeyDown={handleKeyDown}>
         <div className="flex h-full">
           {/* ── Left panel ───────────────────────────────────────────── */}
           <div className="flex flex-col flex-1 min-w-0 border-r border-border/50">
@@ -565,7 +565,7 @@ export function SearchModal() {
                   Nueva pestaña
                 </span>
               </div>
-              <Button type="button" variant="ghost" size="xs" isIconOnly className="h-6 w-6 text-muted-foreground/40 hover:text-muted-foreground">
+              <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground/40 hover:text-muted-foreground">
                 <Settings size={13} />
               </Button>
             </div>
@@ -576,8 +576,9 @@ export function SearchModal() {
             <PreviewPanel item={hoveredItem} />
           </div>
         </div>
+        </div>
         </DialogPrimitive.Content>
-      </DialogPortal>
-    </Dialog>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }

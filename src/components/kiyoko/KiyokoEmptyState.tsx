@@ -18,7 +18,7 @@ import {
   FolderOpen,
   Palette,
 } from 'lucide-react';
-import { useOrgStore } from '@/stores/useOrgStore';
+import { useUIStore } from '@/stores/useUIStore';
 import { fetchDashboardContextStats } from '@/lib/chat/fetch-dashboard-context-stats';
 import { KiyokoIcon } from '@/components/ui/logo';
 import { cn } from '@/lib/utils/cn';
@@ -162,7 +162,7 @@ export function KiyokoEmptyState({
     return getBaseQuickActions(contextToLocation(contextLevel));
   }, [contextLevel, hasScenes, hasPrompts, hasCharacters, hasBackgrounds]);
 
-  const { currentOrgId } = useOrgStore();
+  const currentOrgId = useUIStore((s) => s.currentOrgId);
   const { data: dashStats } = useQuery({
     queryKey: ['kiyoko-chat-empty-dashboard', currentOrgId],
     enabled: contextLevel === 'dashboard',

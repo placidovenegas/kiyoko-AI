@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { KButton } from '@/components/ui/kiyoko-button';
+import { Button } from '@/components/ui/button';
 import { Mail, ArrowLeft, CheckCircle } from 'lucide-react';
 import { AuthCard, AuthError, AuthInput } from '@/components/auth';
 
@@ -80,14 +80,14 @@ export default function ForgotPasswordPage() {
           autoComplete="email"
         />
 
-        <KButton
+        <Button
           type="submit"
           size="lg"
-          loading={loading}
-          className="w-full"
+          isLoading={loading}
+          className="w-full rounded-md"
         >
           Enviar instrucciones
-        </KButton>
+        </Button>
       </form>
 
       <p className="mt-6 text-center">

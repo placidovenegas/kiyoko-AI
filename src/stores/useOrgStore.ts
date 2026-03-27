@@ -1,17 +1,5 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-
-interface OrgState {
-  currentOrgId: string | null;
-  setCurrentOrgId: (id: string | null) => void;
-}
-
-export const useOrgStore = create<OrgState>()(
-  persist(
-    (set) => ({
-      currentOrgId: null,
-      setCurrentOrgId: (id) => set({ currentOrgId: id }),
-    }),
-    { name: 'kiyoko-org' }
-  )
-);
+/**
+ * @deprecated Use useUIStore directly: useUIStore((s) => s.currentOrgId)
+ * This file is kept only to avoid import errors in case any file still references it.
+ */
+export { useUIStore as useOrgStore } from './useUIStore';

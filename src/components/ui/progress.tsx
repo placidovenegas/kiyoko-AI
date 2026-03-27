@@ -1,27 +1,35 @@
 "use client";
 
+/**
+ * Progress — Wrapper sobre HeroUI v3 Progress.
+ */
+
 import * as React from "react";
-import * as ProgressPrimitive from "@radix-ui/react-progress";
+import { ProgressBar as HeroProgress } from "@heroui/react";
 import { cn } from "@/lib/utils/cn";
 
 const Progress = React.forwardRef<
-  React.ComponentRef<typeof ProgressPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof ProgressPrimitive.Root>
->(({ className, value, ...props }, ref) => (
-  <ProgressPrimitive.Root
+  HTMLDivElement,
+  {
+    className?: string;
+    value?: number;
+    max?: number;
+    label?: string;
+    color?: "default" | "primary" | "secondary" | "success" | "warning" | "danger";
+    size?: "sm" | "md" | "lg";
+  }
+>(({ className, value = 0, max = 100, label, color = "primary", size = "md", ...props }, ref) => (
+  <HeroProgress
     ref={ref}
-    className={cn(
-      "relative h-4 w-full overflow-hidden rounded-full bg-muted",
-      className
-    )}
+    value={value}
+    maxValue={max}
+    label={label}
+    color={color}
+    size={size}
+    className={cn(className)}
     {...props}
-  >
-    <ProgressPrimitive.Indicator
-      className="h-full w-full flex-1 bg-primary transition-all"
-      style={{ transform: `translateX(-${100 - (value || 0)}%)` }}
-    />
-  </ProgressPrimitive.Root>
+  />
 ));
-Progress.displayName = ProgressPrimitive.Root.displayName;
+Progress.displayName = "Progress";
 
 export { Progress };

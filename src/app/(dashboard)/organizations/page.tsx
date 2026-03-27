@@ -3,7 +3,6 @@
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
-import { useOrgStore } from '@/stores/useOrgStore';
 import { useOrganizations, ORG_TYPE_LABELS } from '@/hooks/useOrganizations';
 import { useUIStore } from '@/stores/useUIStore';
 import { Building2, Briefcase, Laptop, GraduationCap, Plus, CheckCircle2 } from 'lucide-react';
@@ -30,7 +29,8 @@ type OrgWithCount = Organization & { project_count: number };
 
 export default function WorkspacesPage() {
   const router = useRouter();
-  const { currentOrgId, setCurrentOrgId } = useOrgStore();
+  const currentOrgId = useUIStore((s) => s.currentOrgId);
+  const setCurrentOrgId = useUIStore((s) => s.setCurrentOrgId);
   const { canCreateOrg } = useOrganizations();
   const { openWorkspaceModal } = useUIStore();
   const supabase = createClient();

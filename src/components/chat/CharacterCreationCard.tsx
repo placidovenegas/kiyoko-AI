@@ -14,9 +14,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { Button, Input, TextArea } from '@heroui/react';
 import { createClient } from '@/lib/supabase/client';
 import { useAiAssist } from '@/hooks/useAiAssist';
 import { useAIStore } from '@/stores/ai-store';
@@ -283,12 +281,11 @@ export function CharacterCreationCard({ prefill, projectId, onCreated, onCancel,
                 <img src={imagePreview} alt="Preview" className="size-full object-cover" />
                 <Button
                   type="button"
-                  onClick={removeImage}
+                  onPress={removeImage}
                   isIconOnly
-                  size="xs"
+                  size="sm"
                   variant="ghost"
-                  disabled={saving}
-                  radius="full"
+                  isDisabled={saving}
                   className="absolute top-0.5 right-0.5 size-5 bg-black/60 text-white hover:bg-black/80"
                 >
                   <X size={10} />
@@ -297,11 +294,11 @@ export function CharacterCreationCard({ prefill, projectId, onCreated, onCancel,
             ) : (
               <Button
                 type="button"
-                onClick={() => {
+                onPress={() => {
                   if (saving) return;
                   fileRef.current?.click();
                 }}
-                disabled={saving}
+                isDisabled={saving}
                 variant="ghost"
                 className={cn(
                   'flex flex-col items-center justify-center size-20 rounded-lg border-2 border-dashed transition-all',
@@ -320,8 +317,8 @@ export function CharacterCreationCard({ prefill, projectId, onCreated, onCancel,
             <Input
               type="text"
               value={name}
-              disabled={saving}
-              onChange={(e) => setName(e.target.value)}
+              isDisabled={saving}
+              onValueChange={setName}
               placeholder="Nombre del personaje"
               className={cn(dock ? CHAT_DOCK_FIELD_CLASS : 'w-full px-3 py-1.5 rounded-md border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring/50')}
               autoFocus
@@ -378,12 +375,12 @@ export function CharacterCreationCard({ prefill, projectId, onCreated, onCancel,
         {/* Description */}
         <div>
           <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Que hace en la historia</label>
-          <Textarea
+          <TextArea
             value={description}
-            disabled={saving}
-            onChange={(e) => setDescription(e.target.value)}
+            isDisabled={saving}
+            onValueChange={setDescription}
             placeholder="Ej: Chica aventurera que descubre ofertas de verano..."
-            rows={2}
+            minRows={2}
             className={cn('w-full mt-1', dock ? CHAT_DOCK_TEXTAREA_CLASS : 'px-3 py-1.5 rounded-md border border-border bg-background text-xs text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring/50')}
           />
         </div>
@@ -393,8 +390,8 @@ export function CharacterCreationCard({ prefill, projectId, onCreated, onCancel,
           <div className="flex items-center justify-between mb-1">
             <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Personalidad</label>
             {name && (
-              <Button type="button" onClick={suggestPersonality} disabled={!!aiLoading || saving}
-                variant="light" color="primary" size="xs"
+              <Button type="button" onPress={suggestPersonality} isDisabled={!!aiLoading || saving}
+                variant="ghost" color="primary" size="sm"
                 className="flex items-center gap-1 text-[10px]">
                 {aiLoading === 'personality' ? <Loader2 size={9} className="animate-spin" /> : <Sparkles size={9} />} Sugerir
               </Button>
@@ -403,8 +400,8 @@ export function CharacterCreationCard({ prefill, projectId, onCreated, onCancel,
           <Input
             type="text"
             value={personality}
-            disabled={saving}
-            onChange={(e) => setPersonality(e.target.value)}
+            isDisabled={saving}
+            onValueChange={setPersonality}
             placeholder="Ej: Alegre, aventurera, espontanea"
             className={cn(dock ? CHAT_DOCK_FIELD_COMPACT_CLASS : 'w-full px-3 py-1.5 rounded-md border border-border bg-background text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring/50')}
           />
@@ -417,19 +414,19 @@ export function CharacterCreationCard({ prefill, projectId, onCreated, onCancel,
               <ImageIcon size={10} /> Prompt visual (EN)
             </label>
             {name && (
-              <Button type="button" onClick={suggestVisual} disabled={!!aiLoading || saving}
-                variant="light" color="primary" size="xs"
+              <Button type="button" onPress={suggestVisual} isDisabled={!!aiLoading || saving}
+                variant="ghost" color="primary" size="sm"
                 className="flex items-center gap-1 text-[10px]">
                 {aiLoading === 'visual' ? <Loader2 size={9} className="animate-spin" /> : <Sparkles size={9} />} Generar
               </Button>
             )}
           </div>
-          <Textarea
+          <TextArea
             value={visualDesc}
-            disabled={saving}
-            onChange={(e) => setVisualDesc(e.target.value)}
+            isDisabled={saving}
+            onValueChange={setVisualDesc}
             placeholder="Ej: young woman 22-27, wavy blonde hair, bright smile, beach outfit"
-            rows={2}
+            minRows={2}
             className={cn(dock ? CHAT_DOCK_TEXTAREA_MONO_CLASS : 'w-full px-3 py-1.5 rounded-md border border-border bg-background text-xs text-foreground font-mono placeholder:text-muted-foreground placeholder:font-sans resize-none focus:outline-none focus:ring-1 focus:ring-ring/50')}
           />
 
@@ -442,8 +439,8 @@ export function CharacterCreationCard({ prefill, projectId, onCreated, onCancel,
                   <p className="text-[10px] text-muted-foreground leading-relaxed">
                     Si la IA no puede analizar la imagen, copia este prompt y usalo en ChatGPT/Claude con la imagen:
                   </p>
-                  <Button type="button" onClick={copyAnalysisPrompt} disabled={saving}
-                    variant="bordered" color="default" size="xs" radius="sm"
+                  <Button type="button" onPress={copyAnalysisPrompt} isDisabled={saving}
+                    variant="outline" size="sm"
                     className="mt-1 flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
                     {promptCopied ? <Check size={9} className="text-emerald-500" /> : <Copy size={9} />}
                     {promptCopied ? 'Copiado' : 'Copiar prompt de analisis'}
@@ -467,12 +464,12 @@ export function CharacterCreationCard({ prefill, projectId, onCreated, onCancel,
             : 'flex items-center justify-end gap-2 px-4 py-2.5 border-t border-border bg-muted/30',
         )}
       >
-        <Button type="button" onClick={() => { if (saving) return; onCancel(); }} disabled={saving} variant="ghost" color="default" size="sm" radius="sm"
+        <Button type="button" onPress={() => { if (saving) return; onCancel(); }} isDisabled={saving} variant="ghost" size="sm"
           className="px-3 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent">
           Cancelar
         </Button>
-        <Button type="button" onClick={handleSave} disabled={!isValid || saving}
-          variant="solid" color="primary" size="sm" radius="sm"
+        <Button type="button" onPress={handleSave} isDisabled={!isValid || saving}
+          variant="primary" color="primary" size="sm"
           className={cn('flex items-center gap-1.5 px-4 text-xs font-semibold',
             !(isValid && !saving) && 'bg-muted text-muted-foreground cursor-not-allowed')}>
           {saving ? <Loader2 size={12} className="animate-spin" /> : <Users size={12} />}

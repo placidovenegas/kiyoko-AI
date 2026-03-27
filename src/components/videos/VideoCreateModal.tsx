@@ -2,12 +2,11 @@
 
 import { useState, useCallback } from 'react';
 import { X, Plus, Sparkles, Video, Monitor, Tv } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@heroui/react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils/cn';
 import { KSelect } from '@/components/ui/kiyoko-select';
-import { KButton } from '@/components/ui/kiyoko-button';
 
 interface VideoCreateModalProps {
   open: boolean;
@@ -119,7 +118,7 @@ export function VideoCreateModal({ open, onClose, projectId, onCreated }: VideoC
               <p className="text-xs text-muted-foreground">Añade un video al proyecto</p>
             </div>
           </div>
-          <Button type="button" variant="ghost" size="xs" isIconOnly onClick={onClose}>
+          <Button type="button" variant="ghost" size="sm" isIconOnly onPress={onClose}>
             <X className="h-5 w-5" />
           </Button>
         </div>
@@ -254,20 +253,20 @@ export function VideoCreateModal({ open, onClose, projectId, onCreated }: VideoC
 
         {/* Footer */}
         <div className="flex items-center justify-end gap-3 border-t border-border px-6 py-4">
-          <KButton variant="ghost" size="md" onClick={onClose}>
+          <Button variant="ghost" size="md" onPress={onClose} className="rounded-md">
             Cancelar
-          </KButton>
-          <KButton
-            variant={mode === 'ai' ? 'ai' : 'primary'}
+          </Button>
+          <Button
+            variant={mode === 'ai' ? 'secondary' : 'primary'}
             size="md"
-            onClick={handleCreate}
-            disabled={creating || (mode === 'manual' ? !title.trim() : !aiBrief.trim())}
-            loading={creating}
-            icon={mode === 'ai' ? <Sparkles className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-            className="shadow-lg shadow-primary/20"
+            onPress={handleCreate}
+            isDisabled={creating || (mode === 'manual' ? !title.trim() : !aiBrief.trim())}
+            isPending={creating}
+            startContent={mode === 'ai' ? <Sparkles className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            className="shadow-lg shadow-primary/20 rounded-md"
           >
             {creating ? 'Creando...' : mode === 'ai' ? 'Generar video' : 'Crear video'}
-          </KButton>
+          </Button>
         </div>
       </div>
     </div>

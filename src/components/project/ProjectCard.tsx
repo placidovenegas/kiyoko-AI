@@ -284,10 +284,7 @@ export function ProjectCard({ project }: { project: Project }) {
                     Archivar
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="text-red-400 focus:text-red-400"
-                    onClick={() => setShowDelete(true)}
-                  >
+                  <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setShowDelete(true)}>
                     <Trash2 className="h-4 w-4" />
                     Eliminar
                   </DropdownMenuItem>

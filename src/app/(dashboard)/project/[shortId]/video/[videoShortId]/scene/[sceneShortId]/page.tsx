@@ -15,7 +15,7 @@ import {
   Clock, Loader2, Save, ChevronDown, ChevronRight, MapPin,
   ChevronLeft, Download, ZoomIn, Play, Copy, Pencil, Bot,
 } from 'lucide-react';
-import { KButton } from '@/components/ui/kiyoko-button';
+import { Button } from '@/components/ui/button';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { CameraAngle, CameraMovement } from '@/types';
 
@@ -298,9 +298,9 @@ export default function SceneDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
         <p className="text-red-400 text-sm">Error al cargar la escena</p>
-        <KButton variant="outline" size="sm" onClick={() => window.location.reload()}>
+        <Button variant="outline" size="sm" onClick={() => window.location.reload()} className="rounded-md">
           Reintentar
-        </KButton>
+        </Button>
       </div>
     );
   }
@@ -562,13 +562,14 @@ export default function SceneDetailPage() {
 
               {/* Action buttons */}
               <div className="flex items-center gap-2 mt-4">
-                <KButton
+                <Button
                   variant="outline"
                   size="sm"
-                  icon={<RefreshCw className="h-3.5 w-3.5" />}
+                  startContent={<RefreshCw className="h-3.5 w-3.5" />}
+                  className="rounded-md"
                 >
                   Regenerar imagen
-                </KButton>
+                </Button>
               </div>
             </Card>
 
@@ -612,12 +613,12 @@ export default function SceneDetailPage() {
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">Total: {totalClipDuration}s</span>
                     <div className="flex items-center gap-2">
-                      <KButton variant="outline" size="sm" icon={<Play className="h-3.5 w-3.5" />}>
+                      <Button variant="outline" size="sm" startContent={<Play className="h-3.5 w-3.5" />} className="rounded-md">
                         Reproducir todo
-                      </KButton>
-                      <KButton variant="outline" size="sm" icon={<RefreshCw className="h-3.5 w-3.5" />}>
+                      </Button>
+                      <Button variant="outline" size="sm" startContent={<RefreshCw className="h-3.5 w-3.5" />} className="rounded-md">
                         Regenerar clips
-                      </KButton>
+                      </Button>
                     </div>
                   </div>
                 </>

@@ -3,7 +3,7 @@
 import { useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
-import { useOrgStore } from '@/stores/useOrgStore';
+import { useUIStore } from '@/stores/useUIStore';
 import type { Organization } from '@/types';
 
 const MAX_ORGS = 5;
@@ -35,7 +35,6 @@ async function fetchUserOrgs(supabase: ReturnType<typeof createClient>): Promise
     .order('created_at', { ascending: true });
 
   return (orgs ?? []).sort((a, b) => {
-    // personal always first
     if (a.org_type === 'personal') return -1;
     if (b.org_type === 'personal') return 1;
     return 0;
@@ -45,7 +44,8 @@ async function fetchUserOrgs(supabase: ReturnType<typeof createClient>): Promise
 export function useOrganizations() {
   const supabase = createClient();
   const queryClient = useQueryClient();
-  const { currentOrgId, setCurrentOrgId } = useOrgStore();
+  const currentOrgId = useUIStore((s) => s.currentOrgId);
+  const setCurrentOrgId = useUIStore((s) => s.setCurrentOrgId);
 
   const { data: organizations = [], isLoading: loading } = useQuery({
     queryKey: ['organizations'],
@@ -53,19 +53,19 @@ export function useOrganizations() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Auto-select personal org if no org selected (or selected org no longer exists)
-  const validCurrentOrgId = organizations.find((o) => o.id === currentOrgId)
+  // Auto-select: if stored ID is invalid, pick personal or first org
+  const storedIsValid = organizations.some((o) => o.id === currentOrgId);
+  const effectiveOrgId = storedIsValid
     ? currentOrgId
-    : null;
+    : (organizations.find((o) => o.org_type === 'personal')?.id ?? organizations[0]?.id ?? null);
 
   useEffect(() => {
-    if (!validCurrentOrgId && organizations.length > 0) {
-      const personal = organizations.find((o) => o.org_type === 'personal');
-      setCurrentOrgId(personal?.id ?? organizations[0].id);
+    if (effectiveOrgId && effectiveOrgId !== currentOrgId) {
+      setCurrentOrgId(effectiveOrgId);
     }
-  }, [validCurrentOrgId, organizations, setCurrentOrgId]);
+  }, [effectiveOrgId, currentOrgId, setCurrentOrgId]);
 
-  const currentOrg = organizations.find((o) => o.id === (validCurrentOrgId ?? currentOrgId)) ?? null;
+  const currentOrg = organizations.find((o) => o.id === effectiveOrgId) ?? null;
 
   const switchOrg = useCallback((orgId: string) => {
     setCurrentOrgId(orgId);
@@ -110,7 +110,7 @@ export function useOrganizations() {
   return {
     organizations,
     currentOrg,
-    currentOrgId: validCurrentOrgId ?? currentOrgId,
+    currentOrgId: effectiveOrgId,
     personalOrg,
     loading,
     switchOrg,

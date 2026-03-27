@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { X, Plus, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@heroui/react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils/cn';
@@ -81,7 +81,7 @@ export function TaskCreateModal({ open, onClose, projectId, onCreated }: TaskCre
       <div className="mx-4 w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-bold text-foreground">Nueva Tarea</h3>
-          <Button type="button" variant="ghost" size="xs" isIconOnly onClick={onClose}>
+          <Button type="button" variant="ghost" size="sm" isIconOnly onPress={onClose}>
             <X className="h-5 w-5" />
           </Button>
         </div>

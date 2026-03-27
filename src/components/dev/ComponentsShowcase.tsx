@@ -17,9 +17,8 @@ import {
   Tooltip, TooltipContent, TooltipTrigger,
 } from '@/components/ui/tooltip';
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuSeparator, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+  Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, DropdownSection,
+} from '@heroui/react';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -775,21 +774,24 @@ export function ComponentsShowcase() {
         {/* ── Dropdown ── */}
         <Section title="Dropdown Menu">
           <Row>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+            <Dropdown>
+              <DropdownTrigger>
                 <Button variant="bordered" color="default" endContent={<ChevronDown />}>
                   Opciones
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem><Plus className="h-4 w-4" /> Nuevo</DropdownMenuItem>
-                <DropdownMenuItem><Settings className="h-4 w-4" /> Ajustes</DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-destructive focus:text-destructive">
-                  <Trash2 className="h-4 w-4" /> Eliminar
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+              </DropdownTrigger>
+              <DropdownMenu aria-label="Options">
+                <DropdownSection>
+                  <DropdownItem key="new" startContent={<Plus className="h-4 w-4" />}>Nuevo</DropdownItem>
+                  <DropdownItem key="settings" startContent={<Settings className="h-4 w-4" />}>Ajustes</DropdownItem>
+                </DropdownSection>
+                <DropdownSection>
+                  <DropdownItem key="delete" className="text-danger" color="danger" startContent={<Trash2 className="h-4 w-4" />}>
+                    Eliminar
+                  </DropdownItem>
+                </DropdownSection>
+              </DropdownMenu>
+            </Dropdown>
           </Row>
         </Section>
 

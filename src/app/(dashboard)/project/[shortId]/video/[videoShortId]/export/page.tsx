@@ -2,7 +2,7 @@
 
 import { useProject } from '@/contexts/ProjectContext';
 import { useVideo } from '@/contexts/VideoContext';
-import { KButton } from '@/components/ui/kiyoko-button';
+import { Button } from '@/components/ui/button';
 import { Loader2, FileOutput, FileText, Code, Music, Archive, Video, Globe } from 'lucide-react';
 import { toast } from 'sonner';
 

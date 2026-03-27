@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useProject } from '@/contexts/ProjectContext';
 import { queryKeys } from '@/lib/query/keys';
-import { KButton } from '@/components/ui/kiyoko-button';
+import { Button } from '@/components/ui/button';
 import {
   Loader2, Plus, CalendarDays, Hash, FileText, Layers, Send,
 } from 'lucide-react';
@@ -204,22 +204,24 @@ export default function NewPublicationPage() {
 
         {/* Submit */}
         <div className="flex justify-end gap-3 pt-2">
-          <KButton
+          <Button
             variant="ghost"
             size="md"
             onClick={() => router.back()}
+            className="rounded-md"
           >
             Cancelar
-          </KButton>
-          <KButton
+          </Button>
+          <Button
             variant="primary"
             size="md"
-            icon={<Send className="h-4 w-4" />}
+            startContent={<Send className="h-4 w-4" />}
             onClick={() => createPub.mutate()}
             disabled={!canSubmit || createPub.isPending}
+            className="rounded-md"
           >
             {createPub.isPending ? 'Creando...' : 'Crear publicacion'}
-          </KButton>
+          </Button>
         </div>
 
         {createPub.isError && (

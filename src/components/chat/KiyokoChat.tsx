@@ -1,13 +1,13 @@
 'use client';
 
-import { useRef, useEffect, useCallback, useState, useMemo, type ReactNode } from 'react';
+import { useRef, useEffect, useCallback, useState, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils/cn';
 import { useKiyokoChat } from '@/hooks/useKiyokoChat';
 import type { KiyokoMessage } from '@/hooks/useKiyokoChat';
 import { useAIStore } from '@/stores/ai-store';
-import { useOrgStore } from '@/stores/useOrgStore';
+import { useUIStore } from '@/stores/useUIStore';
 import { ChatMessage } from '@/components/chat/ChatMessage';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { ChatHistorySidebar } from '@/components/chat/ChatHistorySidebar';
@@ -81,7 +81,7 @@ export function KiyokoChat({ mode, onClose, projectSlug: projectSlugProp }: Kiyo
   const [dashboardStatsLoading, setDashboardStatsLoading] = useState(false);
   const [profileCreative, setProfileCreative] = useState<ProfileCreativeContextLite | null>(null);
 
-  const currentOrgId = useOrgStore((s) => s.currentOrgId);
+  const currentOrgId = useUIStore((s) => s.currentOrgId);
   const [historyWidth, setHistoryWidth] = useState(() => {
     if (typeof window === 'undefined') return 240;
     const saved = localStorage.getItem(HISTORY_WIDTH_KEY);
@@ -1036,9 +1036,12 @@ export function KiyokoChat({ mode, onClose, projectSlug: projectSlugProp }: Kiyo
             <KiyokoHeader
               contextLabel={contextLabel}
               isStreaming={isStreaming}
+              isThinking={isThinking}
               onNewChat={handleNewChat}
               onHistoryToggle={handleHistoryToggle}
               compact
+              contextStrip={contextStrip}
+              activeProvider={activeProvider}
             />
             <ChatBody
               messages={messages}
@@ -1073,7 +1076,6 @@ export function KiyokoChat({ mode, onClose, projectSlug: projectSlugProp }: Kiyo
               onActiveCreationCancel={handleActiveCreationCancel}
               onActiveCreationCreated={handleActiveCreationCreated}
               onPostCreationStep={handlePostCreationStep}
-              contextStrip={contextStrip}
             />
           </div>
 
@@ -1115,7 +1117,10 @@ export function KiyokoChat({ mode, onClose, projectSlug: projectSlugProp }: Kiyo
             <KiyokoHeader
               contextLabel={contextLabel}
               isStreaming={isStreaming}
+              isThinking={isThinking}
               onNewChat={handleNewChat}
+              contextStrip={contextStrip}
+              activeProvider={activeProvider}
             />
             <ChatBody
               messages={messages}
@@ -1149,7 +1154,6 @@ export function KiyokoChat({ mode, onClose, projectSlug: projectSlugProp }: Kiyo
               onActiveCreationCancel={handleActiveCreationCancel}
               onActiveCreationCreated={handleActiveCreationCreated}
               onPostCreationStep={handlePostCreationStep}
-              contextStrip={contextStrip}
             />
           </div>
         </div>
@@ -1212,8 +1216,6 @@ interface ChatBodyProps {
   onActiveCreationCancel?: () => void;
   onActiveCreationCreated?: (msg: string, ctx?: CreationSaveContext) => void;
   onPostCreationStep?: (label: string, message: KiyokoMessage) => void;
-  /** Jerarquía Dashboard → Proyecto → Vídeo → Escena (paridad con el prompt) */
-  contextStrip?: ReactNode;
 }
 
 function ChatBody({
@@ -1248,7 +1250,6 @@ function ChatBody({
   onActiveCreationCancel,
   onActiveCreationCreated,
   onPostCreationStep,
-  contextStrip,
 }: ChatBodyProps) {
   const { isCreating, creatingLabel } = useAIStore();
   const inputPlaceholder =
@@ -1275,9 +1276,6 @@ function ChatBody({
           (activeCreation || pendingCreation) && CHAT_THREAD_DIM_CLASS,
         )}
       >
-        {contextStrip ? (
-          <div className="sticky top-0 z-10 -mx-1 sm:-mx-2 mb-2 shrink-0">{contextStrip}</div>
-        ) : null}
         {/* Empty state — contextual quick actions (Section 23.8) */}
         {messages.length === 0 && (
           <KiyokoEmptyState

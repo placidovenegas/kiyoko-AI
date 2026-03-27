@@ -2,20 +2,25 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Search, Home, CheckSquare, MessageCircle } from 'lucide-react';
-import {
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-} from '@/components/ui/sidebar';
+import { Search, Home, CheckSquare, Sparkles } from 'lucide-react';
+import { Tooltip } from '@heroui/react';
+import { useSidebar } from '@/components/ui/sidebar';
+import { cn } from '@/lib/utils/cn';
 import { useUIStore } from '@/stores/useUIStore';
+
+const NAV_ITEMS = [
+  { id: 'search', label: 'Buscar', icon: Search, href: null, shortcut: '⌘K' },
+  { id: 'home', label: 'Inicio', icon: Home, href: '/dashboard' },
+  { id: 'tasks', label: 'Tareas', icon: CheckSquare, href: '/dashboard/tasks' },
+  { id: 'kiyoko', label: 'Kiyoko IA', icon: Sparkles, href: null },
+];
 
 export function SidebarNavFixed() {
   const pathname = usePathname();
   const toggleChat = useUIStore((s) => s.toggleChat);
   const chatPanelOpen = useUIStore((s) => s.chatPanelOpen);
+  const { state } = useSidebar();
+  const isCollapsed = state === 'collapsed';
 
   function handleSearch() {
     document.dispatchEvent(
@@ -24,50 +29,54 @@ export function SidebarNavFixed() {
   }
 
   return (
-    <SidebarGroup>
-      <SidebarGroupContent>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton onClick={handleSearch} tooltip="Buscar (⌘K)">
-              <Search className="h-4 w-4" />
-              <span>Buscar</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+    <div className={isCollapsed ? 'px-2 py-1.5' : 'px-1.5 py-1.5'}>
+      <ul className="flex flex-col gap-0.5">
+        {NAV_ITEMS.map((item) => {
+          const isActive =
+            item.id === 'kiyoko' ? chatPanelOpen :
+            item.href ? (item.href === '/dashboard' ? pathname === item.href : pathname.startsWith(item.href)) :
+            false;
 
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              render={<Link href="/dashboard" />}
-              isActive={pathname === '/dashboard'}
-              tooltip="Inicio"
-            >
-              <Home className="h-4 w-4" />
-              <span>Inicio</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+          const handleClick = item.id === 'search' ? handleSearch
+            : item.id === 'kiyoko' ? toggleChat
+            : undefined;
 
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              render={<Link href="/dashboard/tasks" />}
-              isActive={pathname.startsWith('/dashboard/tasks')}
-              tooltip="Tareas"
-            >
-              <CheckSquare className="h-4 w-4" />
-              <span>Tareas</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+          const cls = cn(
+            'flex items-center rounded-md transition-colors cursor-pointer',
+            isActive
+              ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
+              : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+            isCollapsed ? 'justify-center size-8' : 'w-full gap-2.5 px-2 h-8 text-[13px]',
+          );
 
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              onClick={toggleChat}
-              isActive={chatPanelOpen}
-              tooltip="Kiyoko IA"
-            >
-              <MessageCircle className="h-4 w-4" />
-              <span>Kiyoko IA</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarGroupContent>
-    </SidebarGroup>
+          const content = (
+            <>
+              <item.icon className="h-4 w-4 shrink-0 text-sidebar-foreground/60" />
+              {!isCollapsed && <span className="truncate">{item.label}</span>}
+              {!isCollapsed && item.shortcut && (
+                <span className="ml-auto text-[10px] text-sidebar-foreground/30">{item.shortcut}</span>
+              )}
+            </>
+          );
+
+          const element = item.href ? (
+            <Link href={item.href} className={cls}>{content}</Link>
+          ) : (
+            <button type="button" onClick={handleClick} className={cls}>{content}</button>
+          );
+
+          return (
+            <li key={item.id}>
+              {isCollapsed ? (
+                <Tooltip>
+                  <Tooltip.Trigger>{element}</Tooltip.Trigger>
+                  <Tooltip.Content placement="right">{item.label}</Tooltip.Content>
+                </Tooltip>
+              ) : element}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }

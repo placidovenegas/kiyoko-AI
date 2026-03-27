@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import { useVideo } from '@/contexts/VideoContext';
 import { useProject } from '@/contexts/ProjectContext';
 import { SceneCard } from '@/components/video/SceneCard';
-import { KButton } from '@/components/ui/kiyoko-button';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils/cn';
 import {
   Plus,
@@ -87,14 +87,15 @@ function EmptyState({ basePath }: { basePath: string }) {
       <p className="mb-6 text-sm text-muted-foreground">
         Crea tu primera escena para empezar a construir el video
       </p>
-      <KButton
-        icon={<Plus className="h-4 w-4" />}
+      <Button
+        startContent={<Plus className="h-4 w-4" />}
         onClick={() => {
           /* TODO: open create scene modal */
         }}
+        className="rounded-md"
       >
         Nueva escena
-      </KButton>
+      </Button>
     </div>
   );
 }
@@ -313,25 +314,27 @@ export default function ScenesPage() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            <KButton
-              variant="ai"
+            <Button
+              variant="secondary"
               size="sm"
-              icon={<Sparkles className="h-3.5 w-3.5" />}
+              startContent={<Sparkles className="h-3.5 w-3.5" />}
               onClick={() => {
                 /* TODO: AI generate scenes */
               }}
+              className="rounded-md"
             >
               IA
-            </KButton>
-            <KButton
+            </Button>
+            <Button
               size="sm"
-              icon={<Plus className="h-3.5 w-3.5" />}
+              startContent={<Plus className="h-3.5 w-3.5" />}
               onClick={() => {
                 /* TODO: open create scene modal */
               }}
+              className="rounded-md"
             >
               Nueva escena
-            </KButton>
+            </Button>
           </div>
         </div>
 

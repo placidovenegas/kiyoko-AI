@@ -5,7 +5,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import { useProject } from '@/contexts/ProjectContext';
 import { queryKeys } from '@/lib/query/keys';
-import { KButton } from '@/components/ui/kiyoko-button';
 import { Button } from '@/components/ui/button';
 import {
   Loader2, Plus, Instagram, Youtube, Twitter, Globe, Users, Hash, Trash2, X,
@@ -97,14 +96,15 @@ export default function SocialProfilesPage() {
             <span className="font-normal text-muted-foreground">({profiles.length})</span>
           </h1>
         </div>
-        <KButton
+        <Button
           variant="primary"
           size="md"
-          icon={<Plus className="h-4 w-4" />}
+          startContent={<Plus className="h-4 w-4" />}
           onClick={() => setShowForm(true)}
+          className="rounded-md"
         >
           Nuevo perfil
-        </KButton>
+        </Button>
       </div>
 
       {/* Add form */}
@@ -112,7 +112,7 @@ export default function SocialProfilesPage() {
         <div className="mb-6 rounded-xl border border-primary/30 bg-card p-5">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-foreground">Nuevo perfil social</h3>
-            <Button variant="ghost" size="xs" isIconOnly className="h-6 w-6" onClick={() => setShowForm(false)}>
+            <Button variant="ghost" size="sm" isIconOnly className="h-6 w-6" onClick={() => setShowForm(false)}>
               <X className="h-4 w-4" />
             </Button>
           </div>
@@ -158,15 +158,16 @@ export default function SocialProfilesPage() {
             </div>
           </div>
           <div className="mt-4 flex justify-end">
-            <KButton
+            <Button
               variant="primary"
               size="sm"
-              icon={<Plus className="h-3.5 w-3.5" />}
+              startContent={<Plus className="h-3.5 w-3.5" />}
               onClick={() => createProfile.mutate()}
-              disabled={!formName.trim() || createProfile.isPending}
+              isDisabled={!formName.trim() || createProfile.isPending}
+              className="rounded-md"
             >
               {createProfile.isPending ? 'Creando...' : 'Crear perfil'}
-            </KButton>
+            </Button>
           </div>
         </div>
       )}
@@ -179,14 +180,15 @@ export default function SocialProfilesPage() {
           <p className="mb-6 max-w-sm text-center text-sm text-muted-foreground">
             Agrega perfiles de redes sociales para gestionar tus publicaciones.
           </p>
-          <KButton
+          <Button
             variant="primary"
             size="lg"
-            icon={<Plus className="h-4 w-4" />}
+            startContent={<Plus className="h-4 w-4" />}
             onClick={() => setShowForm(true)}
+            className="rounded-md"
           >
             Crear primer perfil
-          </KButton>
+          </Button>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

@@ -117,39 +117,22 @@ export function ChatContextStrip({
     .join(' · ');
 
   return (
-    <div className="border-b border-border/80 bg-muted/30 dark:bg-muted/15">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-none"
-        aria-expanded={open}
-        aria-controls={panelId}
-        title={chipTitle || undefined}
-      >
+    <div className="bg-popover">
+      {/* Header row — always visible */}
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-border/50">
         <MapPin size={12} className="shrink-0 text-primary/80" aria-hidden />
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground shrink-0 max-sm:hidden">
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground shrink-0">
           Contexto para la IA
         </span>
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground shrink-0 sm:hidden">
-          IA
-        </span>
-        <span className="text-[10px] text-muted-foreground/80 truncate flex-1 min-w-0">
+        <span className="text-[10px] text-muted-foreground/60 truncate flex-1 min-w-0" title={chipTitle || undefined}>
           {LEVEL_SHORT[contextLevel]}
           {projectTitle ? ` · ${projectTitle}` : ''}
           {videoTitle ? ` · ${videoTitle}` : ''}
           {sceneLabel ? ` · ${sceneLabel}` : ''}
-          <span className="sm:hidden">
-            {statsSuffixCompact}
-            {byokCompact}
-          </span>
-          <span className="hidden sm:inline">
-            {statsSuffixFull}
-            {byokFull}
-          </span>
         </span>
-        {open ? <ChevronDown size={14} className="shrink-0 text-muted-foreground" /> : <ChevronRight size={14} className="shrink-0 text-muted-foreground" />}
-      </button>
-      <div id={panelId} hidden={!open} className="px-3 pb-2.5 pt-0 space-y-1.5">
+      </div>
+      {/* Detail panel — always open in popover mode */}
+      <div id={panelId} className="px-3 pb-2.5 pt-2 space-y-1.5">
           {visibleRows.map((row) => (
             <div
               key={row.key}

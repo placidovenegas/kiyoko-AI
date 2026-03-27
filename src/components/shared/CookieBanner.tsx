@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Cookie, X } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
-import { Button } from '@/components/ui/button';
+import { Button } from '@heroui/react';
 import { useUIStore } from '@/stores/useUIStore';
 
 const COOKIE_KEY = 'kiyoko-cookies';
@@ -57,10 +57,10 @@ export function CookieBanner() {
 
         {/* Actions */}
         <div className="flex items-center gap-2 shrink-0 mt-0.5">
-          <Button variant="bordered" color="default" size="sm" onClick={decline}>
+          <Button variant="outline" size="sm" onPress={decline}>
             Rechazar
           </Button>
-          <Button variant="solid" color="primary" size="sm" onClick={accept}>
+          <Button variant="primary" color="primary" size="sm" onPress={accept}>
             Aceptar
           </Button>
         </div>

@@ -4,26 +4,40 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 interface UIState {
-  sidebarCollapsed: boolean;
+  // Sidebar
+  sidebarOpen: boolean;
+  sidebarCollapsed: boolean; // alias — kept for backwards compat
+  // Organization
+  currentOrgId: string | null;
+  // Theme & view
   theme: 'light' | 'dark' | 'system';
   scenesView: 'list' | 'grid' | 'timeline';
   preferredAiProvider: string | null;
+  // Chat
   chatPanelOpen: boolean;
   chatPanelWidth: number;
   chatExpanded: boolean;
+  // Modals
   workspaceModalOpen: boolean;
   settingsModalOpen: boolean;
   settingsSection: string;
 
+  // Sidebar
+  setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
+  // Organization
+  setCurrentOrgId: (id: string | null) => void;
+  // Theme
   setTheme: (theme: 'light' | 'dark' | 'system') => void;
   setScenesView: (view: 'list' | 'grid' | 'timeline') => void;
   setPreferredAiProvider: (provider: string | null) => void;
+  // Chat
   toggleChat: () => void;
   expandChat: () => void;
   collapseChat: () => void;
   setChatWidth: (w: number) => void;
+  // Modals
   openWorkspaceModal: () => void;
   closeWorkspaceModal: () => void;
   openSettingsModal: (section?: string) => void;
@@ -33,7 +47,9 @@ interface UIState {
 export const useUIStore = create<UIState>()(
   persist(
     (set) => ({
+      sidebarOpen: true,
       sidebarCollapsed: false,
+      currentOrgId: null,
       theme: 'system',
       scenesView: 'list',
       preferredAiProvider: null,
@@ -44,8 +60,10 @@ export const useUIStore = create<UIState>()(
       settingsModalOpen: false,
       settingsSection: 'perfil',
 
-      toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
-      setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
+      setSidebarOpen: (open) => set({ sidebarOpen: open, sidebarCollapsed: !open }),
+      toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen, sidebarCollapsed: s.sidebarOpen })),
+      setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed, sidebarOpen: !collapsed }),
+      setCurrentOrgId: (id) => set({ currentOrgId: id }),
       setTheme: (theme) => {
         set({ theme });
         if (typeof document !== 'undefined') {
@@ -66,7 +84,9 @@ export const useUIStore = create<UIState>()(
     {
       name: 'kiyoko-ui',
       partialize: (state) => ({
+        sidebarOpen: state.sidebarOpen,
         sidebarCollapsed: state.sidebarCollapsed,
+        currentOrgId: state.currentOrgId,
         theme: state.theme,
         scenesView: state.scenesView,
         preferredAiProvider: state.preferredAiProvider,

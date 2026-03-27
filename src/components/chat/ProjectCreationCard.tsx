@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils/cn';
 import { createClient } from '@/lib/supabase/client';
 import { useAiAssist } from '@/hooks/useAiAssist';
 import { useAIStore } from '@/stores/ai-store';
-import { useOrgStore } from '@/stores/useOrgStore';
+import { useUIStore } from '@/stores/useUIStore';
 import { toast } from 'sonner';
 import { generateProjectSlug } from '@/lib/utils/slugify';
 import { queryKeys } from '@/lib/query/keys';
@@ -75,7 +75,7 @@ export function ProjectCreationCard({
   dock = false,
 }: ProjectCreationCardProps) {
   const queryClient = useQueryClient();
-  const currentOrgId = useOrgStore((s) => s.currentOrgId);
+  const currentOrgId = useUIStore((s) => s.currentOrgId);
   const [title, setTitle] = useState(prefill?.title ?? '');
   const [description, setDescription] = useState(prefill?.description ?? '');
   const [clientName, setClientName] = useState(prefill?.client_name ?? '');

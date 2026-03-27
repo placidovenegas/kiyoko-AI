@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback, useEffect, Component } from 'react';
 import type { ReactNode, ErrorInfo } from 'react';
 import { Copy, Check, RotateCcw, Volume2, Send, AlertCircle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { Button } from '@/components/ui/button';
+import { Button } from '@heroui/react';
 import { StreamingWave, ComponentLoadingSkeleton } from '@/components/chat/StreamingWave';
 
 // ---- Error boundary for chat blocks ----
@@ -64,7 +64,6 @@ import {
   CHOICE_SELECTION_HINT_ES,
   choiceMarkdownImpliesSelectionHint,
 } from '@/components/chat/chatDockOverlay';
-import { inferSkeletonVariantFromUserPrompt } from '@/lib/chat/infer-skeleton-from-user-prompt';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -752,10 +751,8 @@ export function ChatMessage({ message, activeAgent, projectId, isLastMessage, is
     ],
   );
 
-  const thinkSkeletonVariant = useMemo(
-    () => inferSkeletonVariantFromUserPrompt(userPromptHint),
-    [userPromptHint],
-  );
+  // thinkSkeletonVariant removed — during THINK phase we only show SVG, no skeleton.
+  // Skeletons appear only when a real component tag is detected in the stream.
 
   if (shouldSkipCreateOnlyMessage) return null;
 
@@ -847,13 +844,15 @@ export function ChatMessage({ message, activeAgent, projectId, isLastMessage, is
               const hasBlocks = specialBlocks.length > 0;
               if (!textContent && !actionPlan && !hasBlocks && !deferStructuredUi && !message.creationSuccess) {
                 if (isAssistantThinking) {
+                  // Fase THINK: solo SVG animado, sin skeleton.
+                  // El skeleton aparecerá cuando el stream revele un tag de componente.
                   return (
-                    <div className="mt-3 space-y-2.5">
+                    <div className="mt-3">
                       <StreamingWave label="Preparando respuesta…" />
-                      <ComponentLoadingSkeleton variant={thinkSkeletonVariant} />
                     </div>
                   );
                 }
+                // Stream activo pero aún sin texto visible
                 return <StreamingWave />;
               }
               if (textContent || hasChoices || hasBlocks || deferStructuredUi) {
@@ -880,7 +879,7 @@ export function ChatMessage({ message, activeAgent, projectId, isLastMessage, is
                       </ReactMarkdown>
                     )}
 
-                    {/* Mientras llega el bloque: onda + skeleton contextual */}
+                    {/* Mientras llega el bloque: SVG siempre + skeleton solo si detectó tag de componente */}
                     {deferStructuredUi && (
                       <div className="mt-3 space-y-2.5">
                         <StreamingWave
@@ -890,7 +889,10 @@ export function ChatMessage({ message, activeAgent, projectId, isLastMessage, is
                             hasAudio: !!audioUrl,
                           })}
                         />
-                        <ComponentLoadingSkeleton variant={loadingSkeletonVariant} />
+                        {/* Skeleton solo cuando hay tag parcial real o bloques parseados — nunca generic por defecto */}
+                        {(hasPartialBlock || specialBlocks.length > 0 || !!actionPlan) && loadingSkeletonVariant !== 'generic' && (
+                          <ComponentLoadingSkeleton variant={loadingSkeletonVariant} />
+                        )}
                       </div>
                     )}
 
@@ -1166,7 +1168,7 @@ export function ChatMessage({ message, activeAgent, projectId, isLastMessage, is
           </span>
           {/* Edit — only last user message */}
           {isUser && message.content && (
-            <Button type="button" variant="ghost" size="xs" isIconOnly onClick={() => onModify(message.content)} title="Editar"
+            <Button type="button" variant="ghost" size="sm" isIconOnly onPress={() => onModify(message.content)} aria-label="Editar"
               className="size-5 text-muted-foreground/50 hover:text-foreground">
               <RotateCcw size={10} />
             </Button>

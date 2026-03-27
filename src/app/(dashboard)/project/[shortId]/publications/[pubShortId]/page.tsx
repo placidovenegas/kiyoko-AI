@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { queryKeys } from '@/lib/query/keys';
-import { KButton } from '@/components/ui/kiyoko-button';
+import { Button } from '@/components/ui/button';
 import {
   Loader2, CalendarDays, Hash, FileText, Image as ImageIcon,
   Save, Instagram, Youtube, Twitter, Globe,
@@ -151,14 +151,15 @@ export default function PublicationDetailPage() {
                   Editar
                 </button>
               ) : (
-                <KButton
+                <Button
                   variant="primary"
                   size="sm"
-                  icon={<Save className="h-3 w-3" />}
+                  startContent={<Save className="h-3 w-3" />}
                   onClick={() => updatePub.mutate({ caption: editCaption })}
+                  className="rounded-md"
                 >
                   Guardar
-                </KButton>
+                </Button>
               )}
             </div>
             {editCaption !== null ? (
@@ -190,10 +191,10 @@ export default function PublicationDetailPage() {
                   Editar
                 </button>
               ) : (
-                <KButton
+                <Button
                   variant="primary"
                   size="sm"
-                  icon={<Save className="h-3 w-3" />}
+                  startContent={<Save className="h-3 w-3" />}
                   onClick={() =>
                     updatePub.mutate({
                       hashtags: editHashtags
@@ -202,9 +203,10 @@ export default function PublicationDetailPage() {
                         .filter(Boolean),
                     })
                   }
+                  className="rounded-md"
                 >
                   Guardar
-                </KButton>
+                </Button>
               )}
             </div>
             {editHashtags !== null ? (

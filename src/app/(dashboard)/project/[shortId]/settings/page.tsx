@@ -334,10 +334,10 @@ export default function ProjectSettingsPage() {
 
       {/* Actions */}
       <div className="flex justify-end gap-3">
-        <Button variant="bordered" className="border-red-500/20 text-red-500 hover:bg-red-500/10">
+        <Button variant="outline" className="border-red-500/20 text-red-500 hover:bg-red-500/10">
           Eliminar proyecto
         </Button>
-        <Button>
+        <Button variant="primary">
           Guardar cambios
         </Button>
       </div>

@@ -13,9 +13,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { Button, Input, TextArea } from '@heroui/react';
 import { createClient } from '@/lib/supabase/client';
 import { useAiAssist } from '@/hooks/useAiAssist';
 import { useAIStore } from '@/stores/ai-store';
@@ -251,20 +249,19 @@ export function BackgroundCreationCard({ prefill, projectId, onCreated, onCancel
             {imagePreview ? (
               <div className="relative w-28 h-20 rounded-lg overflow-hidden border border-border">
                 <img src={imagePreview} alt="Preview" className="size-full object-cover" />
-                <Button type="button" onClick={removeImage} isIconOnly size="xs" radius="full" disabled={saving} className="absolute top-0.5 right-0.5 size-5 bg-black/60 text-white hover:bg-black/80">
+                <Button type="button" onPress={removeImage} isIconOnly size="sm" isDisabled={saving} className="absolute top-0.5 right-0.5 size-5 bg-black/60 text-white hover:bg-black/80">
                   <X size={10} />
                 </Button>
               </div>
             ) : (
               <Button
                 type="button"
-                onClick={() => {
+                onPress={() => {
                   if (saving) return;
                   fileRef.current?.click();
                 }}
-                disabled={saving}
-                variant="light"
-                radius="lg"
+                isDisabled={saving}
+                variant="ghost"
                 className={cn(
                   'flex flex-col items-center justify-center w-28 h-20 border-2 border-dashed transition-all',
                   dock
@@ -282,8 +279,8 @@ export function BackgroundCreationCard({ prefill, projectId, onCreated, onCancel
             <Input
               type="text"
               value={name}
-              disabled={saving}
-              onChange={(e) => setName(e.target.value)}
+              isDisabled={saving}
+              onValueChange={setName}
               placeholder="Nombre del fondo"
               className={cn(dock ? CHAT_DOCK_FIELD_CLASS : 'w-full px-3 py-1.5 rounded-md border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring/50')}
               autoFocus
@@ -293,14 +290,13 @@ export function BackgroundCreationCard({ prefill, projectId, onCreated, onCancel
                 <Button
                   key={t}
                   type="button"
-                  onClick={() => {
+                  onPress={() => {
                     if (!saving) setLocationType(t);
                   }}
-                  disabled={saving}
-                  variant={t === locationType ? 'flat' : 'bordered'}
-                  color={t === locationType ? 'primary' : 'default'}
-                  size="xs"
-                  radius="sm"
+                  isDisabled={saving}
+                  variant={t === locationType ? 'secondary' : 'outline'}
+                  color={t === locationType ? 'primary' : undefined}
+                  size="sm"
                   className={cn(
                     'flex-1 capitalize rounded-lg',
                     dock && t === locationType && 'border-primary/50 bg-primary/15 text-primary shadow-sm dark:text-primary',
@@ -323,14 +319,13 @@ export function BackgroundCreationCard({ prefill, projectId, onCreated, onCancel
               <Button
                 key={t}
                 type="button"
-                onClick={() => {
+                onPress={() => {
                   if (!saving) setTimeOfDay(t);
                 }}
-                disabled={saving}
-                variant={t === timeOfDay ? 'flat' : 'bordered'}
-                color={t === timeOfDay ? 'primary' : 'default'}
-                size="xs"
-                radius="sm"
+                isDisabled={saving}
+                variant={t === timeOfDay ? 'secondary' : 'outline'}
+                color={t === timeOfDay ? 'primary' : undefined}
+                size="sm"
                 className={cn(
                   'capitalize rounded-lg',
                   dock && t === timeOfDay && 'border-primary/50 bg-primary/15 text-primary shadow-sm dark:text-primary',
@@ -351,18 +346,18 @@ export function BackgroundCreationCard({ prefill, projectId, onCreated, onCancel
               <ImageIcon size={10} /> Prompt visual (EN)
             </label>
             {name && (
-              <Button type="button" onClick={suggestDescription} disabled={!!aiLoading || saving} variant="light" color="primary" size="xs"
+              <Button type="button" onPress={suggestDescription} isDisabled={!!aiLoading || saving} variant="ghost" color="primary" size="sm"
                 className="text-[10px] text-primary dark:text-primary hover:text-primary disabled:opacity-50">
                 {aiLoading === 'description' ? <Loader2 size={9} className="animate-spin" /> : <Sparkles size={9} />} Generar
               </Button>
             )}
           </div>
-          <Textarea
+          <TextArea
             value={description}
-            disabled={saving}
-            onChange={(e) => setDescription(e.target.value)}
+            isDisabled={saving}
+            onValueChange={setDescription}
             placeholder="Ej: tropical beach, golden morning light, calm ocean, palm trees"
-            rows={2}
+            minRows={2}
             className={cn(dock ? CHAT_DOCK_TEXTAREA_MONO_CLASS : 'w-full px-3 py-1.5 rounded-md border border-border bg-background text-xs text-foreground font-mono placeholder:text-muted-foreground placeholder:font-sans resize-none focus:outline-none focus:ring-1 focus:ring-ring/50')}
           />
 
@@ -372,8 +367,8 @@ export function BackgroundCreationCard({ prefill, projectId, onCreated, onCancel
                 <Info size={11} className="text-blue-500 shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0">
                   <p className="text-[10px] text-muted-foreground">Copia este prompt para analizar la imagen en otra IA:</p>
-                  <Button type="button" onClick={copyAnalysisPrompt} variant="bordered" size="xs" radius="sm"
-                    disabled={saving}
+                  <Button type="button" onPress={copyAnalysisPrompt} variant="outline" size="sm"
+                    isDisabled={saving}
                     className="mt-1 border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent">
                     {promptCopied ? <Check size={9} className="text-emerald-500" /> : <Copy size={9} />}
                     {promptCopied ? 'Copiado' : 'Copiar prompt'}
@@ -396,8 +391,8 @@ export function BackgroundCreationCard({ prefill, projectId, onCreated, onCancel
             : 'flex items-center justify-end gap-2 px-4 py-2.5 border-t border-border bg-muted/30',
         )}
       >
-        <Button type="button" onClick={() => { if (!saving) onCancel(); }} disabled={saving} variant="ghost" size="sm" radius="sm" className="text-muted-foreground hover:text-foreground hover:bg-accent">Cancelar</Button>
-        <Button type="button" onClick={handleSave} disabled={!isValid || saving} variant="solid" color="primary" size="sm" radius="sm"
+        <Button type="button" onPress={() => { if (!saving) onCancel(); }} isDisabled={saving} variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground hover:bg-accent">Cancelar</Button>
+        <Button type="button" onPress={handleSave} isDisabled={!isValid || saving} variant="primary" color="primary" size="sm"
           className={cn('font-semibold',
             isValid && !saving ? '' : 'bg-muted text-muted-foreground cursor-not-allowed')}>
           {saving ? <Loader2 size={12} className="animate-spin" /> : <MapPin size={12} />}

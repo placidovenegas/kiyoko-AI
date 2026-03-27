@@ -7,17 +7,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils/cn';
 import { useProject } from '@/contexts/ProjectContext';
-import { KButton } from '@/components/ui/kiyoko-button';
+import { Button } from '@/components/ui/button';
 import {
+  Dropdown,
+  DropdownTrigger,
   DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-} from '@/components/ui/dropdown-menu';
+  DropdownItem,
+  DropdownSection,
+} from '@heroui/react';
 import type { Character, Video } from '@/types';
 import {
   Film, Users, Image, Video as VideoIcon,
@@ -237,58 +234,48 @@ function VideoRow({
         </Link>
 
         {/* Dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+        <Dropdown>
+          <DropdownTrigger>
             <button
               type="button"
               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition group-hover:opacity-100 hover:bg-card"
             >
               <MoreHorizontal className="h-4 w-4" />
             </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-48">
-            <DropdownMenuItem onClick={() => router.push(`/project/${projectShortId}/video/${video.short_id}`)}>
-              <FolderOpen className="h-4 w-4" />
-              Abrir video
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => router.push(`/project/${projectShortId}/video/${video.short_id}`)}>
-              <Pencil className="h-4 w-4" />
-              Renombrar
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Copy className="h-4 w-4" />
-              Duplicar
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <Pencil className="h-4 w-4" />
-                Cambiar estado
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                {['draft', 'prompting', 'generating', 'review', 'approved', 'exported'].map((s) => (
-                  <DropdownMenuItem
-                    key={s}
-                    onClick={() => updateStatusMutation.mutate(s)}
-                    className={cn(video.status === s && 'font-bold')}
-                  >
-                    {VIDEO_STATUS_LABELS[s] ?? s}
-                    {video.status === s && ' \u2713'}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-red-400 focus:text-red-400"
-              onClick={() => deleteMutation.mutate()}
-            >
-              <Trash2 className="h-4 w-4" />
-              Eliminar
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+          </DropdownTrigger>
+          <DropdownMenu aria-label="Video actions" className="min-w-48">
+            <DropdownSection>
+              <DropdownItem key="open" startContent={<FolderOpen className="h-4 w-4" />} onClick={() => router.push(`/project/${projectShortId}/video/${video.short_id}`)}>
+                Abrir video
+              </DropdownItem>
+            </DropdownSection>
+            <DropdownSection>
+              <DropdownItem key="rename" startContent={<Pencil className="h-4 w-4" />} onClick={() => router.push(`/project/${projectShortId}/video/${video.short_id}`)}>
+                Renombrar
+              </DropdownItem>
+              <DropdownItem key="duplicate" startContent={<Copy className="h-4 w-4" />}>
+                Duplicar
+              </DropdownItem>
+            </DropdownSection>
+            <DropdownSection title="Cambiar estado">
+              {['draft', 'prompting', 'generating', 'review', 'approved', 'exported'].map((s) => (
+                <DropdownItem
+                  key={s}
+                  onClick={() => updateStatusMutation.mutate(s)}
+                  className={cn(video.status === s && 'font-bold')}
+                >
+                  {VIDEO_STATUS_LABELS[s] ?? s}
+                  {video.status === s && ' \u2713'}
+                </DropdownItem>
+              ))}
+            </DropdownSection>
+            <DropdownSection>
+              <DropdownItem key="delete" className="text-danger" color="danger" startContent={<Trash2 className="h-4 w-4" />} onClick={() => deleteMutation.mutate()}>
+                Eliminar
+              </DropdownItem>
+            </DropdownSection>
+          </DropdownMenu>
+        </Dropdown>
       </div>
     </div>
   );
@@ -411,9 +398,9 @@ export default function ProjectOverviewPage() {
         <div className="flex items-start justify-between gap-4">
           <h1 className="text-xl font-semibold text-foreground">{project.title}</h1>
           <Link href={`/project/${sid}/settings`}>
-            <KButton variant="ghost" size="sm" icon={<Settings className="h-4 w-4" />}>
+            <Button variant="ghost" size="sm" startContent={<Settings className="h-4 w-4" />} className="rounded-md">
               Ajustes
-            </KButton>
+            </Button>
           </Link>
         </div>
 
@@ -496,9 +483,9 @@ export default function ProjectOverviewPage() {
             Videos ({videos.length})
           </h3>
           <Link href={`/project/${sid}/videos`}>
-            <KButton size="sm" icon={<Plus className="h-3.5 w-3.5" />}>
+            <Button size="sm" startContent={<Plus className="h-3.5 w-3.5" />} className="rounded-md">
               Nuevo video
-            </KButton>
+            </Button>
           </Link>
         </div>
         {videos.length === 0 ? (

@@ -12,24 +12,20 @@ import {
   Search,
   MessageCircle,
 } from 'lucide-react';
+import { Tooltip } from '@heroui/react';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils/cn';
 import { createClient } from '@/lib/supabase/client';
 import { FeedbackDialog } from '@/components/shared/FeedbackDialog';
 import { NotificationBell } from '@/components/layout/NotificationBell';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  DropdownMenuGroup,
-} from '@/components/ui/dropdown-menu';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -150,7 +146,7 @@ export function Header({ onToggleChat, chatOpen }: HeaderProps) {
       <Button
         type="button"
         variant="ghost"
-        size="xs"
+        size="sm"
         onClick={() => setFeedbackOpen(true)}
         className="shrink-0 mr-1.5 px-2.5 py-1 rounded-md border border-foreground/8 text-[12px] text-foreground/40 hover:text-foreground/70 hover:bg-foreground/4"
       >
@@ -160,18 +156,15 @@ export function Header({ onToggleChat, chatOpen }: HeaderProps) {
       {/* RIGHT: icons */}
       <div className="flex items-center gap-1 shrink-0">
         {/* Theme */}
-        <Tooltip>
-          <TooltipTrigger
-            render={<button type="button" />}
+        <Tooltip content={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'} placement="bottom">
+          <button
+            type="button"
             onClick={handleToggleTheme}
             className="flex items-center justify-center size-8 rounded-md border border-foreground/6 text-foreground/40 hover:text-foreground/70 hover:bg-foreground/4 transition-all duration-150"
             aria-label={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
           >
             {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
-          </TooltipTrigger>
-          <TooltipContent side="bottom">
-            <p className="text-xs">{theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}</p>
-          </TooltipContent>
+          </button>
         </Tooltip>
 
         {/* Notifications */}
@@ -179,9 +172,9 @@ export function Header({ onToggleChat, chatOpen }: HeaderProps) {
 
         {/* Chat */}
         {onToggleChat && (
-          <Tooltip>
-            <TooltipTrigger
-              render={<button type="button" />}
+          <Tooltip content="Chat IA" placement="bottom">
+            <button
+              type="button"
               onClick={onToggleChat}
               className={cn(
                 'flex items-center justify-center size-8 rounded-md border transition-all duration-150',
@@ -191,10 +184,7 @@ export function Header({ onToggleChat, chatOpen }: HeaderProps) {
               )}
             >
               <MessageCircle size={14} />
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-              <p className="text-xs">Chat IA</p>
-            </TooltipContent>
+            </button>
           </Tooltip>
         )}
 
@@ -205,8 +195,7 @@ export function Header({ onToggleChat, chatOpen }: HeaderProps) {
               <Button
                 type="button"
                 variant="ghost"
-                size="xs"
-                isIconOnly
+                size="icon"
                 className="size-8 rounded-md border border-foreground/6 hover:bg-foreground/4 ml-0.5"
               >
                 {profile.avatar_url ? (
@@ -219,8 +208,7 @@ export function Header({ onToggleChat, chatOpen }: HeaderProps) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              {/* User info header */}
-              <div className="px-3 py-2.5 border-b border-border/40">
+              <DropdownMenuLabel className="cursor-default">
                 <div className="flex items-center gap-2.5">
                   {profile.avatar_url ? (
                     <img src={profile.avatar_url} alt={displayName} className="size-9 rounded-full object-cover shrink-0" />
@@ -239,29 +227,25 @@ export function Header({ onToggleChat, chatOpen }: HeaderProps) {
                     </span>
                   )}
                 </div>
-              </div>
-              <DropdownMenuGroup>
-                <DropdownMenuItem onClick={() => router.push('/settings')}>
-                  <User size={16} className="text-foreground/40 mr-2" />
-                  Perfil
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push('/settings/api-keys')}>
-                  <Key size={16} className="text-foreground/40 mr-2" />
-                  API Keys
-                </DropdownMenuItem>
-                {isAdmin && (
-                  <DropdownMenuItem onClick={() => router.push('/admin/users')}>
-                    <Shield size={16} className="text-foreground/40 mr-2" />
-                    Panel Admin
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuGroup>
+              </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={handleSignOut}
-                className="text-red-500 focus:text-red-500"
-              >
-                <LogOut size={16} className="mr-2" />
+              <DropdownMenuItem onClick={() => router.push('/settings')}>
+                <User size={16} className="text-foreground/40" />
+                Perfil
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/settings/api-keys')}>
+                <Key size={16} className="text-foreground/40" />
+                API Keys
+              </DropdownMenuItem>
+              {isAdmin && (
+                <DropdownMenuItem onClick={() => router.push('/admin/users')}>
+                  <Shield size={16} className="text-foreground/40" />
+                  Panel Admin
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={handleSignOut}>
+                <LogOut size={16} />
                 Cerrar sesion
               </DropdownMenuItem>
             </DropdownMenuContent>

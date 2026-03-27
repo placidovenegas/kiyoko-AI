@@ -13,7 +13,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
-import { Button } from '@/components/ui/button';
+import { Button } from '@heroui/react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 
@@ -178,13 +178,13 @@ function CharacterDetail({ item, onClose }: { item: CharacterItem; onClose: () =
           {imgUrl ? (
             <div className="relative">
               <img src={imgUrl} alt={data.name} className="size-20 rounded-lg object-cover border border-border" />
-              <Button type="button" variant="ghost" size="xs" isIconOnly onClick={() => fileRef.current?.click()} disabled={uploading}
+              <Button type="button" variant="ghost" size="sm" isIconOnly onPress={() => fileRef.current?.click()} isDisabled={uploading}
                 className="absolute -bottom-1 -right-1 size-6 rounded-full bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-accent">
                 {uploading ? <Loader2 size={10} className="animate-spin" /> : <Upload size={10} />}
               </Button>
             </div>
           ) : (
-            <Button type="button" variant="light" size="md" onClick={() => fileRef.current?.click()} disabled={uploading}
+            <Button type="button" variant="ghost" size="md" onPress={() => fileRef.current?.click()} isDisabled={uploading}
               className="flex flex-col items-center justify-center size-20 rounded-lg border-2 border-dashed border-border hover:border-primary/40 hover:bg-primary/5 text-muted-foreground">
               {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
               <span className="text-[8px] mt-1">{uploading ? 'Subiendo...' : 'Subir imagen'}</span>
@@ -248,7 +248,7 @@ function CharacterDetail({ item, onClose }: { item: CharacterItem; onClose: () =
         </p>
       )}
 
-      <Button type="button" variant="light" size="xs" onClick={onClose} className="text-[10px] text-muted-foreground hover:text-foreground">
+      <Button type="button" variant="ghost" size="sm" onPress={onClose} className="text-[10px] text-muted-foreground hover:text-foreground">
         Cerrar
       </Button>
     </div>
@@ -269,7 +269,7 @@ function CharacterList({ items, onAction }: { items: CharacterItem[]; onAction?:
           <span className="text-muted-foreground">({items.length})</span>
         </div>
         {onAction && (
-          <Button type="button" variant="light" color="primary" size="xs" onClick={() => onAction('Crear personaje')}
+          <Button type="button" variant="ghost" color="primary" size="sm" onPress={() => onAction('Crear personaje')}
             className="text-[10px]">
             <Plus size={10} /> Nuevo
           </Button>
@@ -281,7 +281,7 @@ function CharacterList({ items, onAction }: { items: CharacterItem[]; onAction?:
           <Users size={20} className="mx-auto text-muted-foreground/30 mb-2" />
           <p className="text-muted-foreground">Sin personajes en el proyecto</p>
           {onAction && (
-            <Button type="button" variant="light" color="primary" size="sm" onClick={() => onAction('Crear personaje')}
+            <Button type="button" variant="ghost" color="primary" size="sm" onPress={() => onAction('Crear personaje')}
               className="mt-2">
               Crear el primero
             </Button>
@@ -391,13 +391,13 @@ function BackgroundDetail({ item, onClose }: { item: BackgroundItem; onClose: ()
           {imgUrl ? (
             <div className="relative">
               <img src={imgUrl} alt={(data?.name as string) ?? ''} className="w-28 h-20 rounded-lg object-cover border border-border" />
-              <Button type="button" variant="ghost" size="xs" isIconOnly onClick={() => fileRef.current?.click()} disabled={uploading}
+              <Button type="button" variant="ghost" size="sm" isIconOnly onPress={() => fileRef.current?.click()} isDisabled={uploading}
                 className="absolute -bottom-1 -right-1 size-6 rounded-full bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-accent">
                 {uploading ? <Loader2 size={10} className="animate-spin" /> : <Upload size={10} />}
               </Button>
             </div>
           ) : (
-            <Button type="button" variant="light" size="md" onClick={() => fileRef.current?.click()} disabled={uploading}
+            <Button type="button" variant="ghost" size="md" onPress={() => fileRef.current?.click()} isDisabled={uploading}
               className="flex flex-col items-center justify-center w-28 h-20 rounded-lg border-2 border-dashed border-border hover:border-primary/40 hover:bg-primary/5 text-muted-foreground">
               {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
               <span className="text-[8px] mt-0.5">{uploading ? 'Subiendo...' : 'Subir imagen'}</span>
@@ -424,7 +424,7 @@ function BackgroundDetail({ item, onClose }: { item: BackgroundItem; onClose: ()
           )}
         </div>
       </div>
-      <Button type="button" variant="light" size="xs" onClick={onClose} className="text-[10px] text-muted-foreground hover:text-foreground">Cerrar</Button>
+      <Button type="button" variant="ghost" size="sm" onPress={onClose} className="text-[10px] text-muted-foreground hover:text-foreground">Cerrar</Button>
     </div>
   );
 }
@@ -443,7 +443,7 @@ function BackgroundList({ items, onAction }: { items: BackgroundItem[]; onAction
           <span className="text-muted-foreground">({items.length})</span>
         </div>
         {onAction && (
-          <Button type="button" variant="light" color="primary" size="xs" onClick={() => onAction('Crear fondo')}
+          <Button type="button" variant="ghost" color="primary" size="sm" onPress={() => onAction('Crear fondo')}
             className="text-[10px]">
             <Plus size={10} /> Nuevo
           </Button>
@@ -455,7 +455,7 @@ function BackgroundList({ items, onAction }: { items: BackgroundItem[]; onAction
           <MapPin size={20} className="mx-auto text-muted-foreground/30 mb-2" />
           <p className="text-muted-foreground">Sin fondos en el proyecto</p>
           {onAction && (
-            <Button type="button" variant="light" color="primary" size="sm" onClick={() => onAction('Crear fondo')}
+            <Button type="button" variant="ghost" color="primary" size="sm" onPress={() => onAction('Crear fondo')}
               className="mt-2">
               Crear el primero
             </Button>

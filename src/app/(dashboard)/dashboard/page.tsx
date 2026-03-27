@@ -8,8 +8,8 @@ import { createClient } from '@/lib/supabase/client';
 import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils/cn';
 import { ProjectGrid } from '@/components/project/ProjectGrid';
-import { KButton } from '@/components/ui/kiyoko-button';
-import { useOrgStore } from '@/stores/useOrgStore';
+import { Button } from '@/components/ui/button';
+import { useUIStore } from '@/stores/useUIStore';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useFavorites } from '@/hooks/useFavorites';
 import { formatDistanceToNow } from 'date-fns/formatDistanceToNow';
@@ -119,7 +119,7 @@ export default function DashboardPage() {
   const [activeFilter, setActiveFilter] = useState<StatusFilter>('all');
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<SortOption>('recent');
-  const { currentOrgId } = useOrgStore();
+  const currentOrgId = useUIStore((s) => s.currentOrgId);
   const debouncedSearch = useDebounce(search, 300);
   const { isFavorite } = useFavorites();
 
@@ -344,14 +344,14 @@ export default function DashboardPage() {
             />
           </div>
           <Link href="/new">
-            <KButton size="md" icon={<Plus className="h-4 w-4" />}>
+            <Button size="md" startContent={<Plus className="h-4 w-4" />} className="rounded-md">
               <span className="hidden sm:inline">Nuevo Proyecto</span>
-            </KButton>
+            </Button>
           </Link>
           <Link href="/new?mode=ai">
-            <KButton variant="ai" size="md" icon={<Sparkles className="h-4 w-4" />}>
+            <Button variant="secondary" size="md" startContent={<Sparkles className="h-4 w-4" />} className="rounded-md">
               <span className="hidden sm:inline">Generar con IA</span>
-            </KButton>
+            </Button>
           </Link>
         </div>
       </div>

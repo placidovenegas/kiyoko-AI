@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useVideo } from '@/contexts/VideoContext';
 import { queryKeys } from '@/lib/query/keys';
 import { fetchVideoNarration } from '@/lib/queries/videos';
-import { KButton } from '@/components/ui/kiyoko-button';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils/cn';
 import {
   Mic, Play, Pause, Download, RefreshCw, Sparkles,
@@ -315,9 +315,9 @@ export default function NarrationPage() {
                   </span>
                 )}
               </div>
-              <KButton variant="ghost" size="sm" icon={<RefreshCw className="h-3.5 w-3.5" />}>
+              <Button variant="ghost" size="sm" startContent={<RefreshCw className="h-3.5 w-3.5" />} className="rounded-md">
                 Cambiar voz
-              </KButton>
+              </Button>
             </div>
 
             {/* Speed control */}
@@ -358,15 +358,16 @@ export default function NarrationPage() {
             <h2 className="text-sm font-semibold text-foreground">
               Texto de la narracion
             </h2>
-            <KButton
-              variant="ai"
+            <Button
+              variant="secondary"
               size="sm"
-              icon={<Sparkles className="h-3.5 w-3.5" />}
-              loading={generateTextMutation.isPending}
+              startContent={<Sparkles className="h-3.5 w-3.5" />}
+              isLoading={generateTextMutation.isPending}
               onClick={() => generateTextMutation.mutate()}
+              className="rounded-md"
             >
               Generar con IA
-            </KButton>
+            </Button>
           </div>
           <textarea
             value={narrationText}
@@ -389,15 +390,16 @@ export default function NarrationPage() {
                 {narrationText.split(/\s+/).filter(Boolean).length} palabras
               </span>
               {dirty && (
-                <KButton
+                <Button
                   variant="primary"
                   size="sm"
-                  icon={<Save className="h-3.5 w-3.5" />}
-                  loading={saveMutation.isPending}
+                  startContent={<Save className="h-3.5 w-3.5" />}
+                  isLoading={saveMutation.isPending}
                   onClick={() => saveMutation.mutate()}
+                  className="rounded-md"
                 >
                   Guardar
-                </KButton>
+                </Button>
               )}
             </div>
           )}
@@ -421,25 +423,27 @@ export default function NarrationPage() {
           )}
 
           <div className="mt-4 flex items-center gap-3">
-            <KButton
+            <Button
               variant="primary"
               size="md"
-              icon={<Mic className="h-4 w-4" />}
-              loading={generateAudioMutation.isPending}
+              startContent={<Mic className="h-4 w-4" />}
+              isLoading={generateAudioMutation.isPending}
               disabled={!narrationText}
               onClick={() => generateAudioMutation.mutate()}
+              className="rounded-md"
             >
               Generar audio TTS
-            </KButton>
+            </Button>
             {narration?.audio_url && (
-              <KButton
+              <Button
                 variant="outline"
                 size="md"
-                icon={<Download className="h-4 w-4" />}
+                startContent={<Download className="h-4 w-4" />}
                 onClick={handleDownload}
+                className="rounded-md"
               >
                 Descargar MP3
-              </KButton>
+              </Button>
             )}
           </div>
         </div>

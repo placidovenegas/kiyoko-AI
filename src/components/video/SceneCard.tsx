@@ -8,13 +8,11 @@ import {
 } from 'lucide-react';
 import {
   DropdownMenu,
+  DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
+  DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import type { Scene } from '@/types';
 
@@ -160,89 +158,58 @@ export function SceneCard({ scene, basePath, characters = [], onAction }: SceneC
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
               <DropdownMenuItem onClick={() => onAction?.('view', scene)}>
-                <Eye className="mr-2 h-4 w-4" />
+                <Eye className="h-4 w-4" />
                 Ver detalle
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onAction?.('edit', scene)}>
-                <Pencil className="mr-2 h-4 w-4" />
+                <Pencil className="h-4 w-4" />
                 Editar inline
               </DropdownMenuItem>
-
               <DropdownMenuSeparator />
-
               <DropdownMenuItem onClick={() => onAction?.('regen-image', scene)}>
-                <Camera className="mr-2 h-4 w-4" />
+                <Camera className="h-4 w-4" />
                 Regenerar imagen
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onAction?.('regen-clips', scene)}>
-                <Clapperboard className="mr-2 h-4 w-4" />
+                <Clapperboard className="h-4 w-4" />
                 Regenerar clips
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onAction?.('improve-ai', scene)}>
-                <Sparkles className="mr-2 h-4 w-4" />
+                <Sparkles className="h-4 w-4" />
                 Mejorar con IA
               </DropdownMenuItem>
-
               <DropdownMenuSeparator />
-
               <DropdownMenuItem onClick={() => onAction?.('duplicate', scene)}>
-                <Copy className="mr-2 h-4 w-4" />
+                <Copy className="h-4 w-4" />
                 Duplicar escena
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onAction?.('insert-before', scene)}>
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="h-4 w-4" />
                 Insertar escena antes
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onAction?.('insert-after', scene)}>
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="h-4 w-4" />
                 Insertar escena despues
               </DropdownMenuItem>
-
               <DropdownMenuSeparator />
-
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <ArrowUpDown className="mr-2 h-4 w-4" />
-                  Cambiar estado
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
-                  {ALL_STATUSES.map((s) => (
-                    <DropdownMenuItem
-                      key={s}
-                      onClick={() => onAction?.(`status:${s}`, scene)}
-                    >
-                      <div className={cn('mr-2 h-2 w-2 rounded-full', STATUS_COLORS[s])} />
-                      {STATUS_LABELS[s]}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <ArrowUpDown className="mr-2 h-4 w-4" />
-                  Cambiar fase
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
-                  {ALL_PHASES.map((p) => (
-                    <DropdownMenuItem
-                      key={p}
-                      onClick={() => onAction?.(`phase:${p}`, scene)}
-                    >
-                      <div className={cn('mr-2 h-2 w-2 rounded-full', PHASE_STYLES[p].split(' ')[0])} />
-                      {p}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-
+              <DropdownMenuLabel className="text-xs text-muted-foreground">Cambiar estado</DropdownMenuLabel>
+              {ALL_STATUSES.map((s) => (
+                <DropdownMenuItem key={`status-${s}`} onClick={() => onAction?.(`status:${s}`, scene)}>
+                  <div className={cn('h-2 w-2 rounded-full', STATUS_COLORS[s])} />
+                  {STATUS_LABELS[s]}
+                </DropdownMenuItem>
+              ))}
               <DropdownMenuSeparator />
-
-              <DropdownMenuItem
-                className="text-red-400 focus:text-red-400"
-                onClick={() => onAction?.('delete', scene)}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
+              <DropdownMenuLabel className="text-xs text-muted-foreground">Cambiar fase</DropdownMenuLabel>
+              {ALL_PHASES.map((p) => (
+                <DropdownMenuItem key={`phase-${p}`} onClick={() => onAction?.(`phase:${p}`, scene)}>
+                  <div className={cn('h-2 w-2 rounded-full', PHASE_STYLES[p].split(' ')[0])} />
+                  {p}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => onAction?.('delete', scene)}>
+                <Trash2 className="h-4 w-4" />
                 Eliminar
               </DropdownMenuItem>
             </DropdownMenuContent>

@@ -3,38 +3,21 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import {
-  Check,
-  Plus,
-  Settings,
-  UserPlus,
-  LogOut,
-  ChevronsLeft,
-  ChevronsRight,
+  Check, Plus, Settings, UserPlus, LogOut, ChevronsLeft, MoreHorizontal, Monitor,
 } from 'lucide-react';
-import {
-  useSidebar,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-} from '@/components/ui/sidebar';
-import { Button } from '@/components/ui/button';
+import { useSidebar, SidebarMenu, SidebarMenuItem } from '@/components/ui/sidebar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Separator } from '@/components/ui/separator';
 import { KiyokoIcon } from '@/components/ui/logo';
 import { useOrganizations, ORG_TYPE_LABELS } from '@/hooks/useOrganizations';
 import { useAuth } from '@/hooks/useAuth';
 import { useUIStore } from '@/stores/useUIStore';
 import { cn } from '@/lib/utils/cn';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 const ORG_TYPE_COLORS: Record<string, string> = {
-  personal:  'bg-primary/20 text-primary',
-  freelance: 'bg-blue-500/20 text-blue-500',
-  team:      'bg-purple-500/20 text-purple-500',
-  agency:    'bg-orange-500/20 text-orange-500',
+  personal:  'bg-primary/15 text-primary',
+  freelance: 'bg-blue-500/15 text-blue-500',
+  team:      'bg-purple-500/15 text-purple-500',
+  agency:    'bg-orange-500/15 text-orange-500',
 };
 
 function initials(name: string | null | undefined): string {
@@ -44,38 +27,15 @@ function initials(name: string | null | undefined): string {
 
 function OrgBadge({ name, orgType, size = 'md' }: { name: string; orgType?: string | null; size?: 'sm' | 'md' | 'lg' }) {
   const colors = ORG_TYPE_COLORS[orgType ?? 'team'] ?? ORG_TYPE_COLORS.team;
-  const sizeClass =
-    size === 'lg' ? 'h-10 w-10 text-sm rounded-lg' :
-    size === 'sm' ? 'h-6 w-6 text-[10px] rounded-md' :
-                    'h-8 w-8 text-xs rounded-lg';
+  const cls = size === 'lg' ? 'h-9 w-9 rounded-md text-xs'
+    : size === 'sm' ? 'h-6 w-6 rounded text-[9px]'
+    : 'h-7 w-7 rounded text-[10px]';
   return (
-    <span className={cn('flex shrink-0 items-center justify-center font-bold', sizeClass, colors)}>
+    <span className={cn('flex shrink-0 items-center justify-center font-bold', cls, colors)}>
       {initials(name)}
     </span>
   );
 }
-
-// ---------------------------------------------------------------------------
-// SidebarExpandButton — shown in footer when sidebar is collapsed
-// ---------------------------------------------------------------------------
-
-export function SidebarExpandButton() {
-  const { state, toggleSidebar } = useSidebar();
-  if (state === 'expanded') return null;
-  return (
-    <SidebarMenu>
-      <SidebarMenuItem>
-        <SidebarMenuButton onClick={toggleSidebar} tooltip="Abrir menú">
-          <ChevronsRight className="h-4 w-4" />
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-    </SidebarMenu>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// SidebarHeaderSection
-// ---------------------------------------------------------------------------
 
 export function SidebarHeaderSection() {
   const { state, toggleSidebar } = useSidebar();
@@ -84,179 +44,177 @@ export function SidebarHeaderSection() {
   const [hovered, setHovered] = useState(false);
 
   const { user, signOut } = useAuth();
-  const { organizations, currentOrg, currentOrgId, switchOrg, loading } = useOrganizations();
+  const { organizations, currentOrg, currentOrgId, switchOrg } = useOrganizations();
   const { openWorkspaceModal, openSettingsModal } = useUIStore();
 
   const isExpanded = state === 'expanded';
-  const userName = user?.full_name ?? user?.email ?? 'Usuario';
   const userEmail = user?.email ?? '';
 
   return (
     <SidebarMenu>
       <SidebarMenuItem>
         <Popover open={open} onOpenChange={setOpen}>
-          {/* Wrapper with hover state + relative positioning for the overlay button */}
           <div
-            className="relative"
+            className="group/header relative"
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
           >
             <PopoverTrigger asChild>
-              <Button
+              <button
                 type="button"
-                variant="ghost"
-                fullWidth
                 className={cn(
-                  'flex w-full items-center gap-2 rounded-md px-2 py-1.5 h-auto',
-                  'hover:bg-sidebar-accent text-foreground',
+                  'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors cursor-pointer',
+                  'hover:bg-sidebar-accent',
                   open && 'bg-sidebar-accent',
+                  !isExpanded && 'justify-center px-0',
                 )}
               >
-                <KiyokoIcon size={20} className="shrink-0 text-foreground mb-1" />
-                {isExpanded && (
-                  <div className="min-w-0 flex-1 text-left pr-5">
-                    <p className="truncate text-[13px] font-semibold leading-tight">{userName}</p>
-                    {currentOrg && (
-                      <p className="truncate text-[11px] text-muted-foreground leading-tight">
-                        {currentOrg.name}
-                      </p>
-                    )}
+                {/* Logo por defecto, OrgBadge en hover */}
+                <span className="relative flex h-7 w-7 shrink-0 items-center justify-center">
+                  <KiyokoIcon size={18} className="text-foreground transition-opacity group-hover/header:opacity-0" />
+                  {currentOrg && (
+                    <span className="absolute inset-0 opacity-0 transition-opacity group-hover/header:opacity-100">
+                      <OrgBadge name={currentOrg.name} orgType={currentOrg.org_type} />
+                    </span>
+                  )}
+                </span>
+                {isExpanded && currentOrg && (
+                  <div className="min-w-0 flex-1 transition-[padding] duration-200 ease-out group-hover/header:pr-8 pr-1">
+                    <p className="truncate text-[13px] font-semibold leading-tight text-foreground">
+                      {currentOrg.name}
+                    </p>
+                    <p className="truncate text-[11px] text-muted-foreground leading-tight">
+                      {ORG_TYPE_LABELS[currentOrg.org_type ?? 'team']}
+                    </p>
                   </div>
                 )}
-              </Button>
+              </button>
             </PopoverTrigger>
 
-            {/* Collapse button — overlaid on top-right of the trigger, appears on hover */}
             {isExpanded && (
-              <Button
+              <button
                 type="button"
-                variant="ghost"
-                size="xs"
-                isIconOnly
                 onClick={(e) => { e.stopPropagation(); toggleSidebar(); }}
                 className={cn(
-                  'absolute right-1 top-1/2 -translate-y-1/2 z-10 size-5',
-                  hovered ? 'opacity-100' : 'opacity-0',
+                  'absolute right-1 top-1/2 z-10 flex items-center justify-center size-7 -translate-y-1/2 rounded-md text-muted-foreground transition-opacity cursor-pointer',
+                  'hover:bg-sidebar-accent hover:text-foreground',
+                  hovered && !open ? 'opacity-100' : 'opacity-0',
                 )}
                 title="Colapsar menú"
               >
-                <ChevronsLeft size={13} />
-              </Button>
+                <ChevronsLeft size={16} />
+              </button>
             )}
           </div>
 
+          {/* ── Popover estilo Notion ──────────────────────────────── */}
           <PopoverContent
             side="bottom"
             align="start"
             sideOffset={4}
-            className="w-72 p-0 overflow-hidden"
+            className="w-80 p-0 rounded-xl border border-border bg-popover shadow-xl overflow-hidden"
           >
-            {/* ── Org activa ───────────────────────────────────────────── */}
-            {currentOrg ? (
-              <div className="px-3 pt-3 pb-2">
-                <div className="flex items-center gap-2.5 mb-2.5">
+            {/* Email + dots */}
+            <div className="flex items-center justify-between px-4 pt-3 pb-1">
+              <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
+              <button
+                type="button"
+                className="flex items-center justify-center size-6 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors cursor-pointer"
+              >
+                <MoreHorizontal className="h-3.5 w-3.5" />
+              </button>
+            </div>
+
+            {/* Org activa */}
+            {currentOrg && (
+              <div className="px-3 pb-3">
+                <div className="flex items-center gap-3 px-1 py-2">
                   <OrgBadge name={currentOrg.name} orgType={currentOrg.org_type} size="lg" />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[14px] font-semibold text-foreground leading-snug">
-                      {currentOrg.name}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground leading-tight">
+                    <p className="truncate text-sm font-semibold text-foreground">{currentOrg.name}</p>
+                    <p className="text-xs text-muted-foreground">
                       Plan Gratis · {ORG_TYPE_LABELS[currentOrg.org_type ?? 'team']}
                     </p>
                   </div>
                 </div>
-                <div className="flex gap-1.5">
-                  <Button
+
+                <div className="flex gap-2 mt-1">
+                  <button
                     type="button"
-                    variant="bordered"
-                    size="xs"
                     onClick={() => { setOpen(false); openSettingsModal('perfil'); }}
-                    className="flex-1 h-7 text-[12px]"
+                    className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg border border-border text-xs font-medium text-foreground hover:bg-accent transition-colors cursor-pointer"
                   >
-                    <Settings className="h-3 w-3 shrink-0 text-muted-foreground" />
+                    <Settings className="h-3.5 w-3.5 text-muted-foreground" />
                     Ajustes
-                  </Button>
-                  <Button
+                  </button>
+                  <button
                     type="button"
-                    variant="bordered"
-                    size="xs"
                     onClick={() => { setOpen(false); openSettingsModal('org-miembros'); }}
-                    className="flex-1 h-7 text-[12px]"
+                    className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg border border-border text-xs font-medium text-foreground hover:bg-accent transition-colors cursor-pointer"
                   >
-                    <UserPlus className="h-3 w-3 shrink-0 text-muted-foreground" />
+                    <UserPlus className="h-3.5 w-3.5 text-muted-foreground" />
                     Invitar
-                  </Button>
+                  </button>
                 </div>
               </div>
-            ) : loading ? (
-              <div className="px-3 py-3 text-[12px] text-muted-foreground">Cargando…</div>
-            ) : null}
+            )}
 
-            <Separator />
+            <div className="h-px bg-border" />
 
-            {/* ── Lista de organizaciones ──────────────────────────────── */}
-            <div className="py-1">
+            {/* Lista de organizaciones */}
+            <div className="py-1 px-1.5">
               {organizations.map((org) => {
                 const isActive = org.id === currentOrgId;
                 return (
-                  <Button
+                  <button
                     key={org.id}
                     type="button"
-                    variant="ghost"
-                    fullWidth
                     onClick={() => { switchOrg(org.id); router.push('/dashboard'); setOpen(false); }}
                     className={cn(
-                      'flex w-full items-center gap-2.5 px-3 py-1.5 h-auto text-left rounded-none',
+                      'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors cursor-pointer',
                       'hover:bg-accent',
-                      isActive && 'bg-accent/50',
+                      isActive && 'bg-accent/60',
                     )}
                   >
                     <OrgBadge name={org.name} orgType={org.org_type} size="sm" />
-                    <p className={cn(
-                      'flex-1 min-w-0 truncate text-[13px] leading-tight',
-                      isActive ? 'font-semibold text-foreground' : 'text-foreground',
-                    )}>
+                    <p className={cn('flex-1 min-w-0 truncate text-[13px]', isActive && 'font-semibold')}>
                       {org.name}
                     </p>
-                    {isActive && <Check className="h-3.5 w-3.5 shrink-0 text-foreground" />}
-                  </Button>
+                    {isActive && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
+                  </button>
                 );
               })}
 
-              <Button
+              <button
                 type="button"
-                variant="ghost"
-                fullWidth
                 onClick={() => { openWorkspaceModal(); setOpen(false); }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 h-auto text-left rounded-none hover:bg-accent text-primary"
+                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer mt-0.5"
               >
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center">
-                  <Plus className="h-3.5 w-3.5" />
-                </span>
-                <span className="text-[13px] font-medium">Nueva organización</span>
-              </Button>
+                <Plus className="h-3.5 w-3.5" />
+                <span className="text-[13px]">Añadir organización</span>
+              </button>
             </div>
 
-            <Separator />
+            <div className="h-px bg-border" />
 
-            {/* ── Cuenta ───────────────────────────────────────────────── */}
-            <div className="py-1">
-              <div className="flex items-center gap-2 px-3 py-1.5">
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-primary/20 text-primary text-[9px] font-bold">
-                  {initials(user?.full_name)}
-                </span>
-                <p className="flex-1 min-w-0 truncate text-[12px] text-muted-foreground">{userEmail}</p>
-              </div>
-              <Button
+            {/* Actions */}
+            <div className="py-1 px-1.5">
+              <button
                 type="button"
-                variant="ghost"
-                fullWidth
-                onClick={() => { setOpen(false); signOut(); }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 h-auto text-[13px] text-foreground rounded-none hover:bg-accent"
+                onClick={() => { setOpen(false); window.open('https://kiyoko.ai/download', '_blank'); }}
+                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-foreground hover:bg-accent transition-colors cursor-pointer"
               >
-                <LogOut className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                Cerrar sesión
-              </Button>
+                <Monitor className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-[13px]">Obtener app de escritorio</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setOpen(false); signOut(); }}
+                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-foreground hover:bg-accent transition-colors cursor-pointer"
+              >
+                <LogOut className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-[13px]">Cerrar sesión</span>
+              </button>
             </div>
           </PopoverContent>
         </Popover>

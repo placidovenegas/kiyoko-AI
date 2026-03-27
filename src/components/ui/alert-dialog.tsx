@@ -4,7 +4,7 @@ import { forwardRef, createContext, useContext } from 'react';
 import * as AlertDialogPrimitive from '@radix-ui/react-alert-dialog';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils/cn';
-import { buttonVariants } from '@/components/ui/button';
+// Inline button styles (no longer depends on buttonVariants)
 
 /* ── Open state context ───────────────────────────────────── */
 
@@ -181,7 +181,8 @@ const AlertDialogAction = forwardRef<
   <AlertDialogPrimitive.Action
     ref={ref}
     className={cn(
-      buttonVariants({ variant: 'solid', color: 'danger', size: 'md', fullWidth: true }),
+      'inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors',
+      'bg-danger text-white hover:bg-danger/90 h-10 px-4 w-full',
       'sm:w-auto',
       className,
     )}
@@ -199,7 +200,8 @@ const AlertDialogCancel = forwardRef<
   <AlertDialogPrimitive.Cancel
     ref={ref}
     className={cn(
-      buttonVariants({ variant: 'flat', color: 'default', size: 'md', fullWidth: true }),
+      'inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors',
+      'bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 w-full',
       'sm:w-auto',
       className,
     )}

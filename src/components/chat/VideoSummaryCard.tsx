@@ -13,7 +13,7 @@ import {
   Clapperboard,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
-import { Button } from '@/components/ui/button';
+import { Button } from '@heroui/react';
 
 export interface VideoSummaryData {
   title: string;
@@ -137,20 +137,20 @@ export function VideoSummaryCard({ data, onAction }: VideoSummaryCardProps) {
       {onAction && (
         <div className="flex flex-wrap gap-1.5 px-4 py-2.5 bg-muted/30 border-t border-border">
           {data.prompts_image_done < data.prompts_total && (
-            <Button type="button" variant="bordered" color="primary" size="xs" radius="sm"
-              onClick={() => onAction('Genera los prompts de imagen que faltan')}
+            <Button type="button" variant="outline" color="primary" size="sm"
+              onPress={() => onAction('Genera los prompts de imagen que faltan')}
               className="text-[10px]">
               <Sparkles size={10} /> Generar prompts
             </Button>
           )}
-          <Button type="button" variant="bordered" color="default" size="xs" radius="sm"
-            onClick={() => onAction('Editar una escena')}
+          <Button type="button" variant="outline" size="sm"
+            onPress={() => onAction('Editar una escena')}
             className="text-[10px]">
             <Clapperboard size={10} /> Editar escena
           </Button>
           {!data.has_narration && (
-            <Button type="button" variant="bordered" color="default" size="xs" radius="sm"
-              onClick={() => onAction('Crear narracion para el video')}
+            <Button type="button" variant="outline" size="sm"
+              onPress={() => onAction('Crear narracion para el video')}
               className="text-[10px]">
               <Volume2 size={10} /> Crear narracion
             </Button>

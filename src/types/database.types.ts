@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.4"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       activity_log: {
@@ -96,12 +71,14 @@ export type Database = {
           completed: boolean | null
           context_entity_id: string | null
           context_entity_type: string | null
+          context_org_id: string | null
+          context_url: string | null
           conversation_type: string | null
           created_at: string | null
           id: string
           message_count: number | null
           messages: Json
-          project_id: string
+          project_id: string | null
           title: string | null
           updated_at: string | null
           user_id: string
@@ -112,12 +89,14 @@ export type Database = {
           completed?: boolean | null
           context_entity_id?: string | null
           context_entity_type?: string | null
+          context_org_id?: string | null
+          context_url?: string | null
           conversation_type?: string | null
           created_at?: string | null
           id?: string
           message_count?: number | null
           messages?: Json
-          project_id: string
+          project_id?: string | null
           title?: string | null
           updated_at?: string | null
           user_id: string
@@ -128,18 +107,27 @@ export type Database = {
           completed?: boolean | null
           context_entity_id?: string | null
           context_entity_type?: string | null
+          context_org_id?: string | null
+          context_url?: string | null
           conversation_type?: string | null
           created_at?: string | null
           id?: string
           message_count?: number | null
           messages?: Json
-          project_id?: string
+          project_id?: string | null
           title?: string | null
           updated_at?: string | null
           user_id?: string
           video_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ai_conversations_context_org_id_fkey"
+            columns: ["context_org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ai_conversations_project_id_fkey"
             columns: ["project_id"]
@@ -3202,9 +3190,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       arc_phase: ["hook", "build", "peak", "close"],

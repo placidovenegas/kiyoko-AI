@@ -7,7 +7,7 @@ import { useVideo } from '@/contexts/VideoContext';
 import { useProject } from '@/contexts/ProjectContext';
 import Link from 'next/link';
 import { cn } from '@/lib/utils/cn';
-import { KButton } from '@/components/ui/kiyoko-button';
+import { Button } from '@/components/ui/button';
 import { ArcBar } from '@/components/video/ArcBar';
 import { SceneCard } from '@/components/video/SceneCard';
 import {
@@ -370,9 +370,9 @@ export default function VideoOverviewPage() {
             </select>
 
             <Link href={`${basePath}/scenes`}>
-              <KButton variant="ghost" size="sm" icon={<ArrowRight className="h-3.5 w-3.5" />} iconPosition="right">
+              <Button variant="ghost" size="sm" endContent={<ArrowRight className="h-3.5 w-3.5" />} className="rounded-md">
                 Ver todas
-              </KButton>
+              </Button>
             </Link>
           </div>
         </div>
@@ -389,14 +389,14 @@ export default function VideoOverviewPage() {
             <p className="mt-1 text-xs text-muted-foreground">Crea escenas manualmente o genera con IA</p>
             <div className="mt-4 flex gap-2">
               <Link href={`${basePath}/scenes`}>
-                <KButton variant="outline" size="sm" icon={<Plus className="h-3.5 w-3.5" />}>
+                <Button variant="outline" size="sm" startContent={<Plus className="h-3.5 w-3.5" />} className="rounded-md">
                   Crear manual
-                </KButton>
+                </Button>
               </Link>
               <Link href={`${basePath}/scenes`}>
-                <KButton variant="primary" size="sm" icon={<Sparkles className="h-3.5 w-3.5" />}>
+                <Button variant="primary" size="sm" startContent={<Sparkles className="h-3.5 w-3.5" />} className="rounded-md">
                   Generar con IA
-                </KButton>
+                </Button>
               </Link>
             </div>
           </div>

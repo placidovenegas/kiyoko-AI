@@ -1,19 +1,29 @@
 "use client";
 
+/**
+ * Textarea — Wrapper sobre HeroUI v3 Textarea.
+ * Mantiene la misma API (className, placeholder, rows, etc.).
+ */
+
 import * as React from "react";
+import { TextArea as HeroTextarea } from "@heroui/react";
 import { cn } from "@/lib/utils/cn";
 
 const Textarea = React.forwardRef<
   HTMLTextAreaElement,
-  React.TextareaHTMLAttributes<HTMLTextAreaElement>
->(({ className, ...props }, ref) => {
+  React.TextareaHTMLAttributes<HTMLTextAreaElement> & {
+    label?: string;
+    description?: string;
+    errorMessage?: string;
+  }
+>(({ className, label, description, errorMessage, ...props }, ref) => {
   return (
-    <textarea
-      className={cn(
-        "flex min-h-[80px] w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
-        className
-      )}
+    <HeroTextarea
       ref={ref}
+      label={label}
+      description={description}
+      errorMessage={errorMessage}
+      className={cn("w-full", className)}
       {...props}
     />
   );

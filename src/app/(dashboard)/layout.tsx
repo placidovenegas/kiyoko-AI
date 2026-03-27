@@ -4,9 +4,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 import {
   SidebarProvider,
   SidebarInset,
-  SidebarTrigger,
 } from '@/components/ui/sidebar';
-import { Separator } from '@/components/ui/separator';
 import { Header } from '@/components/layout/Header';
 import { AppSidebar } from '@/components/layout/AppSidebar';
 import { SearchModal } from '@/components/layout/SearchModal';
@@ -97,8 +95,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <div className="flex flex-col flex-1 min-h-0 min-w-0">
                 {/* Header */}
                 <header className="flex shrink-0 items-center gap-2 border-b border-border px-3 bg-card z-30 h-11.75">
-                  <SidebarTrigger className="shrink-0" />
-                  <Separator orientation="vertical" className="h-4 shrink-0" />
                   <div className="flex-1 min-w-0">
                     <Header onToggleChat={handleToggleChat} chatOpen={isOpen} />
                   </div>
