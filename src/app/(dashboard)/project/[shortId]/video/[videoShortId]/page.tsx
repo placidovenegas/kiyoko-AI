@@ -8,13 +8,14 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { cn } from '@/lib/utils/cn';
 import { useUIStore } from '@/stores/useUIStore';
+import { useAIStore } from '@/stores/ai-store';
 import { ArcBar } from '@/components/video/ArcBar';
 import { toast } from 'sonner';
 import {
   Film, Clock, Monitor, Mic, FileOutput, Music, Image as ImageIcon,
   Video, Loader2, BarChart3, Layers, CheckCircle2, Target,
   Settings2, Copy, Sparkles, ExternalLink, MoreHorizontal,
-  Eye, Pencil, Camera, Clapperboard, Plus, Trash2, ArrowRight,
+  Eye, Pencil, Camera, Clapperboard, Plus, Trash2, ArrowRight, MessageCircle, Clock3,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -32,13 +33,12 @@ function ExpandablePrompt({ text, fallback }: { text?: string | null; fallback: 
     <button
       type="button"
       onClick={() => setExpanded(!expanded)}
-      className={cn(
-        'flex-1 min-w-0 text-left font-mono text-xs text-muted-foreground bg-background rounded-lg px-3 py-1.5 cursor-pointer hover:bg-accent/50 transition-colors',
-        !expanded && 'line-clamp-1',
-      )}
+      className="flex-1 min-w-0 text-left font-mono text-xs text-muted-foreground bg-background rounded-lg px-3 py-1.5 cursor-pointer hover:bg-accent/50 transition-all"
       title={expanded ? 'Click para colapsar' : 'Click para expandir'}
     >
-      {text}
+      <span className={expanded ? '' : 'block overflow-hidden whitespace-nowrap text-ellipsis'}>
+        {text}
+      </span>
     </button>
   );
 }
@@ -159,6 +159,15 @@ interface SceneClipRow {
   duration_seconds: number | null;
 }
 
+interface TimelineEntryRow {
+  scene_id: string | null;
+  title: string;
+  description: string | null;
+  start_time: string;
+  end_time: string;
+  duration_seconds: number | null;
+}
+
 /* ------------------------------------------------------------------ */
 /*  View mode                                                          */
 /* ------------------------------------------------------------------ */
@@ -204,7 +213,9 @@ function StoryboardCard({
   chars,
   bgs,
   clips,
+  timelineEntry,
   onGeneratePrompts,
+  onChatAboutScene,
   isGenerating,
 }: {
   scene: Scene;
@@ -216,7 +227,9 @@ function StoryboardCard({
   chars: SceneCharacterWithChar[];
   bgs: SceneBackgroundWithBg[];
   clips: SceneClipRow[];
+  timelineEntry: TimelineEntryRow | undefined;
   onGeneratePrompts: () => void;
+  onChatAboutScene: () => void;
   isGenerating: boolean;
 }) {
   const sceneLink = scene.short_id
@@ -411,6 +424,18 @@ function StoryboardCard({
         </div>
       </div>
 
+      {/* ── Timeline entry (second-by-second) ── */}
+      {timelineEntry?.description && (
+        <div className="rounded-lg bg-background/50 border border-border/30 px-3 py-2">
+          <div className="flex items-center gap-1.5 mb-1">
+            <Clock3 className="h-3 w-3 text-muted-foreground/60" />
+            <span className="text-[10px] font-medium text-muted-foreground">Desglose temporal</span>
+            <span className="text-[10px] text-muted-foreground/50">{timelineEntry.start_time} – {timelineEntry.end_time}</span>
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed">{timelineEntry.description}</p>
+        </div>
+      )}
+
       {/* ── Action buttons ── */}
       <div className="flex items-center gap-1.5 pt-1 border-t border-border/50">
         <Link
@@ -446,6 +471,16 @@ function StoryboardCard({
             Copiar todo
           </button>
         )}
+
+        <button
+          type="button"
+          onClick={onChatAboutScene}
+          className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-primary hover:bg-primary/10 transition-colors flex items-center gap-1.5"
+          title="Chat IA sobre esta escena"
+        >
+          <MessageCircle className="h-3 w-3" />
+          Chat IA
+        </button>
 
         {/* Dropdown menu */}
         <div className="ml-auto">
@@ -661,6 +696,30 @@ export default function VideoOverviewPage() {
     enabled: !!video?.id && scenes.length > 0,
   });
 
+  // Timeline entries (second-by-second breakdown)
+  const { data: timelineEntries = [] } = useQuery({
+    queryKey: ['timeline-entries', video?.id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from('timeline_entries')
+        .select('scene_id, title, description, start_time, end_time, duration_seconds')
+        .eq('video_id', video!.id)
+        .order('sort_order');
+      return (data ?? []) as TimelineEntryRow[];
+    },
+    enabled: !!video?.id,
+  });
+
+  // Open chat with scene context
+  const { openChat, setActiveAgent } = useAIStore();
+  function handleChatAboutScene(scene: Scene) {
+    setActiveAgent('scenes');
+    openChat('sidebar');
+    // The chat will pick up the current scene context from the URL
+    toast.success(`Chat IA abierto para escena #${scene.scene_number}`);
+  }
+
   /* Copy all prompts in order */
   function copyAllPrompts() {
     const imageLines: string[] = [];
@@ -865,7 +924,9 @@ export default function VideoOverviewPage() {
                   chars={chars}
                   bgs={bgList}
                   clips={clipList}
+                  timelineEntry={timelineEntries.find((t) => t.scene_id === scene.id)}
                   onGeneratePrompts={() => handleGeneratePrompts(scene.id)}
+                  onChatAboutScene={() => handleChatAboutScene(scene)}
                   isGenerating={generatingSceneId === scene.id}
                 />
               );
