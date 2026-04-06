@@ -1,13 +1,26 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateText } from 'ai';
 import { getAllAvailableModels } from '@/lib/ai/sdk-router';
 import { getUserModel } from '@/lib/ai/get-user-model';
 import { getStyleById } from '@/lib/constants/narration-styles';
+import {
+  apiBadRequest,
+  apiError,
+  apiJson,
+  apiUnauthorized,
+  createApiRequestContext,
+  logServerEvent,
+  logServerWarning,
+  parseApiJson,
+} from '@/lib/observability/server';
 
 /** Try generateText with user model first, then fallback across all available system models */
-async function generateTextWithFallback(params: { system: string; prompt: string; userId: string }) {
+async function generateTextWithFallback(
+  params: { system: string; prompt: string; userId: string },
+  logContext?: { requestId: string; clientRequestId: string | null; method: string; path: string; startedAt: number },
+) {
   // Try user's own key first
   try {
     const { model, providerId } = await getUserModel(params.userId);
@@ -27,7 +40,13 @@ async function generateTextWithFallback(params: { system: string; prompt: string
       return { text: result.text, providerId };
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
-      console.warn(`[generate-narration] ${providerId} failed:`, lastError.message);
+      if (logContext) {
+        logServerWarning('generate-narration', logContext, 'Provider failed during narration fallback', {
+          userId: params.userId,
+          providerId,
+          errorMessage: lastError.message,
+        });
+      }
       // Continue to next provider
     }
   }
@@ -74,14 +93,15 @@ function cleanNarrationText(raw: string): string {
 }
 
 export async function POST(request: NextRequest) {
+  const requestContext = createApiRequestContext(request);
   try {
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiUnauthorized(requestContext);
     }
 
-    const body = await request.json() as {
+    const { data: body, response } = await parseApiJson<{
       mode: 'per_scene' | 'continuous';
       videoId?: string;
       scenes: Array<{
@@ -99,7 +119,11 @@ export async function POST(request: NextRequest) {
         styleId?: string;
         customInstructions?: string;
       };
-    };
+    }>(request, requestContext);
+
+    if (response || !body) {
+      return response;
+    }
 
     const { mode, scenes, config, videoId } = body;
     const style = getStyleById(config?.styleId || 'pixar');
@@ -111,8 +135,17 @@ export async function POST(request: NextRequest) {
     const projectName = config?.projectName || '';
 
     if (!scenes?.length) {
-      return NextResponse.json({ error: 'No scenes provided' }, { status: 400 });
+      return apiBadRequest(requestContext, 'No scenes provided');
     }
+
+    logServerEvent('generate-narration', requestContext, 'Generating narration', {
+      userId: user.id,
+      mode,
+      videoId: videoId ?? null,
+      sceneCount: scenes.length,
+      language: lang,
+      styleId: style.id,
+    });
 
     if (mode === 'continuous') {
       // ── CONTINUOUS: one flowing narration text ──
@@ -146,7 +179,7 @@ ESTRUCTURA:
 ${sceneList}
 
 Escribe la narracion:`,
-      });
+  }, requestContext);
 
       const text = cleanNarrationText(rawText);
 
@@ -185,11 +218,15 @@ Escribe la narracion:`,
               status: 'draft',
             });
         } catch (saveError) {
-          console.error('[generate-narration] Error saving narration to DB:', saveError);
+          logServerWarning('generate-narration', requestContext, 'Error saving continuous narration to DB', {
+            userId: user.id,
+            videoId,
+            errorMessage: saveError instanceof Error ? saveError.message : String(saveError),
+          });
         }
       }
 
-      return NextResponse.json({ mode: 'continuous', text, provider: providerId });
+      return apiJson(requestContext, { mode: 'continuous', text, provider: providerId });
 
     } else {
       // ── PER-SCENE: generate all at once in a single call ──
@@ -214,7 +251,7 @@ IDIOMA: ${langName}`,
         prompt: `Genera narracion para cada escena:
 
 ${sceneList}`,
-      });
+  }, requestContext);
 
       const cleaned = cleanNarrationText(rawText);
 
@@ -273,17 +310,25 @@ ${sceneList}`,
               status: 'draft',
             });
         } catch (saveError) {
-          console.error('[generate-narration] Error saving per-scene narration to DB:', saveError);
+          logServerWarning('generate-narration', requestContext, 'Error saving per-scene narration to DB', {
+            userId: user.id,
+            videoId,
+            errorMessage: saveError instanceof Error ? saveError.message : String(saveError),
+          });
         }
       }
 
-      return NextResponse.json({ mode: 'per_scene', results, provider: 'fallback' });
+      return apiJson(requestContext, { mode: 'per_scene', results, provider: 'fallback' });
     }
   } catch (error) {
-    console.error('[generate-narration]', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Narration generation failed' },
-      { status: 500 },
-    );
+    const message = error instanceof Error ? error.message : 'Narration generation failed';
+
+    if (message.startsWith('NO_PROVIDER_AVAILABLE')) {
+      return apiJson(requestContext, { error: message, requestId: requestContext.requestId }, { status: 429 });
+    }
+
+    return apiError(requestContext, 'generate-narration', error, {
+      message,
+    });
   }
 }

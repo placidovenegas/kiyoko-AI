@@ -4,10 +4,10 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
-import * as DialogPrimitive from '@radix-ui/react-dialog';
+import { createPortal } from 'react-dom';
 import { useUIStore } from '@/stores/useUIStore';
 import { cn } from '@/lib/utils/cn';
-import { Button } from '@/components/ui/button';
+import { Button } from '@heroui/react';
 import {
   Search, FolderOpen, Film, Clapperboard, Users, Settings,
   LayoutDashboard, Calendar, Key, ArrowRight,
@@ -408,22 +408,24 @@ export function SearchModal() {
 
   /* ---- Render ---- */
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
-      <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-        <DialogPrimitive.Content
+    <>
+      {open && createPortal(
+        <>
+        {/* Overlay */}
+        {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm animate-in fade-in-0" onClick={() => setOpen(false)} />
+        {/* Content */}
+        <div
           className={cn(
             'fixed left-1/2 top-[8vh] z-50 -translate-x-1/2',
-            'w-full max-w-[720px] overflow-hidden',
+            'w-full max-w-180 overflow-hidden',
             'border border-border/60 bg-background shadow-2xl rounded-xl',
-            'data-[state=open]:animate-in data-[state=closed]:animate-out',
-            'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
-            'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
-            'data-[state=closed]:slide-out-to-left-1/2 data-[state=open]:slide-in-from-left-1/2',
+            'animate-in fade-in-0 zoom-in-95',
           )}
           style={{ height: 600 }}
+          role="dialog"
+          aria-label="Buscar"
         >
-          <DialogPrimitive.Title className="sr-only">Buscar</DialogPrimitive.Title>
         {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
         <div onKeyDown={handleKeyDown}>
         <div className="flex h-full">
@@ -565,7 +567,7 @@ export function SearchModal() {
                   Nueva pestaña
                 </span>
               </div>
-              <Button type="button" variant="ghost" size="xs" isIconOnly className="h-6 w-6 text-muted-foreground/40 hover:text-muted-foreground">
+              <Button type="button" variant="ghost" size="sm" isIconOnly className="h-6 w-6 text-muted-foreground/40 hover:text-muted-foreground">
                 <Settings size={13} />
               </Button>
             </div>
@@ -577,8 +579,10 @@ export function SearchModal() {
           </div>
         </div>
         </div>
-        </DialogPrimitive.Content>
-      </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
+        </div>
+        </>,
+        document.body
+      )}
+    </>
   );
 }

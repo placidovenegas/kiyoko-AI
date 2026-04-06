@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useProject } from '@/contexts/ProjectContext';
 import { queryKeys } from '@/lib/query/keys';
-import { Button } from '@/components/ui/button';
+import { Button } from '@heroui/react';
 import {
   Loader2, Plus, CalendarDays, Hash, FileText, Layers, Send,
 } from 'lucide-react';

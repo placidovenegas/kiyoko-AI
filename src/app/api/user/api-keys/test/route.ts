@@ -1,6 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import type { AiProviderId } from '@/types';
+import {
+  apiBadRequest,
+  apiError,
+  apiJson,
+  apiUnauthorized,
+  createApiRequestContext,
+  logServerEvent,
+  logServerWarning,
+  parseApiJson,
+} from '@/lib/observability/server';
 
 interface TestKeyBody {
   provider: AiProviderId;
@@ -12,26 +22,30 @@ interface TestKeyBody {
  * Test if an API key is valid by making a minimal request to the provider.
  */
 export async function POST(request: NextRequest) {
+  const requestContext = createApiRequestContext(request);
   try {
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return apiUnauthorized(requestContext);
     }
 
-    const body: TestKeyBody = await request.json();
+    const { data: body, response } = await parseApiJson<TestKeyBody>(request, requestContext);
+    if (response || !body) {
+      return response;
+    }
+
     const { provider, apiKey } = body;
 
     if (!provider || !apiKey) {
-      return NextResponse.json(
-        { error: 'Missing required fields: provider, apiKey' },
-        { status: 400 }
-      );
+      return apiBadRequest(requestContext, 'Missing required fields: provider, apiKey');
     }
+
+    logServerEvent('api-keys/test', requestContext, 'Testing provider API key', {
+      userId: user.id,
+      provider,
+    });
 
     let isValid = false;
     let errorMessage: string | null = null;
@@ -107,27 +121,25 @@ export async function POST(request: NextRequest) {
         }
 
         default:
-          return NextResponse.json(
-            { error: `Unknown provider: ${provider}` },
-            { status: 400 }
-          );
+          return apiBadRequest(requestContext, `Unknown provider: ${provider}`);
       }
     } catch (fetchError) {
       isValid = false;
       errorMessage = fetchError instanceof Error ? fetchError.message : 'Connection failed';
+      logServerWarning('api-keys/test', requestContext, 'Provider key test request failed', {
+        userId: user.id,
+        provider,
+        errorMessage,
+      });
     }
 
-    return NextResponse.json({
+    return apiJson(requestContext, {
       success: true,
       isValid,
       provider,
       error: errorMessage,
     });
   } catch (error) {
-    console.error('[api-keys/test]', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return apiError(requestContext, 'api-keys/test', error);
   }
 }

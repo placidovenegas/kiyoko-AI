@@ -1,10 +1,19 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { generateText, Output } from 'ai';
 import { createClient } from '@/lib/supabase/server';
 import { logUsage } from '@/lib/ai/sdk-router';
 import { getUserModel } from '@/lib/ai/get-user-model';
 import { SYSTEM_TIMELINE_GENERATOR } from '@/lib/ai/prompts/system-timeline-generator';
 import { timelineOutputSchema } from '@/lib/ai/schemas/timeline-output';
+import {
+  apiBadRequest,
+  apiError,
+  apiJson,
+  apiUnauthorized,
+  createApiRequestContext,
+  logServerEvent,
+  parseApiJson,
+} from '@/lib/observability/server';
 
 interface GenerateTimelineBody {
   projectId: string;
@@ -12,25 +21,24 @@ interface GenerateTimelineBody {
 }
 
 export async function POST(request: NextRequest) {
+  const requestContext = createApiRequestContext(request);
   try {
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return apiUnauthorized(requestContext);
     }
 
-    const body: GenerateTimelineBody = await request.json();
+    const { data: body, response } = await parseApiJson<GenerateTimelineBody>(request, requestContext);
+    if (response || !body) {
+      return response;
+    }
+
     const { projectId, version = 'full' } = body;
 
     if (!projectId) {
-      return NextResponse.json(
-        { error: 'Missing required field: projectId' },
-        { status: 400 }
-      );
+      return apiBadRequest(requestContext, 'Missing required field: projectId');
     }
 
     // Fetch project and scenes
@@ -38,24 +46,29 @@ export async function POST(request: NextRequest) {
       .from('projects')
       .select('*')
       .eq('id', projectId)
-      .eq('user_id', user.id)
+      .eq('owner_id', user.id)
       .single();
 
     if (projectError || !project) {
-      return NextResponse.json(
-        { error: 'Project not found' },
-        { status: 404 }
-      );
+      return apiJson(requestContext, { error: 'Project not found', requestId: requestContext.requestId }, { status: 404 });
     }
 
     const { data: scenes } = await supabase
       .from('scenes')
       .select('*')
       .eq('project_id', projectId)
-      .order('order', { ascending: true });
+      .order('sort_order', { ascending: true });
 
     const { model, providerId } = await getUserModel(user.id);
     const startTime = Date.now();
+
+    logServerEvent('generate-timeline', requestContext, 'Generating timeline', {
+      userId: user.id,
+      projectId,
+      providerId,
+      version,
+      sceneCount: scenes?.length ?? 0,
+    });
 
     const userPrompt = `Generate a ${version} timeline for this storyboard:
 
@@ -91,7 +104,7 @@ Respond with the timeline matching the required schema: version, total_duration_
       success: true,
     });
 
-    return NextResponse.json({
+    return apiJson(requestContext, {
       success: true,
       data: output,
       provider: providerId,
@@ -100,16 +113,9 @@ Respond with the timeline matching the required schema: version, total_duration_
     const message = error instanceof Error ? error.message : 'Unknown error';
 
     if (message.startsWith('NO_PROVIDER_AVAILABLE')) {
-      return NextResponse.json(
-        { error: message },
-        { status: 429 }
-      );
+      return apiJson(requestContext, { error: message, requestId: requestContext.requestId }, { status: 429 });
     }
 
-    console.error('[generate-timeline]', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return apiError(requestContext, 'generate-timeline', error, { message: 'Internal server error' });
   }
 }

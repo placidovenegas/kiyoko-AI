@@ -1,22 +1,28 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { encrypt, getApiKeyHint } from '@/lib/utils/crypto';
 import type { AiProviderId } from '@/types';
+import {
+  apiBadRequest,
+  apiError,
+  apiJson,
+  apiUnauthorized,
+  createApiRequestContext,
+  parseApiJson,
+} from '@/lib/observability/server';
 
 /**
  * GET /api/user/api-keys
  * List all API keys for the current user (returns hints, not actual keys).
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const requestContext = createApiRequestContext(request);
   try {
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return apiUnauthorized(requestContext);
     }
 
     const { data: keys, error } = await supabase
@@ -26,23 +32,18 @@ export async function GET() {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('[api-keys/GET]', error);
-      return NextResponse.json(
-        { error: 'Failed to fetch API keys' },
-        { status: 500 }
-      );
+      return apiError(requestContext, 'api-keys/GET', error, {
+        message: 'Failed to fetch API keys',
+        extra: { userId: user.id },
+      });
     }
 
-    return NextResponse.json({
+    return apiJson(requestContext, {
       success: true,
       keys: keys ?? [],
     });
   } catch (error) {
-    console.error('[api-keys/GET]', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return apiError(requestContext, 'api-keys/GET', error);
   }
 }
 
@@ -57,33 +58,29 @@ interface AddKeyBody {
  * Add a new API key. The key is encrypted before storing.
  */
 export async function POST(request: NextRequest) {
+  const requestContext = createApiRequestContext(request);
   try {
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return apiUnauthorized(requestContext);
     }
 
-    const body: AddKeyBody = await request.json();
+    const { data: body, response } = await parseApiJson<AddKeyBody>(request, requestContext);
+    if (response || !body) {
+      return response;
+    }
+
     const { provider, apiKey, monthlyBudget } = body;
 
     if (!provider || !apiKey) {
-      return NextResponse.json(
-        { error: 'Missing required fields: provider, apiKey' },
-        { status: 400 }
-      );
+      return apiBadRequest(requestContext, 'Missing required fields: provider, apiKey');
     }
 
     const validProviders: AiProviderId[] = ['groq', 'cerebras', 'mistral', 'gemini', 'grok', 'deepseek', 'claude', 'openai', 'stability'];
     if (!validProviders.includes(provider)) {
-      return NextResponse.json(
-        { error: `Invalid provider. Must be one of: ${validProviders.join(', ')}` },
-        { status: 400 }
-      );
+      return apiBadRequest(requestContext, `Invalid provider. Must be one of: ${validProviders.join(', ')}`);
     }
 
     // Check if user already has a key for this provider
@@ -95,10 +92,10 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (existing) {
-      return NextResponse.json(
-        { error: 'You already have a key for this provider. Use PATCH to update it.' },
-        { status: 409 }
-      );
+      return apiJson(requestContext, {
+        error: 'You already have a key for this provider. Use PATCH to update it.',
+        requestId: requestContext.requestId,
+      }, { status: 409 });
     }
 
     // Encrypt the key before storing
@@ -120,22 +117,14 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('[api-keys/POST]', error);
-      return NextResponse.json(
-        { error: 'Failed to save API key' },
-        { status: 500 }
-      );
+      return apiError(requestContext, 'api-keys/POST', error, {
+        message: 'Failed to save API key',
+        extra: { userId: user.id, provider },
+      });
     }
 
-    return NextResponse.json(
-      { success: true, key: newKey },
-      { status: 201 }
-    );
+    return apiJson(requestContext, { success: true, key: newKey }, { status: 201 });
   } catch (error) {
-    console.error('[api-keys/POST]', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return apiError(requestContext, 'api-keys/POST', error);
   }
 }

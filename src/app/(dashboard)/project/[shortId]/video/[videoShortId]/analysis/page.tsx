@@ -7,7 +7,7 @@ import { queryKeys } from '@/lib/query/keys';
 import { fetchVideoAnalysis } from '@/lib/queries/videos';
 import { ScoreGauge } from '@/components/analysis/ScoreGauge';
 import { AnalysisCard } from '@/components/analysis/AnalysisCard';
-import { Button } from '@/components/ui/button';
+import { Button } from '@heroui/react';
 import { RefreshCw, Loader2, BarChart3 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns/formatDistanceToNow';
 import { es } from 'date-fns/locale/es';

@@ -1,629 +1,749 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { createClient } from '@/lib/supabase/client';
-import { cn } from '@/lib/utils/cn';
-import { useProject } from '@/contexts/ProjectContext';
-import { Button } from '@/components/ui/button';
-import {
-  Dropdown,
-  DropdownTrigger,
-  DropdownMenu,
-  DropdownItem,
-  DropdownSection,
-} from '@heroui/react';
-import type { Character, Video } from '@/types';
-import {
-  Film, Users, Image, Video as VideoIcon,
-  Plus, Settings, ChevronRight, Pencil, Layers,
-  Clock, MoreHorizontal, FolderOpen, Trash2, Copy,
-  Monitor, Smartphone, Tv,
-} from 'lucide-react';
+import { useMemo, useState, type ReactNode } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns/formatDistanceToNow';
 import { es } from 'date-fns/locale/es';
+import {
+  Bot,
+  Brain,
+  CalendarClock,
+  ChevronRight,
+  Clock3,
+  Film,
+  FolderKanban,
+  Image as ImageIcon,
+  Layers3,
+  MoreHorizontal,
+  Sparkles,
+  Tv,
+  UserRound,
+  Video as VideoIcon,
+  type LucideIcon,
+} from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { useProject } from '@/contexts/ProjectContext';
+import { createClient } from '@/lib/supabase/client';
+import { queryKeys } from '@/lib/query/keys';
+import { cn } from '@/lib/utils/cn';
+import { useAIStore } from '@/stores/ai-store';
+import { useUIStore } from '@/stores/useUIStore';
+import type { ActivityLog, Character, Video } from '@/types';
 
-const STATUS_LABELS: Record<string, string> = {
+const PROJECT_STATUS_LABELS: Record<string, string> = {
   draft: 'Borrador',
   in_progress: 'En progreso',
-  review: 'Revision',
+  review: 'En revision',
   completed: 'Completado',
   archived: 'Archivado',
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  draft: 'bg-muted0/20 text-muted-foreground',
-  in_progress: 'bg-primary/20 text-primary',
-  review: 'bg-purple-500/20 text-purple-400',
-  completed: 'bg-emerald-500/20 text-emerald-400',
-  archived: 'bg-muted0/10 text-muted-foreground',
-};
-
-const VIDEO_STATUS_COLORS: Record<string, string> = {
-  draft: 'bg-muted0/20 text-muted-foreground',
-  prompting: 'bg-blue-500/20 text-blue-400',
-  generating: 'bg-amber-500/20 text-amber-400',
-  review: 'bg-purple-500/20 text-purple-400',
-  approved: 'bg-emerald-500/20 text-emerald-400',
-  exported: 'bg-cyan-500/20 text-cyan-400',
-};
-
 const VIDEO_STATUS_LABELS: Record<string, string> = {
   draft: 'Borrador',
-  prompting: 'Creando prompts',
+  prompting: 'Prompts',
   generating: 'Generando',
-  review: 'Revision',
+  review: 'En revision',
   approved: 'Aprobado',
   exported: 'Exportado',
 };
 
-const PLATFORM_ICONS: Record<string, React.ElementType> = {
+const PLATFORM_ICONS: Record<string, LucideIcon> = {
   youtube: Tv,
-  tiktok: Smartphone,
-  instagram: Monitor,
-  reels: Monitor,
+  tiktok: Tv,
+  instagram: Tv,
+  reels: Tv,
 };
 
-function formatDuration(seconds: number | null): string {
-  if (!seconds) return '--';
+function formatDuration(seconds: number | null) {
+  if (!seconds) return 'Sin objetivo';
   if (seconds < 60) return `${seconds}s`;
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return s > 0 ? `${m}m ${s}s` : `${m}m`;
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return remainder > 0 ? `${minutes}m ${remainder}s` : `${minutes}m`;
 }
 
-function formatTimeWorked(seconds: number): string {
-  if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
-  const h = Math.floor(seconds / 3600);
-  const m = Math.round((seconds % 3600) / 60);
-  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+function formatWorkedMinutes(totalMinutes: number) {
+  if (totalMinutes <= 0) return '0m';
+  if (totalMinutes < 60) return `${totalMinutes}m`;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+}
+
+function formatRelative(date: string | null) {
+  if (!date) return 'Sin fecha';
+  return formatDistanceToNow(new Date(date), { addSuffix: true, locale: es });
+}
+
+function isOverdue(dueDate: string | null, status: string) {
+  if (!dueDate || status === 'completed') return false;
+  return new Date(dueDate).getTime() < Date.now();
+}
+
+function statusChipClass(status: string) {
+  switch (status) {
+    case 'completed':
+    case 'approved':
+    case 'exported':
+      return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300';
+    case 'review':
+      return 'border-sky-500/20 bg-sky-500/10 text-sky-300';
+    case 'in_progress':
+    case 'generating':
+    case 'prompting':
+      return 'border-amber-500/20 bg-amber-500/10 text-amber-300';
+    case 'archived':
+      return 'border-border bg-background text-muted-foreground';
+    default:
+      return 'border-border bg-background text-muted-foreground';
+  }
 }
 
 function OverviewSkeleton() {
   return (
-    <div className="space-y-6 p-6">
-      <div className="h-48 animate-pulse rounded-2xl bg-secondary" />
-      <div className="space-y-2">
-        <div className="h-6 w-1/3 animate-pulse rounded bg-secondary" />
-        <div className="h-4 w-1/2 animate-pulse rounded bg-secondary" />
-      </div>
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="h-24 animate-pulse rounded-xl bg-secondary" />
+    <div className="space-y-6 p-6 lg:p-8">
+      <div className="h-64 animate-pulse rounded-[28px] border border-border bg-card" />
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <div key={index} className="h-28 animate-pulse rounded-2xl border border-border bg-card" />
         ))}
       </div>
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="h-64 animate-pulse rounded-xl bg-secondary" />
-        <div className="h-64 animate-pulse rounded-xl bg-secondary" />
+      <div className="grid gap-6 xl:grid-cols-[1.45fr_0.95fr]">
+        <div className="h-96 animate-pulse rounded-2xl border border-border bg-card" />
+        <div className="h-96 animate-pulse rounded-2xl border border-border bg-card" />
+      </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="h-72 animate-pulse rounded-2xl border border-border bg-card" />
+        <div className="h-72 animate-pulse rounded-2xl border border-border bg-card" />
       </div>
     </div>
   );
+}
+
+function Surface({ children, className = '' }: { children: ReactNode; className?: string }) {
+  return <section className={cn('rounded-2xl border border-border bg-card p-5 shadow-sm lg:p-6', className)}>{children}</section>;
+}
+
+function SectionHeader({ title, description, action }: { title: string; description: string; action?: ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div>
+        <h2 className="text-lg font-semibold tracking-tight text-foreground">{title}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+      </div>
+      {action}
+    </div>
+  );
+}
+
+function StatCard({ icon: Icon, label, value, meta, href }: { icon: LucideIcon; label: string; value: string | number; meta?: string; href?: string }) {
+  const content = (
+    <div className="flex h-full items-start gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm transition-colors hover:border-primary/20 hover:bg-accent-soft-hover">
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border bg-background text-primary">
+        <Icon className="h-5 w-5" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
+        <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{value}</p>
+        {meta ? <p className="mt-1 text-xs text-muted-foreground">{meta}</p> : null}
+      </div>
+    </div>
+  );
+
+  if (href) {
+    return <Link href={href}>{content}</Link>;
+  }
+
+  return content;
 }
 
 function CharacterAvatar({ character }: { character: Character }) {
   const initials = (character.name ?? '??')
     .split(' ')
-    .map((w) => w[0])
+    .map((part) => part[0])
     .join('')
     .slice(0, 2)
     .toUpperCase();
 
-  const accentColor = character.color_accent ?? '#0EA5A0';
-
   return (
-    <div className="flex flex-col items-center gap-2">
-      <div
-        className="flex h-12 w-12 items-center justify-center rounded-full text-xs font-bold text-white"
-        style={{ backgroundColor: accentColor }}
-      >
-        {character.reference_image_url ? (
-          <img
-            src={character.reference_image_url}
-            alt={character.name}
-            className="h-full w-full rounded-full object-cover"
-          />
-        ) : (
-          <span>{initials}</span>
-        )}
+    <div className="flex items-center gap-3 rounded-2xl border border-border bg-background/70 p-3">
+      {character.reference_image_url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={character.reference_image_url} alt={character.name} className="h-12 w-12 rounded-2xl object-cover" />
+      ) : (
+        <div
+          className="flex h-12 w-12 items-center justify-center rounded-2xl text-xs font-semibold text-white"
+          style={{ backgroundColor: character.color_accent ?? '#6B7280' }}
+        >
+          {initials}
+        </div>
+      )}
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-foreground">{character.name}</p>
+        <p className="mt-1 truncate text-xs text-muted-foreground">{character.role || 'Sin rol definido'}</p>
       </div>
-      <span className="max-w-16 truncate text-center text-xs text-muted-foreground">
-        {character.name}
-      </span>
     </div>
   );
 }
 
-function VideoRow({
-  video,
+function VideoListItem({
+  projectId,
   projectShortId,
-  sceneCounts,
+  video,
+  counts,
 }: {
-  video: Video;
+  projectId: string;
   projectShortId: string;
-  sceneCounts: Record<string, { total: number; approved: number }>;
+  video: Video;
+  counts: { total: number; approved: number };
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const PlatformIcon = PLATFORM_ICONS[video.platform?.toLowerCase() ?? ''] ?? VideoIcon;
-  const counts = sceneCounts[video.id] ?? { total: 0, approved: 0 };
   const progress = counts.total > 0 ? Math.round((counts.approved / counts.total) * 100) : 0;
 
-  const deleteMutation = useMutation({
+  const deleteVideo = useMutation({
     mutationFn: async () => {
       const supabase = createClient();
       const { error } = await supabase.from('videos').delete().eq('id', video.id);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.videos.byProject(projectId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects.detail(projectShortId) });
     },
   });
 
-  const updateStatusMutation = useMutation({
-    mutationFn: async (newStatus: string) => {
+  const updateStatus = useMutation({
+    mutationFn: async (status: string) => {
       const supabase = createClient();
-      const { error } = await supabase
-        .from('videos')
-        .update({ status: newStatus as 'draft' | 'prompting' | 'generating' | 'review' | 'approved' | 'exported' })
-        .eq('id', video.id);
+      const { error } = await supabase.from('videos').update({ status: status as Video['status'] }).eq('id', video.id);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.videos.byProject(projectId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects.detail(projectShortId) });
     },
   });
 
   return (
-    <div className="group rounded-lg border border-border bg-card p-4 transition hover:bg-secondary">
+    <div className="group rounded-2xl border border-border bg-background/70 p-4 transition-colors hover:border-primary/20 hover:bg-accent-soft-hover">
       <div className="flex items-start gap-3">
-        <Link
-          href={`/project/${projectShortId}/video/${video.short_id}`}
-          className="flex min-w-0 flex-1 flex-col gap-2"
-        >
-          {/* Row 1: Platform icon + title */}
+        <Link href={`/project/${projectShortId}/video/${video.short_id}`} className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <PlatformIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <PlatformIcon className="h-4 w-4 text-muted-foreground" />
             <span className="truncate text-sm font-medium text-foreground">{video.title}</span>
-          </div>
-
-          {/* Row 2: Progress bar + scene count */}
-          <div className="flex items-center gap-3">
-            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary">
-              <div
-                className="h-full rounded-full bg-primary transition-all"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <span className="shrink-0 text-xs text-muted-foreground">{progress}%</span>
-            <span className="shrink-0 text-xs text-muted-foreground">{counts.total} escenas</span>
-          </div>
-
-          {/* Row 3: Platform details */}
-          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span>{video.platform}</span>
-            {video.aspect_ratio && (
-              <>
-                <span className="text-muted-foreground/40">&middot;</span>
-                <span>{video.aspect_ratio}</span>
-              </>
-            )}
-            {video.target_duration_seconds && (
-              <>
-                <span className="text-muted-foreground/40">&middot;</span>
-                <span>{formatDuration(video.target_duration_seconds)} objetivo</span>
-              </>
-            )}
-          </div>
-
-          {/* Row 4: Status + updated */}
-          <div className="flex items-center gap-2">
-            <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-medium', VIDEO_STATUS_COLORS[video.status] ?? 'bg-muted0/20 text-muted-foreground')}>
+            <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-medium', statusChipClass(video.status))}>
               {VIDEO_STATUS_LABELS[video.status] ?? video.status}
             </span>
-            {video.updated_at && (
-              <>
-                <span className="text-muted-foreground/40 text-xs">&middot;</span>
-                <span className="text-xs text-muted-foreground">
-                  Actualizado {formatDistanceToNow(new Date(video.updated_at), { addSuffix: false, locale: es })}
-                </span>
-              </>
-            )}
+          </div>
+          <div className="mt-3 flex items-center gap-3">
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-border">
+              <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progress}%` }} />
+            </div>
+            <span className="text-xs text-muted-foreground">{progress}%</span>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+            <span>{counts.total} escenas</span>
+            <span>{counts.approved} aprobadas</span>
+            <span>{video.platform || 'Plataforma libre'}</span>
+            <span>{formatDuration(video.target_duration_seconds)}</span>
+            <span>Actualizado {formatRelative(video.updated_at)}</span>
           </div>
         </Link>
 
-        {/* Dropdown */}
-        <Dropdown>
-          <DropdownTrigger>
-            <button
-              type="button"
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition group-hover:opacity-100 hover:bg-card"
-            >
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button type="button" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-transparent text-muted-foreground transition-colors hover:border-border hover:bg-card hover:text-foreground">
               <MoreHorizontal className="h-4 w-4" />
             </button>
-          </DropdownTrigger>
-          <DropdownMenu aria-label="Video actions" className="min-w-48">
-            <DropdownSection>
-              <DropdownItem key="open" onClick={() => router.push(`/project/${projectShortId}/video/${video.short_id}`)}>
-                <FolderOpen className="h-4 w-4 mr-2" />Abrir video
-              </DropdownItem>
-            </DropdownSection>
-            <DropdownSection>
-              <DropdownItem key="rename" onClick={() => router.push(`/project/${projectShortId}/video/${video.short_id}`)}>
-                <Pencil className="h-4 w-4 mr-2" />Renombrar
-              </DropdownItem>
-              <DropdownItem key="duplicate">
-                <Copy className="h-4 w-4 mr-2" />Duplicar
-              </DropdownItem>
-            </DropdownSection>
-            <DropdownSection>
-              {['draft', 'prompting', 'generating', 'review', 'approved', 'exported'].map((s) => (
-                <DropdownItem
-                  key={s}
-                  onClick={() => updateStatusMutation.mutate(s)}
-                  className={cn(video.status === s && 'font-bold')}
-                >
-                  {VIDEO_STATUS_LABELS[s] ?? s}
-                  {video.status === s && ' \u2713'}
-                </DropdownItem>
-              ))}
-            </DropdownSection>
-            <DropdownSection>
-              <DropdownItem key="delete" className="text-danger" onClick={() => deleteMutation.mutate()}>
-                <Trash2 className="h-4 w-4 mr-2" />Eliminar
-              </DropdownItem>
-            </DropdownSection>
-          </DropdownMenu>
-        </Dropdown>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onClick={() => router.push(`/project/${projectShortId}/video/${video.short_id}`)}>Abrir video</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            {['draft', 'prompting', 'generating', 'review', 'approved', 'exported'].map((status) => (
+              <DropdownMenuItem key={status} onClick={() => updateStatus.mutate(status)}>
+                {VIDEO_STATUS_LABELS[status] ?? status}
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="text-danger focus:text-danger" onClick={() => deleteVideo.mutate()}>
+              Eliminar video
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );
 }
 
 export default function ProjectOverviewPage() {
-  const { project, videos, characters, backgrounds, loading: projectLoading } = useProject();
-  const [descExpanded, setDescExpanded] = useState(false);
+  const { project, videos, characters, backgrounds, stylePresets, loading } = useProject();
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  const openChat = useAIStore((state) => state.openChat);
+  const setActiveAgent = useAIStore((state) => state.setActiveAgent);
+  const openProjectSettingsModal = useUIStore((state) => state.openProjectSettingsModal);
 
-  // Scenes count via a lightweight query
-  const { data: scenesCount = 0 } = useQuery<number>({
-    queryKey: ['scenes-count', project?.id],
+  const scenesQuery = useQuery({
+    queryKey: project?.id ? [...queryKeys.projects.detail(project.short_id), 'scene-metrics'] : ['projects', 'scene-metrics', 'empty'],
     queryFn: async () => {
       const supabase = createClient();
-      const { count } = await supabase
-        .from('scenes')
-        .select('*', { count: 'exact', head: true })
-        .eq('project_id', project!.id);
-      return count ?? 0;
-    },
-    enabled: !!project?.id,
-  });
+      const { data, error } = await supabase.from('scenes').select('video_id, status').eq('project_id', project!.id);
+      if (error) throw error;
 
-  // Scene counts per video (total + approved)
-  const { data: videoSceneCounts = {} } = useQuery<Record<string, { total: number; approved: number }>>({
-    queryKey: ['video-scene-counts', project?.id],
-    queryFn: async () => {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from('scenes')
-        .select('video_id, status')
-        .eq('project_id', project!.id);
-      if (!data) return {};
-      const counts: Record<string, { total: number; approved: number }> = {};
-      for (const scene of data) {
-        if (!counts[scene.video_id]) counts[scene.video_id] = { total: 0, approved: 0 };
-        counts[scene.video_id].total++;
-        if (scene.status === 'approved') counts[scene.video_id].approved++;
+      const byVideo: Record<string, { total: number; approved: number }> = {};
+      let total = 0;
+      let approved = 0;
+
+      for (const scene of data ?? []) {
+        total += 1;
+        if (!byVideo[scene.video_id]) byVideo[scene.video_id] = { total: 0, approved: 0 };
+        byVideo[scene.video_id].total += 1;
+        if (scene.status === 'approved') {
+          approved += 1;
+          byVideo[scene.video_id].approved += 1;
+        }
       }
-      return counts;
+
+      return { total, approved, byVideo };
     },
-    enabled: !!project?.id,
+    enabled: Boolean(project?.id),
+    staleTime: 60_000,
   });
 
-  // Time worked on project
-  const { data: timeWorked = 0 } = useQuery<number>({
-    queryKey: ['time-worked', project?.id],
+  const workedMinutesQuery = useQuery({
+    queryKey: project?.id ? queryKeys.timeEntries.byProject(project.id) : ['time-entries', 'project', 'empty'],
     queryFn: async () => {
       const supabase = createClient();
-      const { data } = await supabase
-        .from('time_entries')
-        .select('duration_minutes')
-        .eq('project_id', project!.id);
-      if (!data) return 0;
-      return data.reduce((sum, row) => sum + (row.duration_minutes ?? 0), 0);
+      const { data, error } = await supabase.from('time_entries').select('duration_minutes').eq('project_id', project!.id);
+      if (error) throw error;
+      return (data ?? []).reduce((sum, row) => sum + (row.duration_minutes ?? 0), 0);
     },
-    enabled: !!project?.id,
-    staleTime: 60 * 1000,
+    enabled: Boolean(project?.id),
+    staleTime: 60_000,
   });
 
-  // Recent activity
-  const { data: recentActivity = [] } = useQuery({
-    queryKey: ['activity', project?.id],
+  const activityQuery = useQuery({
+    queryKey: project?.id ? ['activity', project.id, 'overview'] : ['activity', 'overview', 'empty'],
     queryFn: async () => {
       const supabase = createClient();
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('activity_log')
-        .select('id, action, entity_type, entity_id, created_at, metadata')
+        .select('*')
         .eq('project_id', project!.id)
         .order('created_at', { ascending: false })
-        .limit(5);
-      return data ?? [];
+        .limit(6);
+      if (error) throw error;
+      return (data ?? []) as ActivityLog[];
     },
-    enabled: !!project?.id,
-    staleTime: 30 * 1000,
+    enabled: Boolean(project?.id),
+    staleTime: 30_000,
   });
 
-  if (projectLoading) {
+  const taskSummaryQuery = useQuery({
+    queryKey: project?.id ? [...queryKeys.tasks.byProject(project.id), 'summary'] : ['tasks', 'project', 'summary', 'empty'],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.from('tasks').select('status, priority, due_date').eq('project_id', project!.id);
+      if (error) throw error;
+
+      const tasks = data ?? [];
+      const completed = tasks.filter((task) => task.status === 'completed').length;
+      const active = tasks.length - completed;
+      const overdue = tasks.filter((task) => isOverdue(task.due_date, task.status)).length;
+      const urgent = tasks.filter((task) => task.priority === 'urgent' && task.status !== 'completed').length;
+
+      return { total: tasks.length, active, completed, overdue, urgent };
+    },
+    enabled: Boolean(project?.id),
+    staleTime: 30_000,
+  });
+
+  const sceneMetrics = scenesQuery.data ?? { total: 0, approved: 0, byVideo: {} as Record<string, { total: number; approved: number }> };
+  const workedMinutes = workedMinutesQuery.data ?? 0;
+  const activity = activityQuery.data ?? [];
+  const taskSummary = taskSummaryQuery.data ?? { total: 0, active: 0, completed: 0, overdue: 0, urgent: 0 };
+
+  const aiChecklist = useMemo(
+    () => [
+      { label: 'Briefing del proyecto', ready: Boolean(project?.ai_brief?.trim()), href: `/project/${project?.short_id ?? ''}/settings` },
+      { label: 'Reglas globales de prompts', ready: Boolean(project?.global_prompt_rules?.trim()), href: `/project/${project?.short_id ?? ''}/settings` },
+      { label: 'Presets de estilo', ready: stylePresets.length > 0, href: `/project/${project?.short_id ?? ''}/resources/styles` },
+      { label: 'Biblioteca creativa base', ready: characters.length > 0 && backgrounds.length > 0, href: `/project/${project?.short_id ?? ''}/resources` },
+    ],
+    [backgrounds.length, characters.length, project?.ai_brief, project?.global_prompt_rules, project?.short_id, stylePresets.length],
+  );
+
+  if (loading) {
     return <OverviewSkeleton />;
   }
 
   if (!project) {
     return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <Film className="h-10 w-10 text-muted-foreground" />
-        <h3 className="mt-4 text-lg font-semibold text-foreground">Proyecto no encontrado</h3>
-        <Link href="/dashboard" className="mt-3 text-sm text-primary hover:text-primary/80">
+      <div className="flex min-h-[60vh] flex-col items-center justify-center px-6 text-center">
+        <FolderKanban className="h-12 w-12 text-muted-foreground/40" />
+        <h1 className="mt-4 text-2xl font-semibold tracking-tight text-foreground">Proyecto no encontrado</h1>
+        <p className="mt-2 max-w-md text-sm text-muted-foreground">No se pudo resolver el proyecto o no tienes acceso a este espacio.</p>
+        <Link href="/dashboard" className="mt-5 inline-flex h-11 items-center rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90">
           Volver al dashboard
         </Link>
       </div>
     );
   }
 
-  const sid = project.short_id;
+  const description = project.description?.trim() ?? '';
+  const descriptionNeedsClamp = description.length > 180;
+  const aiReadyCount = aiChecklist.filter((item) => item.ready).length;
+  const sceneApproval = sceneMetrics.total > 0 ? Math.round((sceneMetrics.approved / sceneMetrics.total) * 100) : 0;
+  const latestVideos = videos.slice(0, 5);
 
-  const stats = [
-    { icon: VideoIcon, accent: 'bg-pink-500/10 text-pink-400', label: 'Videos', value: videos.length, href: `/project/${sid}/videos` },
-    { icon: Film, accent: 'bg-primary/10 text-primary', label: 'Escenas', value: scenesCount, href: `/project/${sid}/videos` },
-    { icon: Users, accent: 'bg-emerald-500/10 text-emerald-400', label: 'Personajes', value: characters.length, href: `/project/${sid}/resources` },
-    { icon: Image, accent: 'bg-amber-500/10 text-amber-400', label: 'Fondos', value: backgrounds.length, href: `/project/${sid}/resources` },
-    { icon: Clock, accent: 'bg-purple-500/10 text-purple-400', label: 'Trabajado', value: formatTimeWorked(timeWorked), href: undefined },
-  ];
+  function handleOpenProjectChat() {
+    setActiveAgent('project');
+    openChat('sidebar');
+  }
 
-  const descriptionTruncated = project.description && project.description.length > 150;
+  function handleOpenProjectSettings(section: 'general' | 'ia' = 'general') {
+    openProjectSettingsModal(section);
+  }
 
   return (
-    <div className="h-full overflow-y-auto bg-background p-6 space-y-6">
-      {/* Hero / Cover */}
-      <div className="relative h-48 overflow-hidden rounded-xl md:h-56">
-        {project.cover_image_url ? (
-          <img src={project.cover_image_url} alt={project.title} className="h-full w-full object-cover" />
-        ) : (
-          <div className="h-full w-full bg-linear-to-br from-primary via-emerald-500/40 to-primary/10" />
-        )}
-        <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/30 to-transparent" />
-      </div>
-
-      {/* Info Block */}
-      <div className="space-y-3">
-        <div className="flex items-start justify-between gap-4">
-          <h1 className="text-xl font-semibold text-foreground">{project.title}</h1>
-          <Link href={`/project/${sid}/settings`}>
-            <Button variant="ghost" size="sm" className="rounded-md">
-              <Settings className="h-4 w-4 mr-2" />Ajustes
-            </Button>
-          </Link>
-        </div>
-
-        {/* Client + Status + Style + Tags */}
-        <div className="flex flex-wrap items-center gap-3">
-          {project.client_name && (
-            <span className="text-sm text-muted-foreground">
-              Cliente: {project.client_name}
-            </span>
+    <div className="space-y-6 px-3 py-4 lg:space-y-8 lg:px-5 lg:py-5">
+      <section className="relative overflow-hidden rounded-[28px] border border-border bg-card shadow-sm">
+        <div className="absolute inset-0">
+          {project.cover_image_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={project.cover_image_url} alt={project.title} className="h-full w-full object-cover" />
+          ) : (
+            <div className="h-full w-full bg-[radial-gradient(circle_at_top_left,rgba(245,165,36,0.18),transparent_36%),linear-gradient(135deg,rgba(0,111,238,0.16),transparent_58%),linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0))]" />
           )}
-          {project.client_name && <span className="text-muted-foreground/40">&middot;</span>}
-          <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium', STATUS_COLORS[project.status])}>
-            {STATUS_LABELS[project.status] ?? project.status}
-          </span>
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(7,7,8,0.18),rgba(7,7,8,0.78))]" />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {project.style && (
-            <span className="rounded-md bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-              {project.style}
-            </span>
-          )}
-          {project.tags && project.tags.length > 0 && project.tags.map((tag) => (
-            <span key={tag} className="rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground">
-              {tag}
-            </span>
-          ))}
-        </div>
+        <div className="relative z-10 p-6 lg:p-8">
+          <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+            <div className="max-w-3xl">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-medium text-white/80 backdrop-blur-sm">
+                  <FolderKanban className="h-3.5 w-3.5" />
+                  Proyecto
+                </span>
+                <span className={cn('inline-flex rounded-full border px-3 py-1 text-xs font-medium backdrop-blur-sm', statusChipClass(project.status), 'bg-black/20 text-white border-white/10')}>
+                  {PROJECT_STATUS_LABELS[project.status] ?? project.status}
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70 backdrop-blur-sm">
+                  <Clock3 className="h-3.5 w-3.5" />
+                  Actualizado {formatRelative(project.updated_at)}
+                </span>
+              </div>
 
-        {/* Description truncated */}
-        {project.description && (
-          <div>
-            <p className={cn('text-sm leading-relaxed text-muted-foreground', !descExpanded && 'line-clamp-2')}>
-              {project.description}
-            </p>
-            {descriptionTruncated && (
-              <button
-                type="button"
-                onClick={() => setDescExpanded(!descExpanded)}
-                className="mt-1 text-xs font-medium text-primary hover:text-primary/80"
-              >
-                {descExpanded ? 'Ver menos' : 'Ver mas'}
+              <h1 className="mt-5 text-3xl font-semibold tracking-tight text-white lg:text-4xl">{project.title}</h1>
+
+              <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white/70">
+                <span>{project.client_name || 'Proyecto interno'}</span>
+                <span>{project.style || 'Sin estilo definido'}</span>
+                <span>{videos.length} videos</span>
+                <span>{taskSummary.active} tareas activas</span>
+              </div>
+
+              {description ? (
+                <div className="mt-4 max-w-2xl">
+                  <p className={cn('text-sm leading-6 text-white/80 lg:text-base', !descriptionExpanded && descriptionNeedsClamp ? 'line-clamp-3' : '')}>
+                    {description}
+                  </p>
+                  {descriptionNeedsClamp ? (
+                    <button type="button" onClick={() => setDescriptionExpanded((current) => !current)} className="mt-2 text-sm font-medium text-white transition-opacity hover:opacity-80">
+                      {descriptionExpanded ? 'Ver menos' : 'Ver mas'}
+                    </button>
+                  ) : null}
+                </div>
+              ) : (
+                <p className="mt-4 max-w-2xl text-sm leading-6 text-white/70">Define un briefing y reglas globales para convertir este proyecto en un espacio mucho mas asistido por IA.</p>
+              )}
+
+              {project.tags && project.tags.length > 0 ? (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {project.tags.map((tag) => (
+                    <span key={tag} className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70 backdrop-blur-sm">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 xl:w-120">
+              <Link href={`/project/${project.short_id}/tasks`} className="group rounded-[24px] bg-primary p-4 text-primary-foreground transition-opacity hover:opacity-90">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold">Gestionar tareas</p>
+                    <p className="mt-1 text-xs text-primary-foreground/80">Operacion, prioridades y seguimiento del proyecto.</p>
+                  </div>
+                  <Layers3 className="h-4 w-4 shrink-0 text-primary-foreground/85" />
+                </div>
+              </Link>
+              <button type="button" onClick={handleOpenProjectChat} className="group rounded-[24px] border border-white/10 bg-black/24 p-4 text-left text-white/90 backdrop-blur-sm transition-colors hover:bg-black/34">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold">Asistente del proyecto</p>
+                    <p className="mt-1 text-xs text-white/65">Ayuda contextual para planificar, revisar y destrabar.</p>
+                  </div>
+                  <Bot className="h-4 w-4 shrink-0 text-white/70" />
+                </div>
               </button>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Stats — 5 cols */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        {stats.map((s) => {
-          const content = (
-            <div
-              key={s.label}
-              className={cn(
-                'flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition',
-                s.href && 'cursor-pointer hover:bg-secondary',
-              )}
-            >
-              <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-lg', s.accent)}>
-                <s.icon className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-xl font-bold text-foreground">{s.value}</p>
-                <p className="text-xs text-muted-foreground">{s.label}</p>
-              </div>
+              <Link href={`/project/${project.short_id}/resources`} className="group rounded-[24px] border border-white/10 bg-black/24 p-4 text-left text-white/90 backdrop-blur-sm transition-colors hover:bg-black/34">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium">Recursos y personajes</p>
+                    <p className="mt-1 text-xs text-white/65">Biblioteca visual, fondos, estilos y plantillas.</p>
+                  </div>
+                  <UserRound className="h-4 w-4 shrink-0 text-white/70" />
+                </div>
+              </Link>
+              <button type="button" onClick={() => handleOpenProjectSettings('general')} className="group rounded-[24px] border border-white/10 bg-black/24 p-4 text-left text-white/90 backdrop-blur-sm transition-colors hover:bg-black/34">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium">Ajustes del proyecto</p>
+                    <p className="mt-1 text-xs text-white/65">Identidad, briefing y reglas globales del espacio.</p>
+                  </div>
+                  <Sparkles className="h-4 w-4 shrink-0 text-white/70" />
+                </div>
+              </button>
             </div>
-          );
-          if (s.href) {
-            return <Link key={s.label} href={s.href}>{content}</Link>;
-          }
-          return <div key={s.label}>{content}</div>;
-        })}
-      </div>
-
-      {/* Videos Section */}
-      <div className="rounded-xl border border-border bg-card p-6">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-base font-semibold text-foreground">
-            Videos ({videos.length})
-          </h3>
-          <Link href={`/project/${sid}/videos`}>
-            <Button size="sm" className="rounded-md">
-              <Plus className="h-3.5 w-3.5 mr-2" />Nuevo video
-            </Button>
-          </Link>
+          </div>
         </div>
-        {videos.length === 0 ? (
-          <div className="flex flex-col items-center py-8 text-center">
-            <VideoIcon className="h-8 w-8 text-muted-foreground/40" />
-            <p className="mt-2 text-sm text-muted-foreground">No hay videos</p>
-            <Link href={`/project/${sid}/videos`} className="mt-2 text-xs text-primary">
-              Crear primer video
-            </Link>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {videos.map((v) => (
-              <VideoRow
-                key={v.id}
-                video={v}
-                projectShortId={sid}
-                sceneCounts={videoSceneCounts}
-              />
-            ))}
-          </div>
-        )}
-      </div>
+      </section>
 
-      {/* Characters + Backgrounds previews */}
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Characters preview */}
-        <div className="rounded-xl border border-border bg-card p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Personajes</h3>
-            <Link
-              href={`/project/${sid}/resources`}
-              className="flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80"
-            >
-              Ver todos <ChevronRight className="h-3 w-3" />
-            </Link>
-          </div>
-          {characters.length === 0 ? (
-            <div className="flex flex-col items-center py-8 text-center">
-              <Users className="h-8 w-8 text-muted-foreground/40" />
-              <p className="mt-2 text-sm text-muted-foreground">No hay personajes</p>
-              <Link href={`/project/${sid}/resources`} className="mt-2 text-xs text-primary">Crear personaje</Link>
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <StatCard icon={VideoIcon} label="Videos" value={videos.length} meta={`${latestVideos.length > 0 ? latestVideos.length : 0} recientes en foco`} href={`/project/${project.short_id}/videos`} />
+        <StatCard icon={Film} label="Escenas" value={sceneMetrics.total} meta={`${sceneApproval}% aprobadas`} href={`/project/${project.short_id}/videos`} />
+        <StatCard icon={Layers3} label="Tareas activas" value={taskSummary.active} meta={`${taskSummary.overdue} vencidas · ${taskSummary.urgent} urgentes`} href={`/project/${project.short_id}/tasks`} />
+        <StatCard icon={UserRound} label="Personajes" value={characters.length} meta={`${backgrounds.length} fondos vinculables`} href={`/project/${project.short_id}/resources`} />
+        <StatCard icon={Clock3} label="Tiempo" value={formatWorkedMinutes(workedMinutes)} meta={`${activity.length} eventos recientes`} href={`/project/${project.short_id}/activity`} />
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[1.45fr_0.95fr]">
+        <Surface>
+          <SectionHeader
+            title="Produccion en curso"
+            description="Videos, avance de escenas y estado actual del material creativo."
+            action={
+              <Link href={`/project/${project.short_id}/videos`} className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80">
+                Ver todos
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            }
+          />
+
+          {latestVideos.length === 0 ? (
+            <div className="mt-6 flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-background/70 py-16 text-center">
+              <VideoIcon className="h-10 w-10 text-muted-foreground/30" />
+              <h3 className="mt-4 text-lg font-medium text-foreground">Todavia no hay videos</h3>
+              <p className="mt-2 max-w-md text-sm text-muted-foreground">Crea el primer video para empezar a organizar escenas, prompts y recursos del proyecto.</p>
+              <Link href={`/project/${project.short_id}/videos`} className="mt-5 inline-flex h-11 items-center rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90">
+                Crear primer video
+              </Link>
             </div>
           ) : (
-            <div className="flex flex-wrap gap-4">
-              {characters.slice(0, 4).map((char) => (
-                <CharacterAvatar key={char.id} character={char} />
+            <div className="mt-6 space-y-3">
+              {latestVideos.map((video) => (
+                <VideoListItem
+                  key={video.id}
+                  projectId={project.id}
+                  projectShortId={project.short_id}
+                  video={video}
+                  counts={sceneMetrics.byVideo[video.id] ?? { total: 0, approved: 0 }}
+                />
               ))}
-              {characters.length > 4 && (
-                <Link
-                  href={`/project/${sid}/resources`}
-                  className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-border text-sm font-medium text-muted-foreground transition hover:border-primary hover:text-primary"
-                >
-                  +{characters.length - 4}
-                </Link>
-              )}
             </div>
           )}
-        </div>
+        </Surface>
 
-        {/* Backgrounds preview */}
-        <div className="rounded-xl border border-border bg-card p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Fondos</h3>
-            <Link
-              href={`/project/${sid}/resources`}
-              className="flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80"
-            >
-              Ver todos <ChevronRight className="h-3 w-3" />
-            </Link>
-          </div>
-          {backgrounds.length === 0 ? (
-            <div className="flex flex-col items-center py-8 text-center">
-              <Image className="h-8 w-8 text-muted-foreground/40" />
-              <p className="mt-2 text-sm text-muted-foreground">No hay fondos</p>
-              <Link href={`/project/${sid}/resources`} className="mt-2 text-xs text-primary">Crear fondo</Link>
+        <div className="space-y-6">
+          <Surface>
+            <SectionHeader title="Preparacion para IA" description="Lo que ya tiene contexto suficiente para que la IA te ayude mejor." />
+            <div className="mt-5 rounded-2xl border border-border bg-background/70 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">Cobertura actual</p>
+                  <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">{aiReadyCount}/4</p>
+                </div>
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-border bg-card text-primary">
+                  <Brain className="h-6 w-6" />
+                </div>
+              </div>
+              <div className="mt-4 space-y-2">
+                {aiChecklist.map((item) => (
+                  <Link key={item.label} href={item.href} className="flex items-center justify-between rounded-xl border border-border bg-card px-3 py-2.5 text-sm transition-colors hover:border-primary/20 hover:bg-accent-soft-hover">
+                    <span className="text-foreground">{item.label}</span>
+                    <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.12em]', item.ready ? 'bg-emerald-500/12 text-emerald-300' : 'bg-amber-500/12 text-amber-300')}>
+                      {item.ready ? 'listo' : 'pendiente'}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <button type="button" onClick={handleOpenProjectChat} className="rounded-2xl border border-border bg-background/70 p-4 text-left transition-colors hover:border-primary/20 hover:bg-accent-soft-hover">
+                <div className="flex items-center gap-2 text-sm font-medium text-foreground"><Bot className="h-4 w-4 text-primary" /> Chat operativo</div>
+                <p className="mt-2 text-xs leading-5 text-muted-foreground">Pide a la IA que organice tareas, revise huecos de recursos y proponga siguientes pasos.</p>
+              </button>
+              <button type="button" onClick={() => handleOpenProjectSettings('ia')} className="rounded-2xl border border-border bg-background/70 p-4 text-left transition-colors hover:border-primary/20 hover:bg-accent-soft-hover">
+                <div className="flex items-center gap-2 text-sm font-medium text-foreground"><Sparkles className="h-4 w-4 text-primary" /> Configuracion IA</div>
+                <p className="mt-2 text-xs leading-5 text-muted-foreground">Ajusta proveedores, director creativo y tono del agente segun este proyecto.</p>
+              </button>
+            </div>
+          </Surface>
+
+          <Surface>
+            <SectionHeader title="Pulso operativo" description="Resumen rapido del trabajo abierto y del movimiento reciente." />
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border border-border bg-background/70 p-4">
+                <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">Tareas</p>
+                <p className="mt-2 text-2xl font-semibold text-foreground">{taskSummary.total}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{taskSummary.completed} completadas · {taskSummary.active} abiertas</p>
+              </div>
+              <div className="rounded-2xl border border-border bg-background/70 p-4">
+                <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">Actividad reciente</p>
+                <p className="mt-2 text-2xl font-semibold text-foreground">{activity.length}</p>
+                <p className="mt-1 text-sm text-muted-foreground">Eventos en las ultimas acciones del proyecto</p>
+              </div>
+            </div>
+            <div className="mt-4 rounded-2xl border border-border bg-background/70 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-foreground">Proximo foco recomendado</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {taskSummary.overdue > 0
+                      ? `Hay ${taskSummary.overdue} tareas vencidas. Conviene resolverlas antes de seguir produciendo.`
+                      : videos.length === 0
+                        ? 'Empieza creando el primer video para activar escenas, tareas y recursos.'
+                        : aiReadyCount < 4
+                          ? 'Completa briefing, reglas o recursos base para que la IA tenga mejor contexto.'
+                          : 'El proyecto tiene una base suficiente para delegar organizacion y generacion asistida.'}
+                  </p>
+                </div>
+                <CalendarClock className="h-5 w-5 text-primary" />
+              </div>
+            </div>
+          </Surface>
+        </div>
+      </section>
+
+      <section className="grid gap-6 lg:grid-cols-2">
+        <Surface>
+          <SectionHeader
+            title="Personajes clave"
+            description="Los actores visuales principales disponibles para escenas y prompts."
+            action={
+              <Link href={`/project/${project.short_id}/resources/characters`} className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80">
+                Ver seccion
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            }
+          />
+          {characters.length === 0 ? (
+            <div className="mt-6 rounded-2xl border border-dashed border-border bg-background/70 py-14 text-center">
+              <UserRound className="mx-auto h-10 w-10 text-muted-foreground/30" />
+              <h3 className="mt-4 text-lg font-medium text-foreground">No hay personajes definidos</h3>
+              <p className="mt-2 text-sm text-muted-foreground">Crea una biblioteca base para mantener consistencia en escenas, voces y prompts.</p>
             </div>
           ) : (
-            <div className="flex flex-wrap gap-3">
-              {backgrounds.slice(0, 3).map((bg) => (
-                <div key={bg.id} className="flex flex-col items-center gap-1.5">
-                  <div className="h-16 w-24 overflow-hidden rounded-lg border border-border bg-secondary">
-                    {bg.reference_image_url ? (
-                      <img src={bg.reference_image_url} alt={bg.name} className="h-full w-full object-cover" />
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              {characters.slice(0, 4).map((character) => (
+                <CharacterAvatar key={character.id} character={character} />
+              ))}
+            </div>
+          )}
+        </Surface>
+
+        <Surface>
+          <SectionHeader
+            title="Fondos y atmosfera"
+            description="Locaciones listas para reutilizar y guiar la direccion visual."
+            action={
+              <Link href={`/project/${project.short_id}/resources/backgrounds`} className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80">
+                Ver seccion
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            }
+          />
+          {backgrounds.length === 0 ? (
+            <div className="mt-6 rounded-2xl border border-dashed border-border bg-background/70 py-14 text-center">
+              <ImageIcon className="mx-auto h-10 w-10 text-muted-foreground/30" />
+              <h3 className="mt-4 text-lg font-medium text-foreground">No hay fondos preparados</h3>
+              <p className="mt-2 text-sm text-muted-foreground">Los fondos ayudan a la IA a mantener continuidad visual y decisiones de composicion.</p>
+            </div>
+          ) : (
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              {backgrounds.slice(0, 4).map((background) => (
+                <Link key={background.id} href={`/project/${project.short_id}/resources/backgrounds/${background.id}`} className="group overflow-hidden rounded-2xl border border-border bg-background/70 transition-colors hover:border-primary/20 hover:bg-accent-soft-hover">
+                  <div className="aspect-16/10 overflow-hidden border-b border-border bg-card">
+                    {background.reference_image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={background.reference_image_url} alt={background.name} className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.02]" />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center">
-                        <Image className="h-5 w-5 text-muted-foreground/40" />
+                        <ImageIcon className="h-8 w-8 text-muted-foreground/30" />
                       </div>
                     )}
                   </div>
-                  <span className="max-w-24 truncate text-xs text-muted-foreground">{bg.name}</span>
-                </div>
-              ))}
-              {backgrounds.length > 3 && (
-                <Link
-                  href={`/project/${sid}/resources`}
-                  className="flex h-16 w-24 items-center justify-center rounded-lg border-2 border-dashed border-border text-sm font-medium text-muted-foreground transition hover:border-primary hover:text-primary"
-                >
-                  +{backgrounds.length - 3}
+                  <div className="p-4">
+                    <p className="truncate text-sm font-medium text-foreground">{background.name}</p>
+                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{background.description || 'Sin descripcion todavia.'}</p>
+                  </div>
                 </Link>
-              )}
+              ))}
             </div>
           )}
-        </div>
-      </div>
+        </Surface>
+      </section>
 
-      {/* Recent activity */}
-      <div className="rounded-xl border border-border bg-card p-6">
-        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Actividad reciente</h3>
-        {recentActivity.length === 0 ? (
-          <div className="flex flex-col items-center py-8 text-center">
-            <Clock className="h-8 w-8 text-muted-foreground/40" />
-            <p className="mt-2 text-sm text-muted-foreground">No hay actividad reciente</p>
+      <Surface>
+        <SectionHeader
+          title="Actividad reciente"
+          description="Cambios, generacion y movimiento operativo dentro del proyecto."
+          action={
+            <Link href={`/project/${project.short_id}/activity`} className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80">
+              Ver historial
+              <ChevronRight className="h-4 w-4" />
+            </Link>
+          }
+        />
+
+        {activity.length === 0 ? (
+          <div className="mt-6 rounded-2xl border border-dashed border-border bg-background/70 py-14 text-center">
+            <Clock3 className="mx-auto h-10 w-10 text-muted-foreground/30" />
+            <h3 className="mt-4 text-lg font-medium text-foreground">Sin actividad reciente</h3>
+            <p className="mt-2 text-sm text-muted-foreground">Cuando empieces a mover videos, recursos o ajustes, el historial aparecera aqui.</p>
           </div>
         ) : (
-          <div className="space-y-1">
-            {recentActivity.map((entry) => (
-              <div key={entry.id} className="flex items-center gap-3 rounded-lg border-b border-border p-2 last:border-0 transition hover:bg-secondary">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                  <Clock className="h-4 w-4 text-primary" />
+          <div className="mt-6 space-y-2">
+            {activity.map((entry) => (
+              <div key={entry.id} className="flex items-start gap-3 rounded-2xl border border-border bg-background/70 px-4 py-3">
+                <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-border bg-card text-primary">
+                  <Clock3 className="h-4 w-4" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm text-foreground">
-                    <span className="font-medium">{entry.action}</span>
-                    {' '}
-                    <span className="text-muted-foreground">{entry.entity_type}</span>
-                  </p>
+                  <p className="text-sm text-foreground">{entry.description || `${entry.action} ${entry.entity_type}`}</p>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                    <span className="capitalize">{entry.entity_type}</span>
+                    <span>{formatRelative(entry.created_at)}</span>
+                    {entry.entity_id ? <span className="font-mono">{entry.entity_id.slice(0, 8)}</span> : null}
+                  </div>
                 </div>
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  {entry.created_at
-                    ? formatDistanceToNow(new Date(entry.created_at), { addSuffix: true, locale: es })
-                    : ''}
-                </span>
               </div>
             ))}
           </div>
         )}
-      </div>
+      </Surface>
     </div>
   );
 }

@@ -71,7 +71,6 @@ export type Database = {
           completed: boolean | null
           context_entity_id: string | null
           context_entity_type: string | null
-          context_org_id: string | null
           context_url: string | null
           conversation_type: string | null
           created_at: string | null
@@ -89,7 +88,6 @@ export type Database = {
           completed?: boolean | null
           context_entity_id?: string | null
           context_entity_type?: string | null
-          context_org_id?: string | null
           context_url?: string | null
           conversation_type?: string | null
           created_at?: string | null
@@ -107,7 +105,6 @@ export type Database = {
           completed?: boolean | null
           context_entity_id?: string | null
           context_entity_type?: string | null
-          context_org_id?: string | null
           context_url?: string | null
           conversation_type?: string | null
           created_at?: string | null
@@ -121,13 +118,6 @@ export type Database = {
           video_id?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "ai_conversations_context_org_id_fkey"
-            columns: ["context_org_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "ai_conversations_project_id_fkey"
             columns: ["project_id"]
@@ -848,91 +838,6 @@ export type Database = {
           },
         ]
       }
-      organization_members: {
-        Row: {
-          accepted_at: string | null
-          created_at: string | null
-          id: string
-          invited_by: string | null
-          organization_id: string
-          role: Database["public"]["Enums"]["org_role"]
-          user_id: string
-        }
-        Insert: {
-          accepted_at?: string | null
-          created_at?: string | null
-          id?: string
-          invited_by?: string | null
-          organization_id: string
-          role?: Database["public"]["Enums"]["org_role"]
-          user_id: string
-        }
-        Update: {
-          accepted_at?: string | null
-          created_at?: string | null
-          id?: string
-          invited_by?: string | null
-          organization_id?: string
-          role?: Database["public"]["Enums"]["org_role"]
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "organization_members_invited_by_fkey"
-            columns: ["invited_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "organization_members_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "organization_members_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      organizations: {
-        Row: {
-          billing_email: string | null
-          created_at: string | null
-          id: string
-          logo_url: string | null
-          name: string
-          org_type: Database["public"]["Enums"]["org_type"]
-          slug: string
-          updated_at: string | null
-        }
-        Insert: {
-          billing_email?: string | null
-          created_at?: string | null
-          id?: string
-          logo_url?: string | null
-          name: string
-          org_type?: Database["public"]["Enums"]["org_type"]
-          slug: string
-          updated_at?: string | null
-        }
-        Update: {
-          billing_email?: string | null
-          created_at?: string | null
-          id?: string
-          logo_url?: string | null
-          name?: string
-          org_type?: Database["public"]["Enums"]["org_type"]
-          slug?: string
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -1263,7 +1168,6 @@ export type Database = {
           id: string
           is_demo: boolean | null
           metadata: Json | null
-          organization_id: string | null
           owner_id: string
           short_id: string
           slug: string
@@ -1286,7 +1190,6 @@ export type Database = {
           id?: string
           is_demo?: boolean | null
           metadata?: Json | null
-          organization_id?: string | null
           owner_id: string
           short_id: string
           slug: string
@@ -1309,7 +1212,6 @@ export type Database = {
           id?: string
           is_demo?: boolean | null
           metadata?: Json | null
-          organization_id?: string | null
           owner_id?: string
           short_id?: string
           slug?: string
@@ -1320,13 +1222,6 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "projects_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "projects_owner_id_fkey"
             columns: ["owner_id"]
@@ -3004,8 +2899,6 @@ export type Database = {
         | "orbit"
       export_format: "html" | "json" | "markdown" | "pdf" | "mp4" | "mov"
       media_type: "image" | "video" | "audio"
-      org_role: "owner" | "admin" | "editor" | "viewer"
-      org_type: "personal" | "team" | "agency" | "freelance" | "school"
       project_status:
         | "draft"
         | "in_progress"
@@ -3220,8 +3113,6 @@ export const Constants = {
       ],
       export_format: ["html", "json", "markdown", "pdf", "mp4", "mov"],
       media_type: ["image", "video", "audio"],
-      org_role: ["owner", "admin", "editor", "viewer"],
-      org_type: ["personal", "team", "agency", "freelance", "school"],
       project_status: [
         "draft",
         "in_progress",
@@ -3291,3 +3182,4 @@ export const Constants = {
     },
   },
 } as const
+

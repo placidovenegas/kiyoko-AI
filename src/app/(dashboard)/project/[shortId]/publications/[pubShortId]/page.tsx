@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { queryKeys } from '@/lib/query/keys';
-import { Button } from '@/components/ui/button';
+import { Button } from '@heroui/react';
 import {
   Loader2, CalendarDays, Hash, FileText, Image as ImageIcon,
   Save, Instagram, Youtube, Twitter, Globe,

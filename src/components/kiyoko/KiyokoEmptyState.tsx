@@ -18,7 +18,6 @@ import {
   FolderOpen,
   Palette,
 } from 'lucide-react';
-import { useUIStore } from '@/stores/useUIStore';
 import { fetchDashboardContextStats } from '@/lib/chat/fetch-dashboard-context-stats';
 import { KiyokoIcon } from '@/components/ui/logo';
 import { cn } from '@/lib/utils/cn';
@@ -126,8 +125,6 @@ function contextToLocation(contextLevel: ContextLevel): ChatLocation {
       return { type: 'video', shortId: '', videoShortId: '' };
     case 'scene':
       return { type: 'scene', shortId: '', videoShortId: '', sceneShortId: '' };
-    case 'organization':
-      return { type: 'dashboard' };
     case 'dashboard':
     default:
       return { type: 'dashboard' };
@@ -162,11 +159,10 @@ export function KiyokoEmptyState({
     return getBaseQuickActions(contextToLocation(contextLevel));
   }, [contextLevel, hasScenes, hasPrompts, hasCharacters, hasBackgrounds]);
 
-  const currentOrgId = useUIStore((s) => s.currentOrgId);
   const { data: dashStats } = useQuery({
-    queryKey: ['kiyoko-chat-empty-dashboard', currentOrgId],
+    queryKey: ['kiyoko-chat-empty-dashboard'],
     enabled: contextLevel === 'dashboard',
-    queryFn: () => fetchDashboardContextStats(currentOrgId ?? null),
+    queryFn: () => fetchDashboardContextStats(),
     staleTime: 60 * 1000,
   });
 

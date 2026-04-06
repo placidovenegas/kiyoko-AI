@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { queryKeys } from '@/lib/query/keys';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils/cn';
-import { Button } from '@/components/ui/button';
+import { Button } from '@heroui/react';
 import {
   Plus, Clock, MoreHorizontal, Copy, Trash2,
   Pencil, ExternalLink, CheckCircle2, Video,
@@ -20,7 +20,7 @@ import {
   DropdownItem,
   DropdownSection,
 } from '@heroui/react';
-import { VideoCreateModal } from '@/components/videos/VideoCreateModal';
+import { VideoCreateModal } from '@/components/modals';
 import { useActiveVideoStore } from '@/stores/useActiveVideoStore';
 import { generateShortId } from '@/lib/utils/nanoid';
 import type { Video as VideoType } from '@/types';
@@ -128,30 +128,32 @@ function VideoRow({
             </DropdownTrigger>
             <DropdownMenu aria-label="Video actions" className="w-48">
               <DropdownSection>
-                <DropdownItem key="open" onAction={() => window.location.href = `/project/${projectShortId}/video/${video.short_id}`}>
-                  <ExternalLink className="h-4 w-4 mr-2" />Abrir vídeo
+                <DropdownItem key="open" href={`/project/${projectShortId}/video/${video.short_id}`}>
+                  <div className="flex items-center gap-2"><ExternalLink className="h-4 w-4" /> Abrir video</div>
                 </DropdownItem>
               </DropdownSection>
               <DropdownSection>
                 <DropdownItem key="duplicate" onClick={() => onDuplicate(video)}>
-                  <Copy className="h-4 w-4 mr-2" />Duplicar
+                  <div className="flex items-center gap-2"><Copy className="h-4 w-4" /> Duplicar</div>
                 </DropdownItem>
               </DropdownSection>
-              <DropdownSection>
+              <DropdownSection aria-label="Cambiar estado">
                 {VIDEO_STATUSES.map((s) => (
                   <DropdownItem
                     key={s}
                     onClick={() => onStatusChange(video.id, s)}
-                    className={video.status === s ? 'text-primary' : ''}
+                    className={video.status === s ? 'text-primary font-medium' : ''}
                   >
-                    {STATUS_LABELS[s]}{video.status === s && <CheckCircle2 className="h-3.5 w-3.5 ml-auto" />}
+                    <div className="flex items-center justify-between w-full">
+                      {STATUS_LABELS[s]}
+                      {video.status === s && <CheckCircle2 className="h-3.5 w-3.5" />}
+                    </div>
                   </DropdownItem>
                 ))}
               </DropdownSection>
               <DropdownSection>
                 <DropdownItem key="delete" className="text-danger" onClick={() => onDelete(video.id)}>
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Eliminar
+                  <div className="flex items-center gap-2"><Trash2 className="h-4 w-4" /> Eliminar</div>
                 </DropdownItem>
               </DropdownSection>
             </DropdownMenu>
@@ -315,11 +317,10 @@ export default function VideosPage() {
       {project?.id && (
         <VideoCreateModal
           open={createModalOpen}
-          onClose={() => setCreateModalOpen(false)}
+          onOpenChange={setCreateModalOpen}
           projectId={project.id}
-          onCreated={() => {
+          onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: queryKeys.videos.byProject(project.id) });
-            triggerRefresh();
           }}
         />
       )}

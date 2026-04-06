@@ -1,4 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server';
+import type { Database } from '@/types/database.types';
+import {
+  apiBadRequest,
+  apiError,
+  apiJson,
+  apiUnauthorized,
+  createApiRequestContext,
+  logServerEvent,
+  parseApiJson,
+} from '@/lib/observability/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
@@ -6,25 +15,26 @@ interface RouteParams {
   params: Promise<{ userId: string }>;
 }
 
+type UserRole = Database['public']['Enums']['user_role'];
+
 interface UpdateUserBody {
-  role?: 'admin' | 'editor' | 'viewer' | 'pending' | 'blocked';
+  role?: UserRole;
 }
 
 /**
  * PATCH /api/admin/users/[userId]
  * Update a user's role (admin only).
  */
-export async function PATCH(request: NextRequest, { params }: RouteParams) {
+export async function PATCH(request: Request, { params }: RouteParams) {
+  const requestContext = createApiRequestContext(request);
+
   try {
     const { userId } = await params;
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return apiUnauthorized(requestContext);
     }
 
     // Check if current user is admin
@@ -35,42 +45,34 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .single();
 
     if (profileError || profile?.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Forbidden: Admin access required' },
-        { status: 403 }
-      );
+      return apiJson(requestContext, { error: 'Forbidden: Admin access required', requestId: requestContext.requestId }, { status: 403 });
     }
 
     // Prevent admin from demoting themselves
     if (userId === user.id) {
-      return NextResponse.json(
-        { error: 'Cannot modify your own role' },
-        { status: 400 }
-      );
+      return apiBadRequest(requestContext, 'Cannot modify your own role');
     }
 
-    const body: UpdateUserBody = await request.json();
+    const { data: body, response } = await parseApiJson<UpdateUserBody>(request, requestContext);
+    if (response) {
+      return response;
+    }
+
     const { role } = body;
 
     if (!role) {
-      return NextResponse.json(
-        { error: 'Missing required field: role' },
-        { status: 400 }
-      );
+      return apiBadRequest(requestContext, 'Missing required field: role');
     }
 
-    const validRoles = ['admin', 'editor', 'viewer', 'pending', 'blocked'];
+    const validRoles: UserRole[] = ['admin', 'editor', 'viewer', 'pending', 'blocked'];
     if (!validRoles.includes(role)) {
-      return NextResponse.json(
-        { error: `Invalid role. Must be one of: ${validRoles.join(', ')}` },
-        { status: 400 }
-      );
+      return apiBadRequest(requestContext, `Invalid role. Must be one of: ${validRoles.join(', ')}`);
     }
 
     // Use admin client to bypass RLS
     const adminClient = createAdminClient();
     if (!adminClient) {
-      return NextResponse.json({ error: 'Admin client not configured' }, { status: 500 });
+      return apiJson(requestContext, { error: 'Admin client not configured', requestId: requestContext.requestId }, { status: 500 });
     }
 
     const { data: updatedUser, error: updateError } = await adminClient
@@ -81,29 +83,27 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .single();
 
     if (updateError) {
-      console.error('[admin/users/PATCH]', updateError);
-      return NextResponse.json(
-        { error: 'Failed to update user' },
-        { status: 500 }
-      );
+      return apiError(requestContext, 'admin/users/[userId]', updateError, {
+        message: 'Failed to update user',
+        extra: { adminUserId: user.id, targetUserId: userId, role },
+      });
     }
 
     if (!updatedUser) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
+      return apiJson(requestContext, { error: 'User not found', requestId: requestContext.requestId }, { status: 404 });
     }
 
-    return NextResponse.json({
+    logServerEvent('admin/users/[userId]', requestContext, 'Updated user role', {
+      adminUserId: user.id,
+      targetUserId: userId,
+      role,
+    });
+
+    return apiJson(requestContext, {
       success: true,
       user: updatedUser,
     });
   } catch (error) {
-    console.error('[admin/users/PATCH]', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return apiError(requestContext, 'admin/users/[userId]', error);
   }
 }

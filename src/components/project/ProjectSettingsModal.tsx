@@ -1,362 +1,370 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { useUIStore } from '@/stores/useUIStore';
+import { useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Button } from '@heroui/react';
+import { Bot, ImagePlus, Save, Settings2, Sparkles, Trash2, Upload } from 'lucide-react';
+import { toast } from 'sonner';
 import { useProject } from '@/contexts/ProjectContext';
+import { WorkspaceSettingsModal, type WorkspaceSettingsNavGroup } from '@/components/settings/WorkspaceSettingsModal';
 import { createClient } from '@/lib/supabase/client';
 import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils/cn';
-import { toast } from 'sonner';
-import { X, Settings2, Bot } from 'lucide-react';
+import { useUIStore } from '@/stores/useUIStore';
+import type { Project, ProjectUpdate } from '@/types';
 
-// ─── Nav config ──────────────────────────────────────────────────────────────
-
-const NAV = [
+const NAV: WorkspaceSettingsNavGroup[] = [
   {
     group: 'Proyecto',
     items: [
-      { id: 'general' as const, label: 'General', icon: Settings2 },
-      { id: 'ia' as const, label: 'Contexto IA', icon: Bot },
+      { id: 'general', label: 'General', icon: Settings2 },
+      { id: 'ia', label: 'Contexto IA', icon: Bot },
     ],
   },
 ];
 
-// ─── Input classes ───────────────────────────────────────────────────────────
+const STATUS_OPTIONS = [
+  { value: 'draft', label: 'Borrador' },
+  { value: 'in_progress', label: 'En progreso' },
+  { value: 'review', label: 'En revision' },
+  { value: 'completed', label: 'Completado' },
+  { value: 'archived', label: 'Archivado' },
+];
 
-const INPUT_CLASS =
-  'w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/30 focus:ring-2 focus:ring-primary/10';
+const STYLE_OPTIONS = [
+  { value: 'realistic', label: 'Realista' },
+  { value: 'anime', label: 'Anime' },
+  { value: 'cartoon', label: 'Cartoon' },
+  { value: 'cinematic', label: 'Cinematografico' },
+  { value: 'minimal', label: 'Minimalista' },
+  { value: 'mixed', label: 'Mixto' },
+];
 
-const LABEL_CLASS = 'text-xs font-medium text-muted-foreground uppercase tracking-wide';
+const fieldClassName = 'mt-2 w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/30 focus:ring-2 focus:ring-primary/10';
 
-// ─── General section ─────────────────────────────────────────────────────────
-
-function GeneralSection({
-  form,
-  setForm,
-}: {
-  form: ProjectForm;
-  setForm: React.Dispatch<React.SetStateAction<ProjectForm>>;
-}) {
-  return (
-    <div className="space-y-5">
-      <h2 className="text-lg font-medium">General</h2>
-
-      <div className="space-y-1.5">
-        <label className={LABEL_CLASS}>Titulo *</label>
-        <input
-          type="text"
-          required
-          className={INPUT_CLASS}
-          value={form.title}
-          onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-          placeholder="Nombre del proyecto"
-        />
-      </div>
-
-      <div className="space-y-1.5">
-        <label className={LABEL_CLASS}>Cliente</label>
-        <input
-          type="text"
-          className={INPUT_CLASS}
-          value={form.client_name}
-          onChange={(e) => setForm((f) => ({ ...f, client_name: e.target.value }))}
-          placeholder="Nombre del cliente"
-        />
-      </div>
-
-      <div className="space-y-1.5">
-        <label className={LABEL_CLASS}>Estado</label>
-        <select
-          className={INPUT_CLASS}
-          value={form.status}
-          onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
-        >
-          <option value="draft">Draft</option>
-          <option value="in_progress">In progress</option>
-          <option value="review">Review</option>
-          <option value="completed">Completed</option>
-          <option value="archived">Archived</option>
-        </select>
-      </div>
-
-      <div className="space-y-1.5">
-        <label className={LABEL_CLASS}>Estilo base</label>
-        <select
-          className={INPUT_CLASS}
-          value={form.style}
-          onChange={(e) => setForm((f) => ({ ...f, style: e.target.value }))}
-        >
-          <option value="custom">None</option>
-          <option value="realistic">Realistic</option>
-          <option value="anime">Anime</option>
-          <option value="flat_2d">Cartoon</option>
-          <option value="cyberpunk">Cinematic</option>
-          <option value="pixar">Minimal</option>
-          <option value="watercolor">Mixed</option>
-        </select>
-      </div>
-
-      <div className="space-y-1.5">
-        <label className={LABEL_CLASS}>Descripcion</label>
-        <textarea
-          rows={4}
-          className={INPUT_CLASS}
-          value={form.description}
-          onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-          placeholder="Describe brevemente el proyecto"
-        />
-      </div>
-
-      <div className="space-y-1.5">
-        <label className={LABEL_CLASS}>Tags</label>
-        <input
-          type="text"
-          className={INPUT_CLASS}
-          value={form.tags}
-          onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))}
-          placeholder="Separa etiquetas por comas"
-        />
-      </div>
-    </div>
-  );
-}
-
-// ─── IA section ──────────────────────────────────────────────────────────────
-
-function IASection({
-  form,
-  setForm,
-}: {
-  form: ProjectForm;
-  setForm: React.Dispatch<React.SetStateAction<ProjectForm>>;
-}) {
-  return (
-    <div className="space-y-5">
-      <h2 className="text-lg font-medium">Contexto IA</h2>
-
-      <div className="space-y-1.5">
-        <label className={LABEL_CLASS}>Briefing del proyecto</label>
-        <textarea
-          rows={5}
-          className={INPUT_CLASS}
-          value={form.ai_brief}
-          onChange={(e) => setForm((f) => ({ ...f, ai_brief: e.target.value }))}
-          placeholder="Describe el briefing del proyecto para que la IA entienda el contexto"
-        />
-      </div>
-
-      <div className="space-y-1.5">
-        <label className={LABEL_CLASS}>Reglas globales de prompts</label>
-        <textarea
-          rows={5}
-          className={cn(INPUT_CLASS, 'font-mono')}
-          value={form.global_prompt_rules}
-          onChange={(e) => setForm((f) => ({ ...f, global_prompt_rules: e.target.value }))}
-          placeholder="Reglas que se aplicaran a todos los prompts generados"
-        />
-      </div>
-
-      <div className="space-y-1.5">
-        <label className={LABEL_CLASS}>Descripcion de estilo personalizada</label>
-        <textarea
-          rows={4}
-          className={INPUT_CLASS}
-          value={form.custom_style_description}
-          onChange={(e) => setForm((f) => ({ ...f, custom_style_description: e.target.value }))}
-          placeholder="Describe el estilo visual deseado en detalle"
-        />
-      </div>
-
-      <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 text-xs text-muted-foreground">
-        La informacion de contexto IA se utiliza para enriquecer los prompts generados
-        automaticamente. Cuanto mas detallado sea el briefing, mejores resultados obtendras
-        en la generacion de escenas e imagenes.
-      </div>
-    </div>
-  );
-}
-
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-interface ProjectForm {
+interface ProjectSettingsFormState {
   title: string;
-  client_name: string;
-  status: string;
-  style: string;
   description: string;
+  clientName: string;
+  style: string;
+  status: string;
   tags: string;
-  ai_brief: string;
-  global_prompt_rules: string;
-  custom_style_description: string;
+  aiBrief: string;
+  globalPromptRules: string;
+  customStyleDescription: string;
+  coverImageUrl: string;
 }
 
-function buildInitialForm(project: ReturnType<typeof useProject>['project']): ProjectForm {
+function createState(project: Project): ProjectSettingsFormState {
   return {
-    title: project?.title ?? '',
-    client_name: project?.client_name ?? '',
-    status: project?.status ?? 'draft',
-    style: project?.style ?? 'custom',
-    description: project?.description ?? '',
-    tags: project?.tags?.join(', ') ?? '',
-    ai_brief: project?.ai_brief ?? '',
-    global_prompt_rules: project?.global_prompt_rules ?? '',
-    custom_style_description: project?.custom_style_description ?? '',
+    title: project.title,
+    description: project.description ?? '',
+    clientName: project.client_name ?? '',
+    style: project.style ?? '',
+    status: project.status,
+    tags: (project.tags ?? []).join(', '),
+    aiBrief: project.ai_brief ?? '',
+    globalPromptRules: project.global_prompt_rules ?? '',
+    customStyleDescription: project.custom_style_description ?? '',
+    coverImageUrl: project.cover_image_url ?? '',
   };
 }
 
-// ─── Section map ─────────────────────────────────────────────────────────────
+function parseTags(value: string) {
+  return value.split(',').map((tag) => tag.trim()).filter(Boolean);
+}
 
-type SectionId = 'general' | 'ia';
-
-// ─── Modal ───────────────────────────────────────────────────────────────────
+function SectionHeader({ title, description }: { title: string; description: string }) {
+  return (
+    <div>
+      <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+    </div>
+  );
+}
 
 export function ProjectSettingsModal() {
+  const { project, loading } = useProject();
   const {
     projectSettingsModalOpen,
     projectSettingsSection,
-    closeProjectSettingsModal,
     openProjectSettingsModal,
+    closeProjectSettingsModal,
   } = useUIStore();
 
-  const { project } = useProject();
-  const queryClient = useQueryClient();
-
-  const [form, setForm] = useState<ProjectForm>(() => buildInitialForm(project));
-  const [saving, setSaving] = useState(false);
-
-  // Sync form when project changes or modal opens
-  useEffect(() => {
-    if (projectSettingsModalOpen && project) {
-      setForm(buildInitialForm(project));
-    }
-  }, [projectSettingsModalOpen, project]);
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') closeProjectSettingsModal(); };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [closeProjectSettingsModal]);
-
-  const handleSave = async () => {
-    if (!project) return;
-    if (!form.title.trim()) {
-      toast.error('El titulo es obligatorio');
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const supabase = createClient();
-      const tagsArray = form.tags
-        .split(',')
-        .map((t) => t.trim())
-        .filter(Boolean);
-
-      const { error } = await supabase
-        .from('projects')
-        .update({
-          title: form.title.trim(),
-          client_name: form.client_name.trim() || null,
-          status: form.status as 'draft' | 'in_progress' | 'review' | 'completed' | 'archived',
-          style: form.style as 'pixar' | 'realistic' | 'anime' | 'watercolor' | 'flat_2d' | 'cyberpunk' | 'custom',
-          description: form.description.trim() || null,
-          tags: tagsArray.length > 0 ? tagsArray : null,
-          ai_brief: form.ai_brief.trim() || null,
-          global_prompt_rules: form.global_prompt_rules.trim() || null,
-          custom_style_description: form.custom_style_description.trim() || null,
-        })
-        .eq('id', project.id);
-
-      if (error) throw error;
-
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.projects.detail(project.short_id),
-      });
-
-      toast.success('Proyecto actualizado');
-      closeProjectSettingsModal();
-    } catch (err) {
-      toast.error('Error al guardar el proyecto');
-      console.error(err);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (!projectSettingsModalOpen) return null;
+  if (!project || loading) {
+    return null;
+  }
 
   return (
-    <div className="fixed inset-0 z-50">
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={closeProjectSettingsModal} />
-      <div className="fixed inset-0 flex items-center justify-center p-4">
-        <div className="relative flex flex-row w-[80vw] h-[85vh] rounded-xl border border-border bg-background shadow-xl overflow-hidden">
-            {/* ── Left nav ──────────────────────────────────────────── */}
-            <aside className="w-56 shrink-0 border-r border-border bg-card flex flex-col overflow-y-auto">
-              <div className="px-4 pt-5 pb-2">
-                <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest px-2">
-                  Proyecto
-                </p>
-              </div>
+    <ProjectSettingsModalContent
+      key={project.id}
+      project={project}
+      isOpen={projectSettingsModalOpen}
+      activeSection={projectSettingsSection}
+      onClose={closeProjectSettingsModal}
+      onSelectSection={openProjectSettingsModal}
+    />
+  );
+}
 
-              <nav className="flex-1 px-2 pb-4">
-                {NAV.map((group) => (
-                  <div key={group.group} className="mb-2.5">
-                    <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">
-                      {group.group}
-                    </p>
-                    {group.items.map(({ id, label, icon: Icon }) => (
-                      <button
-                        key={id}
-                        onClick={() => openProjectSettingsModal(id)}
-                        className={cn(
-                          'flex w-full items-center gap-2.5 px-3 py-1.5 text-[13px] rounded-md transition-colors',
-                          projectSettingsSection === id
-                            ? 'bg-accent text-foreground font-medium'
-                            : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
-                        )}
-                      >
-                        <Icon className="h-4 w-4 shrink-0" />
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                ))}
-              </nav>
+function ProjectSettingsModalContent({
+  project,
+  isOpen,
+  activeSection,
+  onClose,
+  onSelectSection,
+}: {
+  project: Project;
+  isOpen: boolean;
+  activeSection: string;
+  onClose: () => void;
+  onSelectSection: (section?: string) => void;
+}) {
+  const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [form, setForm] = useState<ProjectSettingsFormState>(() => createState(project));
 
-              {/* Save button at bottom of sidebar */}
-              <div className="px-3 pb-4">
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-                >
-                  {saving ? 'Guardando...' : 'Guardar cambios'}
-                </button>
-              </div>
-            </aside>
+  const saveMutation = useMutation({
+    mutationFn: async (payload: ProjectUpdate) => {
+      const supabase = createClient();
+      const { error } = await supabase.from('projects').update(payload).eq('id', project.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects.detail(project.short_id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects.workspace() });
+      toast.success('Ajustes del proyecto guardados');
+    },
+    onError: (error) => {
+      console.error(error);
+      toast.error('No se pudieron guardar los ajustes');
+    },
+  });
 
-            {/* ── Right content ─────────────────────────────────────── */}
-            <main className="flex-1 overflow-y-auto bg-background">
-              <div className="max-w-xl mx-auto px-8 py-8">
-                {projectSettingsSection === 'ia' ? (
-                  <IASection form={form} setForm={setForm} />
+  const uploadCoverMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const ext = file.name.split('.').pop() ?? 'jpg';
+      const path = `projects/${project.id}/cover-${crypto.randomUUID()}.${ext}`;
+      const payload = new FormData();
+      payload.append('bucket', 'project-assets');
+      payload.append('path', path);
+      payload.append('file', file);
+
+      const response = await fetch('/api/storage/object', { method: 'POST', body: payload });
+      const body = (await response.json().catch(() => null)) as { file?: { url: string }; error?: string } | null;
+      if (!response.ok || !body?.file?.url) {
+        throw new Error(body?.error ?? 'No se pudo subir la portada');
+      }
+
+      const supabase = createClient();
+      const { error } = await supabase.from('projects').update({ cover_image_url: body.file.url }).eq('id', project.id);
+      if (error) throw error;
+      return body.file.url;
+    },
+    onSuccess: (url) => {
+      setForm((current) => ({ ...current, coverImageUrl: url }));
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects.detail(project.short_id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects.workspace() });
+      toast.success('Portada actualizada');
+    },
+  });
+
+  const deleteCoverMutation = useMutation({
+    mutationFn: async () => {
+      if (form.coverImageUrl) {
+        const path = (() => {
+          try {
+            const url = new URL(form.coverImageUrl);
+            return url.pathname.split('/object/public/project-assets/')[1] ?? '';
+          } catch {
+            return '';
+          }
+        })();
+
+        if (path) {
+          await fetch('/api/storage/object', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bucket: 'project-assets', path }),
+          }).catch(() => null);
+        }
+      }
+
+      const supabase = createClient();
+      const { error } = await supabase.from('projects').update({ cover_image_url: null }).eq('id', project.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setForm((current) => ({ ...current, coverImageUrl: '' }));
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects.detail(project.short_id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects.workspace() });
+      toast.success('Portada eliminada');
+    },
+  });
+
+  const isSaving = saveMutation.isPending || uploadCoverMutation.isPending || deleteCoverMutation.isPending;
+
+  const hasChanges = useMemo(() => JSON.stringify({
+    title: form.title,
+    description: form.description,
+    clientName: form.clientName,
+    style: form.style,
+    status: form.status,
+    tags: parseTags(form.tags),
+    aiBrief: form.aiBrief,
+    globalPromptRules: form.globalPromptRules,
+    customStyleDescription: form.customStyleDescription,
+    coverImageUrl: form.coverImageUrl,
+  }) !== JSON.stringify({
+    title: project.title,
+    description: project.description ?? '',
+    clientName: project.client_name ?? '',
+    style: project.style ?? '',
+    status: project.status,
+    tags: project.tags ?? [],
+    aiBrief: project.ai_brief ?? '',
+    globalPromptRules: project.global_prompt_rules ?? '',
+    customStyleDescription: project.custom_style_description ?? '',
+    coverImageUrl: project.cover_image_url ?? '',
+  }), [form, project]);
+
+  function updateField<Key extends keyof ProjectSettingsFormState>(key: Key, value: ProjectSettingsFormState[Key]) {
+    setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function handleSave() {
+    saveMutation.mutate({
+      title: form.title.trim(),
+      description: form.description.trim() || null,
+      client_name: form.clientName.trim() || null,
+      style: (form.style || null) as ProjectUpdate['style'],
+      status: form.status as ProjectUpdate['status'],
+      tags: parseTags(form.tags),
+      ai_brief: form.aiBrief.trim() || null,
+      global_prompt_rules: form.globalPromptRules.trim() || null,
+      custom_style_description: form.customStyleDescription.trim() || null,
+    });
+  }
+
+  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    uploadCoverMutation.mutate(file);
+    event.target.value = '';
+  }
+
+  return (
+    <WorkspaceSettingsModal
+      isOpen={isOpen}
+      activeSection={activeSection}
+      title="Ajustes del proyecto"
+      nav={NAV}
+      onClose={onClose}
+      onSelectSection={onSelectSection}
+    >
+      <div className="space-y-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">{project.title}</p>
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">Configura este proyecto sin salir del flujo</h1>
+          </div>
+          <Button color="primary" className="h-10 rounded-xl px-4 text-sm font-semibold" isDisabled={!hasChanges || !form.title.trim() || isSaving} onPress={handleSave}>
+            <Save className="mr-2 h-4 w-4" />
+            Guardar
+          </Button>
+        </div>
+
+        {activeSection === 'general' ? (
+          <div className="space-y-6">
+            <SectionHeader title="Identidad" description="Lo esencial del proyecto, como se presenta y como se clasifica dentro del workspace." />
+
+            <div className="space-y-4 rounded-xl border border-border bg-card p-5">
+              <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+              <div className="overflow-hidden rounded-2xl border border-border bg-background">
+                {form.coverImageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={form.coverImageUrl} alt={project.title} className="aspect-video w-full object-cover" />
                 ) : (
-                  <GeneralSection form={form} setForm={setForm} />
+                  <div className="flex aspect-video items-center justify-center bg-[radial-gradient(circle_at_top_left,rgba(245,165,36,0.14),transparent_36%),linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0))]">
+                    <div className="text-center">
+                      <ImagePlus className="mx-auto h-10 w-10 text-muted-foreground/30" />
+                      <p className="mt-3 text-sm text-muted-foreground">Todavia no hay portada</p>
+                    </div>
+                  </div>
                 )}
               </div>
-            </main>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button type="button" onClick={() => fileInputRef.current?.click()} className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-border bg-background text-sm font-medium text-foreground transition-colors hover:bg-accent-soft-hover">
+                  <Upload className="h-4 w-4 text-primary" />
+                  {uploadCoverMutation.isPending ? 'Subiendo...' : 'Subir portada'}
+                </button>
+                <button type="button" onClick={() => deleteCoverMutation.mutate()} disabled={!form.coverImageUrl || deleteCoverMutation.isPending} className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-border bg-background text-sm font-medium text-foreground transition-colors hover:bg-accent-soft-hover disabled:opacity-50">
+                  <Trash2 className="h-4 w-4 text-danger" />
+                  Quitar portada
+                </button>
+              </div>
+            </div>
 
-            {/* ── Close ─────────────────────────────────────────────── */}
-            <button
-              onClick={closeProjectSettingsModal}
-              className="absolute right-3 top-3 flex items-center justify-center size-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors z-10"
-            >
-              <X className="h-4 w-4" />
-              <span className="sr-only">Cerrar</span>
-            </button>
-        </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="text-sm font-medium text-foreground">Titulo</label>
+                <input value={form.title} onChange={(event) => updateField('title', event.target.value)} className={fieldClassName} placeholder="Nombre del proyecto" />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-foreground">Cliente</label>
+                <input value={form.clientName} onChange={(event) => updateField('clientName', event.target.value)} className={fieldClassName} placeholder="Cliente o marca" />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-foreground">Estado</label>
+                <select value={form.status} onChange={(event) => updateField('status', event.target.value)} className={fieldClassName}>
+                  {STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-foreground">Estilo base</label>
+                <select value={form.style} onChange={(event) => updateField('style', event.target.value)} className={fieldClassName}>
+                  <option value="">Sin definir</option>
+                  {STYLE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-foreground">Descripcion</label>
+              <textarea value={form.description} onChange={(event) => updateField('description', event.target.value)} rows={4} className={cn(fieldClassName, 'min-h-28 resize-y')} placeholder="Objetivo, tono y resultado esperado" />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-foreground">Tags</label>
+              <input value={form.tags} onChange={(event) => updateField('tags', event.target.value)} className={fieldClassName} placeholder="campana, lanzamiento, vertical" />
+              <p className="mt-2 text-xs text-muted-foreground">Separa etiquetas por comas.</p>
+            </div>
+          </div>
+        ) : null}
+
+        {activeSection === 'ia' ? (
+          <div className="space-y-6">
+            <SectionHeader title="Contexto creativo para IA" description="La informacion que la IA usa para proponer tareas, prompts y direccion del proyecto." />
+            <div>
+              <label className="text-sm font-medium text-foreground">Briefing del proyecto</label>
+              <textarea value={form.aiBrief} onChange={(event) => updateField('aiBrief', event.target.value)} rows={5} className={cn(fieldClassName, 'min-h-32 resize-y')} placeholder="Que busca el proyecto, a quien va dirigido y que debe optimizar la IA" />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-foreground">Reglas globales de prompts</label>
+              <textarea value={form.globalPromptRules} onChange={(event) => updateField('globalPromptRules', event.target.value)} rows={5} className={cn(fieldClassName, 'min-h-32 resize-y font-mono text-[13px] leading-6')} placeholder="Consistencia visual, restricciones, camara, vestuario, composicion" />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-foreground">Descripcion de estilo personalizada</label>
+              <textarea value={form.customStyleDescription} onChange={(event) => updateField('customStyleDescription', event.target.value)} rows={4} className={cn(fieldClassName, 'min-h-28 resize-y')} placeholder="Matices extra sobre el estilo base del proyecto" />
+            </div>
+            <div className="rounded-2xl border border-border bg-background/70 p-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground"><Sparkles className="h-4 w-4 text-primary" /> Consejo operativo</div>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">Cuanto mejor definas briefing, reglas y estilo, mas consistente sera la ayuda de Kiyoko al crear tareas, prompts, personajes o fondos.</p>
+            </div>
+          </div>
+        ) : null}
       </div>
-    </div>
+    </WorkspaceSettingsModal>
   );
 }

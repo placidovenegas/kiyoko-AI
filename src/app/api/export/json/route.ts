@@ -1,4 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import {
+  apiBadRequest,
+  apiError,
+  apiResponse,
+  apiUnauthorized,
+  createApiRequestContext,
+  logServerEvent,
+  parseApiJson,
+} from '@/lib/observability/server';
 import { createClient } from '@/lib/supabase/server';
 
 interface ExportJsonBody {
@@ -9,26 +18,26 @@ interface ExportJsonBody {
  * POST /api/export/json
  * Export the full project as a JSON file.
  */
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
+  const requestContext = createApiRequestContext(request);
+
   try {
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return apiUnauthorized(requestContext);
     }
 
-    const body: ExportJsonBody = await request.json();
+    const { data: body, response } = await parseApiJson<ExportJsonBody>(request, requestContext);
+    if (response) {
+      return response;
+    }
+
     const { projectId } = body;
 
     if (!projectId) {
-      return NextResponse.json(
-        { error: 'Missing required field: projectId' },
-        { status: 400 }
-      );
+      return apiBadRequest(requestContext, 'Missing required field: projectId');
     }
 
     // Fetch project with all related data
@@ -36,14 +45,15 @@ export async function POST(request: NextRequest) {
       .from('projects')
       .select('*')
       .eq('id', projectId)
-      .eq('user_id', user.id)
+      .eq('owner_id', user.id)
       .single();
 
     if (projectError || !project) {
-      return NextResponse.json(
-        { error: 'Project not found' },
-        { status: 404 }
-      );
+      return apiError(requestContext, 'export/json', projectError ?? new Error('Project not found'), {
+        status: 404,
+        message: 'Project not found',
+        extra: { projectId, userId: user.id },
+      });
     }
 
     const [
@@ -51,10 +61,13 @@ export async function POST(request: NextRequest) {
       { data: characters },
       { data: backgrounds },
     ] = await Promise.all([
-      supabase.from('scenes').select('*').eq('project_id', projectId).order('order', { ascending: true }),
+      supabase.from('scenes').select('*').eq('project_id', projectId).order('sort_order', { ascending: true }),
       supabase.from('characters').select('*').eq('project_id', projectId),
       supabase.from('backgrounds').select('*').eq('project_id', projectId),
     ]);
+
+    const safeProject = { ...(project as Record<string, unknown>) };
+    delete safeProject.owner_id;
 
     // TODO: Also fetch arc, timeline, diagnostic data
 
@@ -62,11 +75,8 @@ export async function POST(request: NextRequest) {
       version: '1.0',
       exportedAt: new Date().toISOString(),
       generator: 'Kiyoko AI',
-      project: {
-        ...project,
-        // Remove internal fields
-        user_id: undefined,
-      },
+      requestId: requestContext.requestId,
+      project: safeProject,
       scenes: scenes ?? [],
       characters: characters ?? [],
       backgrounds: backgrounds ?? [],
@@ -75,17 +85,19 @@ export async function POST(request: NextRequest) {
 
     const jsonString = JSON.stringify(exportData, null, 2);
 
-    return new NextResponse(jsonString, {
+    logServerEvent('export/json', requestContext, 'Project exported as JSON', {
+      projectId,
+      userId: user.id,
+      sceneCount: scenes?.length ?? 0,
+    });
+
+    return apiResponse(requestContext, new NextResponse(jsonString, {
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
         'Content-Disposition': `attachment; filename="${(project.title ?? 'storyboard').replace(/[^a-zA-Z0-9]/g, '_')}.json"`,
       },
-    });
+    }));
   } catch (error) {
-    console.error('[export/json]', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return apiError(requestContext, 'export/json', error);
   }
 }

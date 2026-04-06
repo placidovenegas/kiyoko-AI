@@ -1,24 +1,23 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { FolderKanban, Sparkles, Loader2, Check } from 'lucide-react';
+import { useCallback, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { cn } from '@/lib/utils/cn';
-import { createClient } from '@/lib/supabase/client';
-import { useAiAssist } from '@/hooks/useAiAssist';
-import { useAIStore } from '@/stores/ai-store';
-import { useUIStore } from '@/stores/useUIStore';
+import { Check, FolderKanban, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { generateProjectSlug } from '@/lib/utils/slugify';
-import { queryKeys } from '@/lib/query/keys';
 import { CreationSaveProgress, type CreationSaveStep } from '@/components/chat/CreationSaveProgress';
-import type { CreationDoneCallback } from '@/types/chat-v8';
 import {
   CHAT_DOCK_FIELD_CLASS,
   CHAT_DOCK_FOOTER_BAR_CLASS,
   CHAT_DOCK_SECTION_HEADER_CLASS,
   CHAT_DOCK_TEXTAREA_CLASS,
 } from '@/components/chat/chatDockOverlay';
+import { queryKeys } from '@/lib/query/keys';
+import { createClient } from '@/lib/supabase/client';
+import { generateProjectSlug } from '@/lib/utils/slugify';
+import { cn } from '@/lib/utils/cn';
+import { useAIStore } from '@/stores/ai-store';
+import { useUIStore } from '@/stores/useUIStore';
+import type { CreationDoneCallback } from '@/types/chat-v8';
 
 const STYLES: { value: string; label: string }[] = [
   { value: 'pixar', label: 'Pixar 3D' },
@@ -45,7 +44,7 @@ async function withTimeout<T>(promise: PromiseLike<T>, ms: number, label: string
 }
 
 function sleep(ms: number) {
-  return new Promise<void>((r) => setTimeout(r, ms));
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
 
 function generateShortId(): string {
@@ -75,7 +74,6 @@ export function ProjectCreationCard({
   dock = false,
 }: ProjectCreationCardProps) {
   const queryClient = useQueryClient();
-  const currentOrgId = useUIStore((s) => s.currentOrgId);
   const [title, setTitle] = useState(prefill?.title ?? '');
   const [description, setDescription] = useState(prefill?.description ?? '');
   const [clientName, setClientName] = useState(prefill?.client_name ?? '');
@@ -84,31 +82,14 @@ export function ProjectCreationCard({
   const [saveStep, setSaveStep] = useState<CreationSaveStep>(0);
   const [saved, setSaved] = useState(false);
 
-  const { assist, loading: aiLoading } = useAiAssist();
-
   const isValid = title.trim().length > 0;
-
-  const suggestTitle = useCallback(async () => {
-    const result = await assist(
-      `Sugiere UN titulo corto y profesional (maximo 6 palabras) para un proyecto audiovisual.${description ? ` Contexto: ${description}` : ''} Solo el titulo, nada mas.`,
-      'title',
-    );
-    if (result) setTitle(result.replace(/^["']|["']$/g, ''));
-  }, [assist, description]);
-
-  const suggestDescription = useCallback(async () => {
-    const result = await assist(
-      `Escribe una descripcion breve (2-3 frases) para un proyecto titulado "${title || 'sin titulo'}". Solo la descripcion.`,
-      'description',
-    );
-    if (result) setDescription(result);
-  }, [assist, title]);
 
   const handleSave = useCallback(async () => {
     if (!title.trim()) {
       toast.error('Escribe un nombre para el proyecto');
       return;
     }
+
     setSaving(true);
     setSaveStep(0);
     useAIStore.getState().setCreating(true, `Creando proyecto "${title.trim()}"...`);
@@ -118,13 +99,16 @@ export function ProjectCreationCard({
       setSaveStep(1);
 
       if (sandbox) {
-        await withTimeout(new Promise((r) => setTimeout(r, 900)), 30000, 'simulando guardado');
+        await withTimeout(new Promise((resolve) => setTimeout(resolve, 900)), 30000, 'simulando guardado');
       } else {
         const supabase = createClient();
         const {
           data: { user },
         } = await supabase.auth.getUser();
-        if (!user) throw new Error('Debes iniciar sesion');
+
+        if (!user) {
+          throw new Error('Debes iniciar sesion');
+        }
 
         const shortId = generateShortId();
         const slug = generateProjectSlug(title.trim());
@@ -141,7 +125,6 @@ export function ProjectCreationCard({
               client_name: clientName.trim() || null,
               style: style as never,
               status: 'draft' as never,
-              organization_id: currentOrgId || null,
             } as never)
             .select('id, title, short_id')
             .single(),
@@ -153,9 +136,6 @@ export function ProjectCreationCard({
         if (error) throw error;
 
         await queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
-        if (currentOrgId) {
-          await queryClient.invalidateQueries({ queryKey: queryKeys.projects.byOrg(currentOrgId) });
-        }
 
         setSaveStep(2);
         await sleep(350);
@@ -179,24 +159,24 @@ export function ProjectCreationCard({
       setSaved(true);
       toast.success(`Proyecto "${title.trim()}" creado`);
       onCreated?.(`Proyecto "${title.trim()}" creado correctamente (sandbox).`);
-    } catch (err) {
+    } catch (error) {
       setSaveStep(0);
-      toast.error(err instanceof Error ? err.message : 'Error al crear proyecto');
+      toast.error(error instanceof Error ? error.message : 'Error al crear proyecto');
     } finally {
       setSaving(false);
       useAIStore.getState().setCreating(false);
     }
-  }, [title, description, clientName, style, sandbox, currentOrgId, onCreated, queryClient]);
+  }, [title, description, clientName, style, sandbox, onCreated, queryClient]);
 
   if (saved) {
     return (
       <div
         className={cn(
-          'rounded-lg border border-emerald-500/30 bg-emerald-50 dark:bg-emerald-950/20 p-4 flex items-center gap-3',
-          dock ? 'mt-0 rounded-none border-0' : 'mt-2',
+          'mt-2 flex items-center gap-3 rounded-lg border border-emerald-500/30 bg-emerald-50 p-4 dark:bg-emerald-950/20',
+          dock ? 'mt-0 rounded-none border-0' : '',
         )}
       >
-        <Check size={18} className="text-emerald-500 shrink-0" />
+        <Check size={18} className="shrink-0 text-emerald-500" />
         <div>
           <p className="text-sm font-semibold text-foreground">Proyecto &quot;{title}&quot; creado</p>
           <p className="text-xs text-muted-foreground">Abriendo el proyecto…</p>
@@ -208,31 +188,20 @@ export function ProjectCreationCard({
   return (
     <div className={cn('space-y-3', dock ? 'p-3' : 'mt-2')}>
       <div className={CHAT_DOCK_SECTION_HEADER_CLASS}>
-        <FolderKanban size={16} className="text-primary shrink-0" />
+        <FolderKanban size={16} className="shrink-0 text-primary" />
         <span>Nuevo proyecto</span>
       </div>
 
       <div className="space-y-2">
         <label className="text-[11px] font-medium text-muted-foreground">Titulo</label>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Nombre del proyecto"
-            disabled={saving}
-            className={CHAT_DOCK_FIELD_CLASS}
-          />
-          <button
-            type="button"
-            onClick={() => void suggestTitle()}
-            disabled={saving || Boolean(aiLoading)}
-            className="shrink-0 rounded-lg border border-border px-2 py-2 text-muted-foreground hover:bg-muted/60 disabled:opacity-50"
-            title="Sugerir titulo con IA"
-          >
-            <Sparkles size={16} />
-          </button>
-        </div>
+        <input
+          type="text"
+          value={title}
+          onChange={(event) => setTitle(event.target.value)}
+          placeholder="Nombre del proyecto"
+          disabled={saving}
+          className={CHAT_DOCK_FIELD_CLASS}
+        />
       </div>
 
       <div className="space-y-2">
@@ -240,7 +209,7 @@ export function ProjectCreationCard({
         <input
           type="text"
           value={clientName}
-          onChange={(e) => setClientName(e.target.value)}
+          onChange={(event) => setClientName(event.target.value)}
           placeholder="Marca o cliente"
           disabled={saving}
           className={CHAT_DOCK_FIELD_CLASS}
@@ -248,24 +217,14 @@ export function ProjectCreationCard({
       </div>
 
       <div className="space-y-2">
-        <div className="flex items-center justify-between gap-2">
-          <label className="text-[11px] font-medium text-muted-foreground">Descripcion</label>
-          <button
-            type="button"
-            onClick={() => void suggestDescription()}
-            disabled={saving || Boolean(aiLoading)}
-            className="text-[10px] text-primary hover:underline disabled:opacity-50"
-          >
-            Sugerir con IA
-          </button>
-        </div>
+        <label className="text-[11px] font-medium text-muted-foreground">Descripcion</label>
         <textarea
           value={description}
-          onChange={(e) => setDescription(e.target.value)}
+          onChange={(event) => setDescription(event.target.value)}
           placeholder="De que trata el proyecto, tono, entregables..."
           disabled={saving}
           rows={3}
-          className={cn(CHAT_DOCK_TEXTAREA_CLASS, 'min-h-[72px]')}
+          className={cn(CHAT_DOCK_TEXTAREA_CLASS, 'min-h-18')}
         />
       </div>
 
@@ -273,13 +232,13 @@ export function ProjectCreationCard({
         <label className="text-[11px] font-medium text-muted-foreground">Estilo visual</label>
         <select
           value={style}
-          onChange={(e) => setStyle(e.target.value)}
+          onChange={(event) => setStyle(event.target.value)}
           disabled={saving}
           className={CHAT_DOCK_FIELD_CLASS}
         >
-          {STYLES.map((s) => (
-            <option key={s.value} value={s.value}>
-              {s.label}
+          {STYLES.map((item) => (
+            <option key={item.value} value={item.value}>
+              {item.label}
             </option>
           ))}
         </select>

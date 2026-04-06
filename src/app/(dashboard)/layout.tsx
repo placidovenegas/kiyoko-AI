@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   SidebarProvider,
   SidebarInset,
@@ -12,21 +12,33 @@ import { KiyokoPanel } from '@/components/kiyoko/KiyokoPanel';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useAIStore } from '@/stores/ai-store';
 import { useUIStore } from '@/stores/useUIStore';
-import { WorkspaceCreateModal } from '@/components/workspace/WorkspaceCreateModal';
 import { SettingsModal } from '@/components/settings/SettingsModal';
-import { ProjectCreatePanel } from '@/components/project/ProjectCreatePanel';
 import { CookieBanner } from '@/components/shared/CookieBanner';
+import { GlobalFilePreview } from '@/components/shared/GlobalFilePreview';
+import { DashboardBootstrap } from '@/providers/DashboardBootstrap';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { ProjectCreatePanel } from '@/components/project/ProjectCreatePanel';
+import { TaskCreatePanel } from '@/components/tasks/TaskCreatePanel';
 
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   useKeyboardShortcuts();
 
   const { isOpen, mode, toggleChat } = useAIStore();
-  const { settingsModalOpen, openSettingsModal } = useUIStore();
+  const {
+    settingsModalOpen,
+    openSettingsModal,
+    projectCreatePanelOpen,
+    taskCreatePanelOpen,
+    closeProjectCreatePanel,
+    closeTaskCreatePanel,
+    closeFilePreview,
+  } = useUIStore();
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const routeSnapshot = `${pathname}?${searchParams.toString()}`;
+  const previousRouteRef = useRef(routeSnapshot);
 
   const handleToggleChat = useCallback(() => {
     toggleChat();
@@ -78,10 +90,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }, [settingsModalOpen, shouldOpenFromQuery, pathname, searchParams, router]);
 
+  useEffect(() => {
+    if (previousRouteRef.current !== routeSnapshot) {
+      closeProjectCreatePanel();
+      closeTaskCreatePanel();
+      closeFilePreview();
+      previousRouteRef.current = routeSnapshot;
+    }
+  }, [routeSnapshot, closeFilePreview, closeProjectCreatePanel, closeTaskCreatePanel]);
+
   // Nota: closeSettingsModal lo maneja el propio SettingsModal al cambiar open=false.
   // (Antes se usaba para compactar header; en V6 el navbar del chat se alinea fijo a 47px.)
 
   return (
+    <DashboardBootstrap>
     <SidebarProvider>
       <AppSidebar />
 
@@ -113,6 +135,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
               </div>
 
+              {projectCreatePanelOpen && <ProjectCreatePanel />}
+              {taskCreatePanelOpen && <TaskCreatePanel />}
+
               {/* Kiyoko panel — handles sidebar/floating/fullscreen internally */}
               <KiyokoPanel />
             </>
@@ -121,10 +146,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </SidebarInset>
 
       <SearchModal />
-      <WorkspaceCreateModal />
       <SettingsModal />
-      <ProjectCreatePanel />
+      <GlobalFilePreview />
       <CookieBanner />
     </SidebarProvider>
+    </DashboardBootstrap>
   );
 }

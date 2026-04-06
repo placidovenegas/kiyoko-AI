@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -8,6 +8,17 @@ import {
   DEFAULT_VOICE_EN,
   getElevenLabsUsage,
 } from '@/lib/tts/elevenlabs';
+import {
+  apiBadRequest,
+  apiError,
+  apiJson,
+  apiResponse,
+  apiUnauthorized,
+  createApiRequestContext,
+  logServerEvent,
+  logServerWarning,
+  parseApiJson,
+} from '@/lib/observability/server';
 
 // Combined voice list (ElevenLabs + legacy Google names for backwards compat)
 const ALL_VOICES = [
@@ -24,19 +35,22 @@ const ALL_VOICES = [
   { id: 'es-ES-Standard-A', name: 'Google ES Femenina', gender: 'female', accent: 'Espana', language: 'es', provider: 'google' as const },
 ];
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const requestContext = createApiRequestContext(request);
   const apiKey = process.env.ELEVENLABS_API_KEY;
   let usage = null;
 
   if (apiKey) {
     try {
       usage = await getElevenLabsUsage(apiKey);
-    } catch {
-      // Ignore usage fetch error
+    } catch (error) {
+      logServerWarning('generate-voice/GET', requestContext, 'Could not fetch ElevenLabs usage', {
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
-  return NextResponse.json({
+  return apiJson(requestContext, {
     voices: ALL_VOICES,
     provider: apiKey ? 'elevenlabs' : 'none',
     usage,
@@ -44,15 +58,16 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const requestContext = createApiRequestContext(request);
   try {
     // Auth check
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiUnauthorized(requestContext);
     }
 
-    const body = await request.json() as {
+    const { data: body, response } = await parseApiJson<{
       text: string;
       voice?: string;
       language?: string;
@@ -63,12 +78,16 @@ export async function POST(request: NextRequest) {
       speed?: number;
       videoId?: string;
       projectId?: string;
-    };
+    }>(request, requestContext);
+
+    if (response || !body) {
+      return response;
+    }
 
     const { text, voice, language = 'es', videoId, projectId } = body;
 
     if (!text?.trim()) {
-      return NextResponse.json({ error: 'Text is required' }, { status: 400 });
+      return apiBadRequest(requestContext, 'Text is required');
     }
 
     // ─── Try ElevenLabs first (primary) ────────────────────────
@@ -78,14 +97,17 @@ export async function POST(request: NextRequest) {
       try {
         const usage = await getElevenLabsUsage(elevenLabsKey);
         if (usage.remainingCharacters < text.length) {
-          return NextResponse.json({
+          return apiJson(requestContext, {
             error: `Cuota de ElevenLabs insuficiente. Necesitas ${text.length} caracteres pero solo quedan ${usage.remainingCharacters}.`,
             remainingCharacters: usage.remainingCharacters,
             requiredCharacters: text.length,
           }, { status: 429 });
         }
       } catch (quotaError) {
-        console.warn('[generate-voice] Could not check ElevenLabs quota:', quotaError);
+        logServerWarning('generate-voice/POST', requestContext, 'Could not check ElevenLabs quota', {
+          userId: user.id,
+          errorMessage: quotaError instanceof Error ? quotaError.message : String(quotaError),
+        });
         // Continue anyway — the generation call will fail if quota is exceeded
       }
 
@@ -117,7 +139,12 @@ export async function POST(request: NextRequest) {
               });
 
             if (uploadError) {
-              console.error('[generate-voice] Storage upload error:', uploadError);
+              logServerWarning('generate-voice/POST', requestContext, 'Storage upload error for ElevenLabs audio', {
+                userId: user.id,
+                videoId,
+                projectId,
+                errorMessage: uploadError.message,
+              });
             } else {
               const { data: urlData } = db.storage
                 .from('kiyoko-storage')
@@ -144,19 +171,37 @@ export async function POST(request: NextRequest) {
                 .eq('is_current', true);
             }
           } catch (saveError) {
-            console.error('[generate-voice] Error saving audio to storage/DB:', saveError);
+            logServerWarning('generate-voice/POST', requestContext, 'Error saving ElevenLabs audio to storage or DB', {
+              userId: user.id,
+              videoId,
+              projectId,
+              errorMessage: saveError instanceof Error ? saveError.message : String(saveError),
+            });
           }
         }
 
-        return new NextResponse(new Uint8Array(audioBuffer), {
+        logServerEvent('generate-voice/POST', requestContext, 'Generated voice with ElevenLabs', {
+          userId: user.id,
+          provider: 'elevenlabs',
+          voiceId,
+          videoId,
+          projectId,
+          textLength: text.length,
+        });
+
+        return apiResponse(requestContext, new Response(new Uint8Array(audioBuffer), {
           headers: {
             'Content-Type': 'audio/mpeg',
             'Content-Disposition': 'inline; filename="narration.mp3"',
             'X-TTS-Provider': 'elevenlabs',
           },
-        });
+        }));
       } catch (err) {
-        console.error('[generate-voice] ElevenLabs error:', err);
+        logServerWarning('generate-voice/POST', requestContext, 'ElevenLabs generation failed, falling back', {
+          userId: user.id,
+          provider: 'elevenlabs',
+          errorMessage: err instanceof Error ? err.message : String(err),
+        });
         // Fall through to Google TTS
       }
     }
@@ -227,35 +272,51 @@ export async function POST(request: NextRequest) {
                   .eq('is_current', true);
               }
             } catch (saveError) {
-              console.error('[generate-voice] Error saving Google TTS audio:', saveError);
+              logServerWarning('generate-voice/POST', requestContext, 'Error saving Google TTS audio', {
+                userId: user.id,
+                videoId,
+                projectId,
+                errorMessage: saveError instanceof Error ? saveError.message : String(saveError),
+              });
             }
           }
 
-          return new NextResponse(audioBuffer, {
+          logServerEvent('generate-voice/POST', requestContext, 'Generated voice with Google TTS', {
+            userId: user.id,
+            provider: 'google',
+            voiceId: googleVoiceName,
+            videoId,
+            projectId,
+            textLength: text.length,
+          });
+
+          return apiResponse(requestContext, new Response(audioBuffer, {
             headers: {
               'Content-Type': 'audio/mpeg',
               'Content-Disposition': 'inline; filename="narration.mp3"',
               'X-TTS-Provider': 'google',
             },
-          });
+          }));
         }
       } catch (err) {
-        console.error('[generate-voice] Google TTS error:', err);
+        logServerWarning('generate-voice/POST', requestContext, 'Google TTS generation failed', {
+          userId: user.id,
+          provider: 'google',
+          errorMessage: err instanceof Error ? err.message : String(err),
+        });
       }
     }
 
     // ─── No provider available ─────────────────────────────────
-    return NextResponse.json({
+    return apiJson(requestContext, {
       error: 'No TTS provider configured.',
       tip: 'Anade ELEVENLABS_API_KEY en .env.local (gratis: elevenlabs.io, 10K chars/mes sin tarjeta).',
       fallback: 'browser',
     }, { status: 503 });
 
   } catch (error) {
-    console.error('[generate-voice]', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Voice generation failed' },
-      { status: 500 },
-    );
+    return apiError(requestContext, 'generate-voice/POST', error, {
+      message: error instanceof Error ? error.message : 'Voice generation failed',
+    });
   }
 }

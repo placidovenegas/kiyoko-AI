@@ -21,13 +21,10 @@ import {
   Zap,
   AlertCircle,
 } from 'lucide-react';
+import { Popover } from '@heroui/react';
 import { cn } from '@/lib/utils/cn';
 import { toast } from 'sonner';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
+import { useUIStore } from '@/stores/useUIStore';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -77,7 +74,7 @@ interface ChatInputProps {
 // Constants
 // ---------------------------------------------------------------------------
 
-const PROVIDER_KEY = 'kiyoko-preferred-provider';
+// Provider preference now managed by useUIStore.preferredAiProvider
 
 const MODEL_SHORT: Record<string, string> = {
   'llama-3.3-70b-versatile': 'LLaMA 3.3',
@@ -271,14 +268,9 @@ export function ChatInput({
 
   // Provider state
   const [providers, setProviders]               = useState<ProviderStatus[]>([]);
-  const [selectedProvider, setSelectedProvider] = useState<string | null>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(PROVIDER_KEY);
-      if (saved === 'auto' || !saved) return null;
-      return saved;
-    }
-    return null;
-  });
+  const storedProvider = useUIStore((s) => s.preferredAiProvider);
+  const setStoredProvider = useUIStore((s) => s.setPreferredAiProvider);
+  const [selectedProvider, setSelectedProvider] = useState<string | null>(storedProvider);
 
   const [plusOpen, setPlusOpen]           = useState(false);
   const [providerOpen, setProviderOpen]   = useState(false); // chip popover
@@ -368,19 +360,19 @@ export function ChatInput({
   // ---- Handlers ----
   const handleSelectProvider = useCallback((id: string) => {
     setSelectedProvider(id);
-    localStorage.setItem(PROVIDER_KEY, id);
+    setStoredProvider(id);
     setProviderOpen(false);
     setModelMenuOpen(false);
     setPlusOpen(false);
-  }, []);
+  }, [setStoredProvider]);
 
   const handleSelectAuto = useCallback(() => {
     setSelectedProvider(null);
-    localStorage.removeItem(PROVIDER_KEY);
+    setStoredProvider(null);
     setProviderOpen(false);
     setModelMenuOpen(false);
     setPlusOpen(false);
-  }, []);
+  }, [setStoredProvider]);
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     if (inputLocked) return;
@@ -553,13 +545,13 @@ export function ChatInput({
 
           {/* LEFT: + menu */}
           <Popover
-            open={plusOpen}
+            isOpen={plusOpen}
             onOpenChange={(v) => {
               if (inputLocked) return;
               setPlusOpen(v);
             }}
           >
-            <PopoverTrigger asChild>
+            <Popover.Trigger>
               <button
                 type="button"
                 disabled={inputLocked}
@@ -575,13 +567,8 @@ export function ChatInput({
               >
                 <Plus size={15} />
               </button>
-            </PopoverTrigger>
-            <PopoverContent
-              side="top"
-              align="start"
-              sideOffset={6}
-              className="w-52 p-1 bg-popover border-border shadow-lg"
-            >
+            </Popover.Trigger>
+            <Popover.Content className="w-52 p-1 bg-popover border-border shadow-lg">
               {allowFiles && (
                 <button
                   type="button"
@@ -607,13 +594,13 @@ export function ChatInput({
               <div className="my-1 border-t border-border" />
               {/* Cambiar modelo — se abre al hover */}
               <Popover
-                open={modelMenuOpen}
+                isOpen={modelMenuOpen}
                 onOpenChange={(v) => {
                   if (inputLocked) return;
                   setModelMenuOpen(v);
                 }}
               >
-                <PopoverTrigger asChild>
+                <Popover.Trigger>
                   <button
                     type="button"
                     disabled={inputLocked}
@@ -629,11 +616,8 @@ export function ChatInput({
                     <span className="flex-1 text-left">Cambiar modelo...</span>
                     <ChevronRight size={12} className="shrink-0 text-muted-foreground" />
                   </button>
-                </PopoverTrigger>
-                <PopoverContent
-                  side="right"
-                  align="start"
-                  sideOffset={4}
+                </Popover.Trigger>
+                <Popover.Content
                   onMouseEnter={openModelMenu}
                   onMouseLeave={scheduleCloseModelMenu}
                   className="w-64 p-1 bg-popover border-border shadow-lg"
@@ -649,9 +633,9 @@ export function ChatInput({
                     onSelect={handleSelectProvider}
                     onSelectAuto={handleSelectAuto}
                   />
-                </PopoverContent>
+                </Popover.Content>
               </Popover>
-            </PopoverContent>
+            </Popover.Content>
           </Popover>
 
           {/* MIDDLE: context label (flexible spacer) */}
@@ -679,13 +663,13 @@ export function ChatInput({
 
             {/* Provider chip — opens its OWN popover, independent of + menu */}
             <Popover
-              open={providerOpen}
+              isOpen={providerOpen}
               onOpenChange={(v) => {
                 if (inputLocked) return;
                 setProviderOpen(v);
               }}
             >
-              <PopoverTrigger asChild>
+              <Popover.Trigger>
                 <button
                   type="button"
                   disabled={inputLocked}
@@ -706,13 +690,8 @@ export function ChatInput({
                   }
                   <span>{isAutoMode ? 'Auto' : providerLabel}</span>
                 </button>
-              </PopoverTrigger>
-              <PopoverContent
-                side="top"
-                align="end"
-                sideOffset={6}
-                className="w-64 p-1 bg-popover border-border shadow-lg"
-              >
+              </Popover.Trigger>
+              <Popover.Content className="w-64 p-1 bg-popover border-border shadow-lg">
                 <div className="px-2 py-1.5 border-b border-border mb-1">
                   <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
                     Proveedor de IA
@@ -724,7 +703,7 @@ export function ChatInput({
                   onSelect={handleSelectProvider}
                   onSelectAuto={handleSelectAuto}
                 />
-              </PopoverContent>
+              </Popover.Content>
             </Popover>
 
             {/* Send / Stop — con dock de creación abierto solo se permite detener stream, no enviar */}

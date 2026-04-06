@@ -136,16 +136,6 @@ export type TaskUpdate = Update<'tasks'>;
 
 
 // ========================
-// Organizaciones
-// ========================
-export type Organization = Row<'organizations'>;
-export type OrganizationInsert = Insert<'organizations'>;
-export type OrganizationUpdate = Update<'organizations'>;
-
-export type OrganizationMember = Row<'organization_members'>;
-export type OrganizationMemberInsert = Insert<'organization_members'>;
-
-// ========================
 // Sistema
 // ========================
 export type UserPlan = Row<'user_plans'>;
@@ -192,8 +182,6 @@ export type ExportFormat = Enums['export_format'];
 export type TaskStatus = Enums['task_status'];
 export type TaskPriority = Enums['task_priority'];
 export type TaskCategory = Enums['task_category'];
-export type OrgType = Enums['org_type'];
-export type OrgRole = Enums['org_role'];
 
 // ========================
 // Tipos de aplicación (no de DB)

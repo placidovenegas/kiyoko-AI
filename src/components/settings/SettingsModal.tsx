@@ -1,20 +1,17 @@
 'use client';
 
-import { useEffect } from 'react';
+import { Modal, useOverlayState } from '@heroui/react';
 import { useUIStore } from '@/stores/useUIStore';
 import { cn } from '@/lib/utils/cn';
 import {
-  X, User, Settings, Bell, Shield, Building2, Users,
-  Key as KeyIcon, CreditCard, LayoutGrid,
+  X, User, Settings, Bell, Shield,
+  Key as KeyIcon, CreditCard,
 } from 'lucide-react';
 import {
   PerfilSection,
   PreferenciasSection,
   NotificacionesSection,
   SeguridadSection,
-  OrganizacionesSection,
-  OrgGeneralSection,
-  OrgMiembrosSection,
   ApiKeysSection,
   SuscripcionSection,
 } from './modal-settings';
@@ -29,14 +26,6 @@ const NAV = [
       { id: 'preferencias', label: 'Preferencias', icon: Settings },
       { id: 'notificaciones', label: 'Notificaciones', icon: Bell },
       { id: 'seguridad', label: 'Seguridad', icon: Shield },
-    ],
-  },
-  {
-    group: 'Organización',
-    items: [
-      { id: 'organizaciones', label: 'Mis organizaciones', icon: LayoutGrid },
-      { id: 'org-general', label: 'General', icon: Building2 },
-      { id: 'org-miembros', label: 'Miembros', icon: Users },
     ],
   },
   {
@@ -60,9 +49,6 @@ const SECTION_COMPONENTS: Record<string, React.ComponentType> = {
   preferencias: PreferenciasSection,
   notificaciones: NotificacionesSection,
   seguridad: SeguridadSection,
-  organizaciones: OrganizacionesSection,
-  'org-general': OrgGeneralSection,
-  'org-miembros': OrgMiembrosSection,
   'api-keys': ApiKeysSection,
   suscripcion: SuscripcionSection,
 };
@@ -72,21 +58,19 @@ const SECTION_COMPONENTS: Record<string, React.ComponentType> = {
 export function SettingsModal() {
   const { settingsModalOpen, settingsSection, closeSettingsModal, openSettingsModal } = useUIStore();
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') closeSettingsModal(); };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [closeSettingsModal]);
+  const modalState = useOverlayState({
+    isOpen: settingsModalOpen,
+    onOpenChange: (open) => { if (!open) closeSettingsModal(); },
+  });
 
   const SectionComponent = SECTION_COMPONENTS[settingsSection] ?? PerfilSection;
 
-  if (!settingsModalOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50">
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={closeSettingsModal} />
-      <div className="fixed inset-0 flex items-center justify-center p-4">
-        <div className="relative flex flex-row w-[80vw] h-[85vh] rounded-xl border border-border bg-background shadow-xl overflow-hidden">
+    <Modal state={modalState}>
+      <Modal.Backdrop isDismissable>
+        <Modal.Container placement="center">
+          <Modal.Dialog className="p-0! bg-transparent! shadow-none! max-w-none! w-auto!">
+            <div className="flex flex-row w-[80vw] max-w-5xl h-[85vh] rounded-xl border border-border bg-background shadow-xl overflow-hidden">
           {/* ── Left nav ──────────────────────────────────────────── */}
           <aside className="w-56 shrink-0 border-r border-border bg-card flex flex-col overflow-y-auto">
             <div className="px-4 pt-5 pb-2">
@@ -125,15 +109,14 @@ export function SettingsModal() {
           </main>
 
           {/* ── Close ─────────────────────────────────────────────── */}
-          <button
-            onClick={closeSettingsModal}
-            className="absolute right-3 top-3 flex items-center justify-center size-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors z-10"
-          >
+          <Modal.CloseTrigger className="absolute right-3 top-3 flex items-center justify-center size-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors z-10">
             <X className="h-4 w-4" />
             <span className="sr-only">Cerrar</span>
-          </button>
-        </div>
-      </div>
-    </div>
+          </Modal.CloseTrigger>
+            </div>
+          </Modal.Dialog>
+        </Modal.Container>
+      </Modal.Backdrop>
+    </Modal>
   );
 }

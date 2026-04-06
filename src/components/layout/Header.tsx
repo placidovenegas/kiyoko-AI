@@ -1,72 +1,121 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useMemo, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import { useDashboard } from '@/providers/DashboardBootstrap';
 import {
-  Sun,
-  Moon,
-  Search,
-  MessageCircle,
   ChevronLeft,
-  LayoutGrid,
-  FolderKanban,
-  Film,
+  Search,
   Plus,
   Settings2,
+  FolderKanban,
+  Film,
+  LayoutGrid,
+  Bot,
 } from 'lucide-react';
-import { Tooltip } from '@heroui/react';
-import { Button } from '@/components/ui/button';
+import { Tooltip as HeroTooltip } from '@heroui/react';
+
+// HeroUI v3 Tooltip types don't expose content/placement in convenience API
+const Tooltip = HeroTooltip as React.FC<{ content?: string; placement?: string; children: React.ReactNode }>;
+import { Button } from '@heroui/react';
 import { cn } from '@/lib/utils/cn';
 import { FeedbackDialog } from '@/components/shared/FeedbackDialog';
 import { NotificationBell } from '@/components/layout/NotificationBell';
+import { useAIStore } from '@/stores/ai-store';
 import { useUIStore } from '@/stores/useUIStore';
 
-/* ------------------------------------------------------------------ */
-/*  Constants                                                          */
-/* ------------------------------------------------------------------ */
-
-const THEME_STORAGE_KEY = 'kiyoko-theme';
-
-/** Paths where the back button should NOT appear */
-const NO_BACK_PATHS = ['/', '/dashboard', '/project'];
-
-/* ------------------------------------------------------------------ */
-/*  Context helpers                                                    */
-/* ------------------------------------------------------------------ */
-
-type PageContext = 'dashboard' | 'project' | 'video' | 'other';
-
-function resolveContext(pathname: string): PageContext {
-  // Video: /project/[shortId]/video/*
-  if (/^\/project\/[^/]+\/video/.test(pathname)) return 'video';
-  // Project: /project/[shortId]/* (but not video, caught above)
-  if (/^\/project\/[^/]+/.test(pathname)) return 'project';
-  // Dashboard
-  if (pathname === '/dashboard' || pathname.startsWith('/dashboard/')) return 'dashboard';
-  return 'other';
+function shouldShowBackButton(pathname: string): boolean {
+  const cleanPath = pathname.replace(/\/+$/, '') || '/';
+  return cleanPath !== '/' && cleanPath !== '/dashboard' && cleanPath !== '/project';
 }
 
-interface BreadcrumbInfo {
-  icon: typeof LayoutGrid;
+type HeaderRouteContext = {
+  scope: 'dashboard' | 'project' | 'video';
   label: string;
-}
+  icon: typeof LayoutGrid;
+  showSearch: boolean;
+  showFeedback: boolean;
+  showGlobalTaskAction: boolean;
+  showProjectSettings: boolean;
+  showVideoSettings: boolean;
+  showAiAction: boolean;
+};
 
-function resolveBreadcrumb(pathname: string, ctx: PageContext): BreadcrumbInfo | null {
-  switch (ctx) {
-    case 'dashboard': {
-      if (pathname.startsWith('/dashboard/tasks') || pathname.startsWith('/dashboard/tareas'))
-        return { icon: LayoutGrid, label: 'Tareas' };
-      if (pathname.startsWith('/dashboard/settings') || pathname.startsWith('/dashboard/ajustes'))
-        return { icon: LayoutGrid, label: 'Ajustes' };
-      return { icon: LayoutGrid, label: 'Dashboard' };
-    }
-    case 'project':
-      return { icon: FolderKanban, label: 'Proyecto' };
-    case 'video':
-      return { icon: Film, label: 'Video' };
-    default:
-      return null;
+function deriveHeaderRouteContext(pathname: string): HeaderRouteContext {
+  const cleanPath = pathname.replace(/\/+$/, '') || '/';
+  const segments = cleanPath.split('/').filter(Boolean);
+
+  if (segments[0] === 'project' && segments[1] && segments[2] === 'video' && segments[3]) {
+    const section = segments[4] ?? 'overview';
+    const labelMap: Record<string, string> = {
+      overview: 'Video',
+      scenes: 'Escenas',
+      scene: 'Escena',
+      timeline: 'Timeline',
+      narration: 'Narracion',
+      analysis: 'Analisis',
+      export: 'Exportacion',
+      share: 'Compartir',
+    };
+
+    return {
+      scope: 'video',
+      label: labelMap[section] ?? 'Video',
+      icon: Film,
+      showSearch: true,
+      showFeedback: false,
+      showGlobalTaskAction: false,
+      showProjectSettings: false,
+      showVideoSettings: true,
+      showAiAction: true,
+    };
   }
+
+  if (segments[0] === 'project' && segments[1]) {
+    const section = segments[2] ?? 'overview';
+    const labelMap: Record<string, string> = {
+      overview: 'Proyecto',
+      tasks: 'Tareas',
+      videos: 'Videos',
+      resources: 'Recursos',
+      publications: 'Publicaciones',
+      activity: 'Actividad',
+      chat: 'IA',
+    };
+
+    return {
+      scope: 'project',
+      label: labelMap[section] ?? 'Proyecto',
+      icon: FolderKanban,
+      showSearch: true,
+      showFeedback: false,
+      showGlobalTaskAction: false,
+      showProjectSettings: true,
+      showVideoSettings: false,
+      showAiAction: true,
+    };
+  }
+
+  const dashboardLabelMap: Record<string, string> = {
+    dashboard: 'Dashboard',
+    tasks: 'Tareas',
+    settings: 'Ajustes',
+    admin: 'Admin',
+    share: 'Compartido',
+  };
+
+  return {
+    scope: 'dashboard',
+    label: dashboardLabelMap[segments[0] ?? 'dashboard'] ?? 'Workspace',
+    icon: LayoutGrid,
+    showSearch: true,
+    showFeedback: true,
+    showGlobalTaskAction: true,
+    showProjectSettings: false,
+    showVideoSettings: false,
+    showAiAction: true,
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -81,201 +130,182 @@ interface HeaderProps {
 export function Header({ onToggleChat, chatOpen }: HeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const ctx = useMemo(() => resolveContext(pathname), [pathname]);
-  const breadcrumb = useMemo(() => resolveBreadcrumb(pathname, ctx), [pathname, ctx]);
+  const t = useTranslations();
 
+  useDashboard();
   const openTaskCreatePanel = useUIStore((s) => s.openTaskCreatePanel);
   const openProjectSettingsModal = useUIStore((s) => s.openProjectSettingsModal);
   const openVideoSettingsModal = useUIStore((s) => s.openVideoSettingsModal);
-
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem(THEME_STORAGE_KEY);
-      if (stored === 'light' || stored === 'dark') return stored;
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    }
-    return 'dark';
-  });
+  const pageHeaderContext = useUIStore((s) => s.pageHeaderContext);
+  const openChat = useAIStore((s) => s.openChat);
+  const setActiveAgent = useAIStore((s) => s.setActiveAgent);
 
   // Feedback
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
-  /* ---- Show back button? ---- */
-  const showBack = !NO_BACK_PATHS.includes(pathname);
+  /* ---- Derived ---- */
+  const routeContext = useMemo(() => deriveHeaderRouteContext(pathname), [pathname]);
+  const showBackButton = useMemo(() => pageHeaderContext?.backHref === null ? false : shouldShowBackButton(pathname), [pageHeaderContext?.backHref, pathname]);
 
-  /* ---- Handlers ---- */
-  function handleToggleTheme() {
-    const next = theme === 'dark' ? 'light' : 'dark';
-    setTheme(next);
-    localStorage.setItem(THEME_STORAGE_KEY, next);
-    document.documentElement.classList.toggle('dark', next === 'dark');
-    document.documentElement.setAttribute('data-theme', next);
+  const chromeButtonClassName = 'flex items-center justify-center size-8 rounded-md border border-foreground/8 bg-background text-foreground/45 hover:bg-foreground/4 hover:text-foreground/75 transition-all duration-150';
+  const chromeTextButtonClassName = 'shrink-0 rounded-md border border-foreground/8 bg-background px-2.5 py-1 text-[12px] text-foreground/45 hover:bg-foreground/4 hover:text-foreground/75 transition-all duration-150';
+
+  function handleOpenAiContext() {
+    setActiveAgent(routeContext.scope === 'video' ? 'editor' : 'project');
+    openChat('sidebar');
   }
 
-  /* ---- Icon button style (shared) ---- */
-  const iconBtnClass =
-    'flex items-center justify-center size-8 rounded-md border border-foreground/6 text-foreground/40 hover:text-foreground/70 hover:bg-foreground/4 transition-all duration-150';
+  function handleGoBack() {
+    if (pageHeaderContext?.backHref) {
+      router.push(pageHeaderContext.backHref);
+      return;
+    }
+
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back();
+      return;
+    }
+
+    router.push('/dashboard');
+  }
 
   return (
     <div className="flex items-center h-full px-3 w-full">
-      {/* ===== LEFT SECTION ===== */}
-      <div className="flex items-center gap-2 flex-1 min-w-0">
-        {/* Back button */}
-        {showBack && (
-          <Tooltip>
-            <Tooltip.Trigger>
-              <button
-                type="button"
-                onClick={() => router.back()}
-                className={iconBtnClass}
-                aria-label="Volver"
-              >
-                <ChevronLeft size={16} />
-              </button>
-            </Tooltip.Trigger>
-            <Tooltip.Content>Volver</Tooltip.Content>
-          </Tooltip>
-        )}
+      <div className="flex flex-1 items-center gap-2">
+        {showBackButton ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            isIconOnly
+            onPress={handleGoBack}
+            className={cn(chromeButtonClassName, 'shrink-0')}
+            aria-label="Volver"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </Button>
+        ) : null}
 
-        {/* Breadcrumb badge */}
-        {breadcrumb && (
-          <div className="hidden md:flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-medium text-foreground/70">
-            <breadcrumb.icon size={13} className="shrink-0" />
-            <span>{breadcrumb.label}</span>
-          </div>
-        )}
+        <div className="hidden min-w-0 items-center gap-2 md:flex">
+          <span className="inline-flex h-8 items-center gap-2 rounded-full border border-border bg-background px-3 text-xs font-medium text-muted-foreground">
+            <routeContext.icon className="h-3.5 w-3.5 text-primary" />
+            {routeContext.label}
+          </span>
+        </div>
       </div>
 
-      {/* ===== CENTER SECTION (search) ===== */}
-      <Button
-        type="button"
-        variant="ghost"
-        onClick={() =>
-          document.dispatchEvent(
-            new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }),
-          )
-        }
-        className={cn(
-          'flex items-center gap-2 h-8 w-64 px-3 rounded-lg',
-          'bg-foreground/4 border border-foreground/8',
-          'text-sm text-foreground/40 hover:text-foreground/70 hover:bg-foreground/6 hover:border-foreground/15',
-          'transition-all duration-150',
-        )}
-      >
-        <Search size={14} className="shrink-0" />
-        <span className="flex-1 text-left text-[13px]">Buscar...</span>
-        <kbd className="shrink-0 text-[10px] font-medium text-foreground/25 bg-foreground/6 border border-foreground/10 rounded px-1 py-0.5">
-          ⌘K
-        </kbd>
-      </Button>
+      {/* Search — center of navbar, always visible */}
+      {routeContext.showSearch ? (
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }))}
+          className={cn(
+            'flex items-center gap-2 h-8 px-3 rounded-md',
+            routeContext.scope === 'dashboard' ? 'w-64' : 'w-52 lg:w-60',
+            'bg-background border border-foreground/8',
+            'text-sm text-foreground/40 hover:text-foreground/70 hover:bg-foreground/6 hover:border-foreground/15',
+            'transition-all duration-150',
+          )}
+        >
+          <Search size={14} className="shrink-0" />
+          <span className="flex-1 text-left text-[13px]">{t('common.search')}</span>
+          <kbd className="shrink-0 text-[10px] font-medium text-foreground/25 bg-foreground/6 border border-foreground/10 rounded px-1 py-0.5">
+            ⌘K
+          </kbd>
+        </Button>
+      ) : null}
 
-      {/* ===== RIGHT SECTION (context-aware) ===== */}
-      <div className="flex items-center gap-1 flex-1 justify-end shrink-0">
-        {/* --- Dashboard context --- */}
-        {ctx === 'dashboard' && (
-          <>
-            {/* Feedback */}
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setFeedbackOpen(true)}
-              className="shrink-0 mr-1 px-2.5 py-1 rounded-md border border-foreground/8 text-[12px] text-foreground/40 hover:text-foreground/70 hover:bg-foreground/4"
-            >
-              Feedback
-            </Button>
+      {/* Spacer right */}
+      <div className="flex-1" />
 
-            {/* Nueva tarea */}
-            <Tooltip>
-              <Tooltip.Trigger>
-                <button
-                  type="button"
-                  onClick={() => openTaskCreatePanel()}
-                  className={cn(
-                    'flex items-center gap-1.5 h-8 rounded-md border border-foreground/6 px-2 text-foreground/40 hover:text-foreground/70 hover:bg-foreground/4 transition-all duration-150',
-                  )}
-                >
-                  <Plus size={14} />
-                  <span className="hidden lg:inline text-xs font-medium">Nueva tarea</span>
-                </button>
-              </Tooltip.Trigger>
-              <Tooltip.Content>Nueva tarea</Tooltip.Content>
-            </Tooltip>
-          </>
-        )}
+      {/* Feedback */}
+      {routeContext.showFeedback ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => setFeedbackOpen(true)}
+          className={cn(chromeTextButtonClassName, 'mr-1.5')}
+        >
+          {t('nav.feedback')}
+        </Button>
+      ) : null}
 
-        {/* --- Project context --- */}
-        {ctx === 'project' && (
-          <Tooltip>
-            <Tooltip.Trigger>
-              <button
-                type="button"
-                onClick={() => openProjectSettingsModal()}
-                className={iconBtnClass}
-                aria-label="Ajustes del proyecto"
-              >
-                <Settings2 size={14} />
-              </button>
-            </Tooltip.Trigger>
-            <Tooltip.Content>Ajustes del proyecto</Tooltip.Content>
-          </Tooltip>
-        )}
+      {routeContext.showGlobalTaskAction ? (
+        <>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onPress={() => openTaskCreatePanel({ source: 'header' })}
+            isIconOnly
+            className={cn(chromeButtonClassName, 'shrink-0 mr-1.5 lg:hidden')}
+            aria-label="Nueva tarea"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </Button>
 
-        {/* --- Video context --- */}
-        {ctx === 'video' && (
-          <Tooltip>
-            <Tooltip.Trigger>
-              <button
-                type="button"
-                onClick={() => openVideoSettingsModal()}
-                className={iconBtnClass}
-                aria-label="Ajustes del video"
-              >
-                <Settings2 size={14} />
-              </button>
-            </Tooltip.Trigger>
-            <Tooltip.Content>Ajustes del video</Tooltip.Content>
-          </Tooltip>
-        )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onPress={() => openTaskCreatePanel({ source: 'header' })}
+            className={cn(chromeTextButtonClassName, 'mr-1.5 hidden lg:inline-flex')}
+          >
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            Nueva tarea
+          </Button>
+        </>
+      ) : null}
 
-        {/* Theme toggle (always) */}
-        <Tooltip>
-          <Tooltip.Trigger>
+      {/* RIGHT: icons */}
+      <div className="flex items-center gap-1 shrink-0">
+        {routeContext.showProjectSettings ? (
+          <Tooltip content="Ajustes del proyecto" placement="bottom">
             <button
               type="button"
-              onClick={handleToggleTheme}
-              className={iconBtnClass}
-              aria-label={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+              onClick={() => openProjectSettingsModal('general')}
+              className={chromeButtonClassName}
+              aria-label="Ajustes del proyecto"
             >
-              {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+              <Settings2 size={14} />
             </button>
-          </Tooltip.Trigger>
-          <Tooltip.Content>{theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}</Tooltip.Content>
-        </Tooltip>
+          </Tooltip>
+        ) : null}
 
-        {/* Notifications (always) */}
+        {routeContext.showVideoSettings ? (
+          <Tooltip content="Ajustes del video" placement="bottom">
+            <button
+              type="button"
+              onClick={() => openVideoSettingsModal('general')}
+              className={chromeButtonClassName}
+              aria-label="Ajustes del video"
+            >
+              <Settings2 size={14} />
+            </button>
+          </Tooltip>
+        ) : null}
+
+        {/* Notifications */}
         <NotificationBell />
 
-        {/* Chat/Bot (always, context-aware tooltip) */}
-        {onToggleChat && (
-          <Tooltip>
-            <Tooltip.Trigger>
-              <button
-                type="button"
-                onClick={onToggleChat}
-                className={cn(
-                  'flex items-center justify-center size-8 rounded-md border transition-all duration-150',
-                  chatOpen
-                    ? 'border-primary/30 text-primary bg-primary/10'
-                    : 'border-foreground/6 text-foreground/40 hover:text-foreground/70 hover:bg-foreground/4',
-                )}
-              >
-                <MessageCircle size={14} />
-              </button>
-            </Tooltip.Trigger>
-            <Tooltip.Content>
-              {ctx === 'dashboard' ? 'Chat IA' : 'Asistente contextual'}
-            </Tooltip.Content>
+        {/* Chat */}
+        {onToggleChat && routeContext.showAiAction && (
+          <Tooltip content={routeContext.scope === 'dashboard' ? 'Kiyoko IA' : 'Asistente contextual'} placement="bottom">
+            <button
+              type="button"
+              onClick={routeContext.scope === 'dashboard' ? onToggleChat : handleOpenAiContext}
+              className={cn(
+                'flex items-center justify-center size-8 rounded-md border transition-all duration-150',
+                chatOpen
+                  ? 'border-primary/30 text-primary bg-primary/10 shadow-[0_0_0_1px_rgba(0,111,238,0.12)]'
+                  : 'border-foreground/8 bg-background text-foreground/45 hover:text-foreground/75 hover:bg-foreground/4',
+              )}
+              aria-label="Chat IA"
+            >
+              <Bot size={14} />
+            </button>
           </Tooltip>
         )}
       </div>

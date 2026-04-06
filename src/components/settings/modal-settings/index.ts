@@ -2,8 +2,5 @@ export { PerfilSection } from './PerfilSection';
 export { PreferenciasSection } from './PreferenciasSection';
 export { NotificacionesSection } from './NotificacionesSection';
 export { SeguridadSection } from './SeguridadSection';
-export { OrganizacionesSection } from './OrganizacionesSection';
-export { OrgGeneralSection } from './OrgGeneralSection';
-export { OrgMiembrosSection } from './OrgMiembrosSection';
 export { ApiKeysSection } from './ApiKeysSection';
 export { SuscripcionSection } from './SuscripcionSection';

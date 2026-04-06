@@ -7,7 +7,6 @@ import { cn } from '@/lib/utils/cn';
 import { useKiyokoChat } from '@/hooks/useKiyokoChat';
 import type { KiyokoMessage } from '@/hooks/useKiyokoChat';
 import { useAIStore } from '@/stores/ai-store';
-import { useUIStore } from '@/stores/useUIStore';
 import { ChatMessage } from '@/components/chat/ChatMessage';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { ChatHistorySidebar } from '@/components/chat/ChatHistorySidebar';
@@ -61,6 +60,7 @@ interface KiyokoChatProps {
 
 const LAST_CONVERSATION_KEY = 'kiyoko-last-conversation-id';
 const HISTORY_WIDTH_KEY = 'kiyoko-history-width';
+const HISTORY_OPEN_KEY = 'kiyoko-history-open';
 
 // ---------------------------------------------------------------------------
 // KiyokoChat
@@ -81,7 +81,6 @@ export function KiyokoChat({ mode, onClose, projectSlug: projectSlugProp }: Kiyo
   const [dashboardStatsLoading, setDashboardStatsLoading] = useState(false);
   const [profileCreative, setProfileCreative] = useState<ProfileCreativeContextLite | null>(null);
 
-  const currentOrgId = useUIStore((s) => s.currentOrgId);
   const [historyWidth, setHistoryWidth] = useState(() => {
     if (typeof window === 'undefined') return 240;
     const saved = localStorage.getItem(HISTORY_WIDTH_KEY);
@@ -120,7 +119,13 @@ export function KiyokoChat({ mode, onClose, projectSlug: projectSlugProp }: Kiyo
   } = useKiyokoChat();
 
   const isExpandedMode = mode === 'expanded';
-  const [historyOpen, setHistoryOpen] = useState<boolean>(() => mode === 'expanded');
+  const [historyOpen, setHistoryOpen] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return mode === 'expanded';
+    const saved = localStorage.getItem(HISTORY_OPEN_KEY);
+    if (saved === 'true') return true;
+    if (saved === 'false') return false;
+    return mode === 'expanded';
+  });
   const activeAgent = useAIStore((s) => s.activeAgent);
   const sidebarWidth = useAIStore((s) => s.sidebarWidth);
   const setSidebarWidth = useAIStore((s) => s.setSidebarWidth);
@@ -339,23 +344,19 @@ export function KiyokoChat({ mode, onClose, projectSlug: projectSlugProp }: Kiyo
     return m ? m[1] : null;
   }, [pathname]);
 
-  const isOrgRoute = pathname.startsWith('/organizations/');
-
   // ---- Context label + type ----
   const contextLabel = useMemo(() => {
     if (videoTitle) return videoTitle;
     if (projectTitle) return projectTitle;
-    if (isOrgRoute) return 'Organización';
     return 'Dashboard';
-  }, [videoTitle, projectTitle, isOrgRoute]);
+  }, [videoTitle, projectTitle]);
 
-  const contextType = useMemo((): 'dashboard' | 'organization' | 'project' | 'video' | 'scene' => {
+  const contextType = useMemo((): 'dashboard' | 'project' | 'video' | 'scene' => {
     if (sceneShortId && videoShortId) return 'scene';
     if (videoShortId) return 'video';
     if (projectShortId) return 'project';
-    if (isOrgRoute) return 'organization';
     return 'dashboard';
-  }, [sceneShortId, videoShortId, projectShortId, isOrgRoute]);
+  }, [sceneShortId, videoShortId, projectShortId]);
 
   const projectLoadingStrip = Boolean(projectShortId && !projectTitle);
 
@@ -387,7 +388,7 @@ export function KiyokoChat({ mode, onClose, projectSlug: projectSlugProp }: Kiyo
     }
     setDashboardStatsLoading(true);
     let cancelled = false;
-    void fetchDashboardContextStats(currentOrgId ?? null)
+    void fetchDashboardContextStats()
       .then((s) => {
         if (!cancelled) setDashboardStats(s);
       })
@@ -397,7 +398,7 @@ export function KiyokoChat({ mode, onClose, projectSlug: projectSlugProp }: Kiyo
     return () => {
       cancelled = true;
     };
-  }, [chatProjectId, currentOrgId]);
+  }, [chatProjectId]);
 
   /** Al volver a la pestaña, refrescar conteos (tareas, BYOK) sin spinner completo. */
   useEffect(() => {
@@ -406,14 +407,14 @@ export function KiyokoChat({ mode, onClose, projectSlug: projectSlugProp }: Kiyo
       if (chatProjectId) {
         void fetchProjectContextStats(chatProjectId, chatVideoId).then(setProjectStats);
       } else {
-        void fetchDashboardContextStats(currentOrgId ?? null).then(setDashboardStats);
+        void fetchDashboardContextStats().then(setDashboardStats);
       }
       void fetchActiveUserApiKeyCount().then(setUserApiKeyCount);
       void fetchProfileCreativeContext().then(setProfileCreative);
     };
     document.addEventListener('visibilitychange', onVis);
     return () => document.removeEventListener('visibilitychange', onVis);
-  }, [chatProjectId, chatVideoId, currentOrgId]);
+  }, [chatProjectId, chatVideoId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -523,6 +524,11 @@ export function KiyokoChat({ mode, onClose, projectSlug: projectSlugProp }: Kiyo
     localStorage.setItem(HISTORY_WIDTH_KEY, historyWidth.toString());
   }, [historyWidth]);
 
+  // ---- Persist history open state ----
+  useEffect(() => {
+    localStorage.setItem(HISTORY_OPEN_KEY, String(historyOpen));
+  }, [historyOpen]);
+
   // Clamp para que siempre respetemos:
   // - historial <= 75vw
   // - chat >= 450px (si el viewport lo permite)
@@ -546,11 +552,11 @@ export function KiyokoChat({ mode, onClose, projectSlug: projectSlugProp }: Kiyo
       } else {
         setProject(null, null);
         if (!videoShortId) {
-          setContext(isOrgRoute ? 'organization' : 'dashboard', null, null);
+          setContext('dashboard', null, null);
         }
       }
     });
-  }, [projectShortId, videoShortId, isOrgRoute, setProject, setContext]);
+  }, [projectShortId, videoShortId, setProject, setContext]);
 
   // ---- Fetch video info from URL + update context level ----
   // RULE (Section 16): New conversation every time user enters a video.
@@ -1189,7 +1195,7 @@ interface ChatBodyProps {
   placeholder: string;
   isExpandedMode: boolean;
   contextLabel: string;
-  contextType: 'dashboard' | 'organization' | 'project' | 'video' | 'scene';
+  contextType: 'dashboard' | 'project' | 'video' | 'scene';
   prefillText: string | null;
   onPrefillConsumed: () => void;
   compactHeader?: boolean;

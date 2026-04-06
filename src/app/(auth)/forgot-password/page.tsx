@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Button } from '@/components/ui/button';
+import { Button } from '@heroui/react';
 import { Mail, ArrowLeft, CheckCircle } from 'lucide-react';
 import { AuthCard, AuthError, AuthInput } from '@/components/auth';
 

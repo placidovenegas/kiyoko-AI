@@ -9,6 +9,8 @@ import { cn } from '@/lib/utils/cn';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { SectionTitle, SectionDescription, SettingsCard, Row, PrefGroup, SettingsSelect, SectionLoading } from './shared';
+import { useChangeLocale } from '@/hooks/useLocale';
+import { useTranslations } from 'next-intl';
 
 interface Preferences {
   theme: string;
@@ -35,6 +37,8 @@ export function PreferenciasSection() {
   const supabase = createClient();
   const queryClient = useQueryClient();
   const { theme, setTheme } = useUIStore();
+  const changeLocale = useChangeLocale();
+  const t = useTranslations('settings');
   const [cookieStatus, setCookieStatus] = useState<'accepted' | 'declined' | null>(getInitialCookieStatus);
   const [localPrefs, setLocalPrefs] = useState<Partial<Preferences>>({});
   const [dirty, setDirty] = useState(false);
@@ -131,11 +135,17 @@ export function PreferenciasSection() {
       {/* ── Idioma y región ───────────────────────────── */}
       <PrefGroup title="Idioma y región" />
       <SettingsCard className="mb-5">
-        <Row label="Idioma" description="Idioma de la interfaz">
+        <Row label={t('language')} description={t('language')}>
           <SettingsSelect
             value={prefs.language}
-            onChange={(v) => updatePref('language', v)}
-            label="Idioma"
+            onChange={(v) => {
+              updatePref('language', v);
+              // Change the app locale immediately via cookie + refresh
+              if (v === 'es' || v === 'en') {
+                changeLocale(v);
+              }
+            }}
+            label={t('language')}
             options={[
               { value: 'es', label: 'Español' },
               { value: 'en', label: 'English' },

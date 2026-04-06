@@ -13,6 +13,8 @@ export function useProjectQuery(shortId: string | undefined) {
     queryKey: queryKeys.projects.detail(shortId ?? ''),
     queryFn: () => fetchProjectByShortId(supabase, shortId!),
     enabled: !!shortId,
+    refetchOnMount: 'always',
+    retry: 2,
   });
 
   const videosQuery = useQuery({
@@ -33,7 +35,7 @@ export function useProjectQuery(shortId: string | undefined) {
     characters: resourcesQuery.data?.characters ?? [],
     backgrounds: resourcesQuery.data?.backgrounds ?? [],
     stylePresets: resourcesQuery.data?.stylePresets ?? [],
-    isLoading: projectQuery.isLoading,
-    error: projectQuery.error?.message ?? null,
+    isLoading: projectQuery.isLoading || videosQuery.isLoading || resourcesQuery.isLoading,
+    error: projectQuery.error?.message ?? videosQuery.error?.message ?? resourcesQuery.error?.message ?? null,
   };
 }

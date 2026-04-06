@@ -140,7 +140,6 @@ export function KiyokoPanel() {
   const isInsideProject = /\/project\/[^/]+/.test(pathname);
   const isInsideDashboardArea = (
     pathname.startsWith('/dashboard')
-    || pathname.startsWith('/organizations')
     || pathname.startsWith('/new')
     || pathname.startsWith('/settings')
     || pathname.startsWith('/admin')
@@ -216,7 +215,7 @@ export function KiyokoPanel() {
               aria-label="Redimensionar chat flotante"
               title="Redimensionar"
               onMouseDown={handleFloatResizeMouseDown}
-              className="absolute right-1 bottom-1 w-6 h-6 cursor-nwse-resize flex items-center justify-center rounded-md hover:bg-accent/20"
+              className="absolute right-1 bottom-1 flex h-6 w-6 cursor-nwse-resize items-center justify-center rounded-md hover:bg-accent-soft-hover"
             >
               <CornerDownRight size={16} className="text-muted-foreground" />
             </div>

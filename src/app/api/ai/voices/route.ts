@@ -1,19 +1,29 @@
-import { NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import {
+  apiJson,
+  createApiRequestContext,
+  logServerEvent,
+  logServerWarning,
+} from '@/lib/observability/server';
 
 // Cache voices for 1 hour
 let cachedVoices: unknown[] | null = null;
 let cacheTimestamp = 0;
 const CACHE_TTL = 3600_000; // 1 hour
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const requestContext = createApiRequestContext(request);
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ voices: [], error: 'ELEVENLABS_API_KEY not configured' });
+    return apiJson(requestContext, { voices: [], error: 'ELEVENLABS_API_KEY not configured' });
   }
 
   // Return cached if fresh
   if (cachedVoices && Date.now() - cacheTimestamp < CACHE_TTL) {
-    return NextResponse.json({ voices: cachedVoices });
+    logServerEvent('voices/GET', requestContext, 'Returning cached voices', {
+      voiceCount: cachedVoices.length,
+    });
+    return apiJson(requestContext, { voices: cachedVoices });
   }
 
   try {
@@ -36,9 +46,11 @@ export async function GET() {
     cachedVoices = voices;
     cacheTimestamp = Date.now();
 
-    return NextResponse.json({ voices });
+    return apiJson(requestContext, { voices });
   } catch (error) {
-    console.error('[voices]', error);
-    return NextResponse.json({ voices: [], error: 'Failed to fetch voices' });
+    logServerWarning('voices/GET', requestContext, 'Failed to fetch voices from ElevenLabs', {
+      errorMessage: error instanceof Error ? error.message : String(error),
+    });
+    return apiJson(requestContext, { voices: [], error: 'Failed to fetch voices' });
   }
 }

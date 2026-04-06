@@ -14,6 +14,19 @@ export async function fetchVideosByProject(supabase: Client, projectId: string) 
   return data;
 }
 
+export async function fetchWorkspaceVideos(supabase: Client, projectIds: string[]) {
+  if (projectIds.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from('videos')
+    .select('*')
+    .in('project_id', projectIds)
+    .order('updated_at', { ascending: false });
+
+  if (error) throw error;
+  return data ?? [];
+}
+
 export async function fetchVideoWithScenes(supabase: Client, videoShortId: string) {
   const { data: video, error: vError } = await supabase
     .from('videos')

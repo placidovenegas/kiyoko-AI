@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { queryKeys } from '@/lib/query/keys';
+import { fetchVideosByProject } from '@/lib/queries/videos';
 import { cn } from '@/lib/utils/cn';
 import { useFavorites } from '@/hooks/useFavorites';
 import { toast } from 'sonner';
@@ -49,14 +50,7 @@ export function SidebarProjectItem({ project }: { project: Project }) {
 
   const { data: videos, isLoading: loadingVideos } = useQuery({
     queryKey: queryKeys.videos.byProject(project.id),
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('videos')
-        .select('id, short_id, title, platform, status')
-        .eq('project_id', project.id)
-        .order('sort_order');
-      return data ?? [];
-    },
+    queryFn: () => fetchVideosByProject(supabase, project.id),
     enabled: expanded,
   });
 
@@ -69,9 +63,8 @@ export function SidebarProjectItem({ project }: { project: Project }) {
     <li>
       {/* Project row */}
       <div className="group/project relative">
-        <button
-          type="button"
-          onClick={() => setExpanded(!expanded)}
+        <Link
+          href={`/project/${project.short_id}`}
           className={cn(
             'flex w-full items-center gap-1.5 rounded-md px-2 h-8 text-[13px] transition-colors',
             isActive
@@ -79,8 +72,12 @@ export function SidebarProjectItem({ project }: { project: Project }) {
               : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
           )}
         >
-          {/* Folder icon (default) → Chevron (on hover/expanded) */}
-          <span className="relative flex h-4 w-4 shrink-0 items-center justify-center">
+          {/* Chevron toggle — stops link navigation */}
+          <button
+            type="button"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setExpanded(!expanded); }}
+            className="relative flex h-4 w-4 shrink-0 items-center justify-center"
+          >
             <FolderClosed
               className={cn(
                 'h-4 w-4 text-sidebar-foreground/50 transition-opacity duration-150',
@@ -95,10 +92,10 @@ export function SidebarProjectItem({ project }: { project: Project }) {
                 expanded && 'opacity-100 rotate-90',
               )}
             />
-          </span>
+          </button>
           {/* Title — extra right padding on hover so buttons don't overlap */}
           <span className="truncate flex-1 text-left group-hover/project:pr-14">{project.title}</span>
-        </button>
+        </Link>
 
         {/* Hover actions: + and ··· side by side */}
         <div className="absolute right-1 top-0 bottom-0 flex items-center gap-0.5 opacity-0 group-hover/project:opacity-100 transition-opacity z-10">

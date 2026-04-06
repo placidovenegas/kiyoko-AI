@@ -7,13 +7,14 @@ import { useVideo } from '@/contexts/VideoContext';
 import { useProject } from '@/contexts/ProjectContext';
 import Link from 'next/link';
 import { cn } from '@/lib/utils/cn';
-import { Button } from '@/components/ui/button';
+import { Button } from '@heroui/react';
+import { useUIStore } from '@/stores/useUIStore';
 import { ArcBar } from '@/components/video/ArcBar';
 import { SceneCard } from '@/components/video/SceneCard';
 import {
   Film, Clock, Monitor, ArrowRight, Mic, FileOutput,
   Video, Loader2, BarChart3, Share2, Plus, Sparkles,
-  Layers, LayoutGrid, List, Table2, Timer,
+  Layers, LayoutGrid, List, Settings2, Table2, Timer,
 } from 'lucide-react';
 import type { NarrativeArc, Scene } from '@/types';
 
@@ -181,6 +182,8 @@ function TimelineBlock({ scene, basePath, maxDuration }: { scene: Scene; basePat
 export default function VideoOverviewPage() {
   const { project } = useProject();
   const { video, loading, scenes, scenesLoading } = useVideo();
+  const openTaskCreatePanel = useUIStore((state) => state.openTaskCreatePanel);
+  const openVideoSettingsModal = useUIStore((state) => state.openVideoSettingsModal);
 
   const [viewMode, setViewMode] = useState<ViewMode>('storyboard');
   const [phaseFilter, setPhaseFilter] = useState<string>('all');
@@ -261,12 +264,32 @@ export default function VideoOverviewPage() {
             </div>
           </div>
         </div>
-        <span className={cn(
-          'shrink-0 rounded-full border px-3 py-1 text-xs font-medium',
-          STATUS_COLORS[video.status] ?? 'bg-zinc-500/20 text-muted-foreground border-zinc-500/20',
-        )}>
-          {STATUS_LABELS[video.status] ?? video.status}
-        </span>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            startContent={<Settings2 className="h-3.5 w-3.5" />}
+            onPress={() => openVideoSettingsModal('general')}
+            className="rounded-md"
+          >
+            Ajustes
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            startContent={<Plus className="h-3.5 w-3.5" />}
+            onPress={() => openTaskCreatePanel({ projectId: project.id, videoId: video.id, source: 'video' })}
+            className="rounded-md"
+          >
+            Nueva tarea
+          </Button>
+          <span className={cn(
+            'shrink-0 rounded-full border px-3 py-1 text-xs font-medium',
+            STATUS_COLORS[video.status] ?? 'bg-zinc-500/20 text-muted-foreground border-zinc-500/20',
+          )}>
+            {STATUS_LABELS[video.status] ?? video.status}
+          </span>
+        </div>
       </div>
 
       {/* Stats Row */}

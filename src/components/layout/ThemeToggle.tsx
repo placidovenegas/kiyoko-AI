@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { IconSun, IconMoon, IconDeviceDesktop } from '@tabler/icons-react';
 import { cn } from '@/lib/utils/cn';
+import { useUIStore } from '@/stores/useUIStore';
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -12,37 +13,21 @@ const THEME_OPTIONS: { value: Theme; label: string; icon: React.ReactNode }[] = 
   { value: 'system', label: 'Sistema', icon: <IconDeviceDesktop className="size-4" /> },
 ];
 
-const STORAGE_KEY = 'kiyoko-theme';
-
-function applyTheme(theme: Theme) {
-  const root = document.documentElement;
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const isDark = theme === 'dark' || (theme === 'system' && prefersDark);
-
-  root.classList.toggle('dark', isDark);
-  root.setAttribute('data-theme', isDark ? 'dark' : 'light');
-}
-
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>('system');
+  const theme = useUIStore((s) => s.theme);
+  const setTheme = useUIStore((s) => s.setTheme);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  // Hydrate from localStorage
+  // Re-apply when system preference changes (only relevant when theme === 'system')
   useEffect(() => {
-    const stored = (localStorage.getItem(STORAGE_KEY) ?? 'system') as Theme;
-    setTheme(stored);
-    applyTheme(stored);
-
-    // Re-apply when system preference changes (only relevant when theme === 'system')
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
     const listener = () => {
-      const current = (localStorage.getItem(STORAGE_KEY) ?? 'system') as Theme;
-      if (current === 'system') applyTheme('system');
+      if (theme === 'system') setTheme('system');
     };
     mq.addEventListener('change', listener);
     return () => mq.removeEventListener('change', listener);
-  }, []);
+  }, [theme, setTheme]);
 
   // Close on outside click
   useEffect(() => {
@@ -57,8 +42,6 @@ export function ThemeToggle() {
 
   function handleSelect(value: Theme) {
     setTheme(value);
-    localStorage.setItem(STORAGE_KEY, value);
-    applyTheme(value);
     setOpen(false);
   }
 

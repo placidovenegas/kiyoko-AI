@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Button } from '@/components/ui/button';
+import { Button } from '@heroui/react';
 import {
   AuthCard,
   AuthHeader,
@@ -21,7 +21,35 @@ export default function LoginPage() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
+
+  const nextPath = (() => {
+    const raw = searchParams.get('next') ?? '/dashboard';
+    return raw.startsWith('/') ? raw : '/dashboard';
+  })();
+
+  const systemMessage = (() => {
+    const reason = searchParams.get('reason');
+    const callbackError = searchParams.get('error');
+
+    if (callbackError === 'auth_callback_failed') {
+      return 'No se pudo completar el callback de autenticacion. Intenta iniciar sesion de nuevo.';
+    }
+
+    switch (reason) {
+      case 'session_missing':
+        return 'Tu sesion no esta disponible. Inicia sesion para continuar.';
+      case 'session_invalid':
+        return 'Tu sesion ya no es valida. Vuelve a iniciar sesion.';
+      case 'already_authenticated':
+        return 'Ya tienes una sesion activa.';
+      case 'admin_required':
+        return 'Necesitas permisos de administrador para acceder a esa ruta.';
+      default:
+        return '';
+    }
+  })();
 
   async function handleGoogleLogin() {
     setGoogleLoading(true);
@@ -30,7 +58,7 @@ export default function LoginPage() {
       const { error: authError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`,
         },
       });
       if (authError) throw authError;
@@ -64,7 +92,7 @@ export default function LoginPage() {
         } else if (profile?.role === 'blocked') {
           router.push('/blocked');
         } else {
-          router.push('/dashboard');
+          router.push(nextPath);
         }
       }
     } catch (err) {
@@ -86,7 +114,7 @@ export default function LoginPage() {
       <AuthDivider />
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <AuthError message={error} />
+        <AuthError message={error || systemMessage} />
 
         <AuthInput
           label="Email"

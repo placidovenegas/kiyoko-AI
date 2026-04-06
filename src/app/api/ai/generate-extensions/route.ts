@@ -1,6 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { logUsage } from '@/lib/ai/sdk-router';
+import {
+  apiBadRequest,
+  apiError,
+  apiJson,
+  apiUnauthorized,
+  createApiRequestContext,
+  logServerEvent,
+} from '@/lib/observability/server';
 
 interface GenerateExtensionBody {
   sceneId: string;
@@ -10,22 +18,20 @@ interface GenerateExtensionBody {
 }
 
 export async function POST(req: NextRequest) {
+  const requestContext = createApiRequestContext(req);
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    return apiUnauthorized(requestContext, 'Not authenticated');
   }
 
-  const body: GenerateExtensionBody = await req.json();
+  const body = await req.json() as GenerateExtensionBody;
   const { sceneId, parentClipId, projectId } = body;
 
   if (!sceneId || !parentClipId) {
-    return NextResponse.json(
-      { error: 'Missing sceneId or parentClipId' },
-      { status: 400 }
-    );
+    return apiBadRequest(requestContext, 'Missing sceneId or parentClipId');
   }
 
   // Get the parent clip
@@ -36,10 +42,7 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (!parentClip) {
-    return NextResponse.json(
-      { error: 'Parent clip not found' },
-      { status: 404 }
-    );
+    return apiJson(requestContext, { error: 'Parent clip not found', requestId: requestContext.requestId }, { status: 404 });
   }
 
   // Get project AI settings for video provider config
@@ -90,8 +93,19 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return apiError(requestContext, 'generate-extensions', error, {
+      message: error.message,
+      extra: { userId: user.id, sceneId, parentClipId, projectId },
+    });
   }
+
+  logServerEvent('generate-extensions', requestContext, 'Generated extension clip placeholder', {
+    userId: user.id,
+    projectId,
+    sceneId,
+    parentClipId,
+    extensionNumber,
+  });
 
   // Log
   await logUsage({
@@ -107,5 +121,5 @@ export async function POST(req: NextRequest) {
     success: true,
   });
 
-  return NextResponse.json({ clip: newClip });
+  return apiJson(requestContext, { clip: newClip });
 }

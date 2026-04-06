@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Button } from '@/components/ui/button';
+import { Button } from '@heroui/react';
 import { Clock, LogOut } from 'lucide-react';
 import { AuthCard } from '@/components/auth';
 

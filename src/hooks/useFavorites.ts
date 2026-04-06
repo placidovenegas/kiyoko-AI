@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 
 interface FavoriteProject {
   id: string;
-  slug: string;
+  short_id: string;
   title: string;
 }
 
@@ -41,7 +41,7 @@ async function fetchFavoritesFromDB() {
 
   const { data } = await supabase
     .from('project_favorites')
-    .select('project_id, projects:project_id(id, slug, title)')
+    .select('project_id, projects:project_id(id, short_id, title)')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false });
 
@@ -50,7 +50,7 @@ async function fetchFavoritesFromDB() {
   return data
     .map((f) => {
       const p = f.projects as unknown as FavoriteProject | null;
-      return p ? { id: p.id, slug: p.slug, title: p.title } : null;
+      return p ? { id: p.id, short_id: p.short_id, title: p.title } : null;
     })
     .filter((p): p is FavoriteProject => p !== null);
 }

@@ -1,10 +1,19 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { generateText, Output } from 'ai';
 import { createClient } from '@/lib/supabase/server';
 import { logUsage } from '@/lib/ai/sdk-router';
 import { getUserModel } from '@/lib/ai/get-user-model';
 import { SYSTEM_CHARACTER_GENERATOR } from '@/lib/ai/prompts/system-character-generator';
 import { charactersArraySchema } from '@/lib/ai/schemas/character-output';
+import {
+  apiBadRequest,
+  apiError,
+  apiJson,
+  apiUnauthorized,
+  createApiRequestContext,
+  logServerEvent,
+  parseApiJson,
+} from '@/lib/observability/server';
 
 interface GenerateCharactersBody {
   projectId: string;
@@ -16,25 +25,24 @@ interface GenerateCharactersBody {
 }
 
 export async function POST(request: NextRequest) {
+  const requestContext = createApiRequestContext(request);
   try {
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return apiUnauthorized(requestContext);
     }
 
-    const body: GenerateCharactersBody = await request.json();
+    const { data: body, response } = await parseApiJson<GenerateCharactersBody>(request, requestContext);
+    if (response || !body) {
+      return response;
+    }
+
     const { projectId, descriptions } = body;
 
     if (!projectId || !descriptions?.length) {
-      return NextResponse.json(
-        { error: 'Missing required fields: projectId, descriptions' },
-        { status: 400 }
-      );
+      return apiBadRequest(requestContext, 'Missing required fields: projectId, descriptions');
     }
 
     // Verify user owns this project
@@ -42,18 +50,22 @@ export async function POST(request: NextRequest) {
       .from('projects')
       .select('*')
       .eq('id', projectId)
-      .eq('user_id', user.id)
+      .eq('owner_id', user.id)
       .single();
 
     if (projectError || !project) {
-      return NextResponse.json(
-        { error: 'Project not found' },
-        { status: 404 }
-      );
+      return apiJson(requestContext, { error: 'Project not found', requestId: requestContext.requestId }, { status: 404 });
     }
 
     const { model, providerId } = await getUserModel(user.id);
     const startTime = Date.now();
+
+    logServerEvent('generate-characters', requestContext, 'Generating character sheets', {
+      userId: user.id,
+      projectId,
+      providerId,
+      descriptionCount: descriptions.length,
+    });
 
     const characterList = descriptions
       .map((d) => `- ${d.name} (${d.role}): ${d.details ?? 'No additional details'}`)
@@ -91,7 +103,7 @@ Respond with a JSON object containing a "characters" array and optional "consist
       success: true,
     });
 
-    return NextResponse.json({
+    return apiJson(requestContext, {
       success: true,
       data: output,
       provider: providerId,
@@ -100,16 +112,9 @@ Respond with a JSON object containing a "characters" array and optional "consist
     const message = error instanceof Error ? error.message : 'Unknown error';
 
     if (message.startsWith('NO_PROVIDER_AVAILABLE')) {
-      return NextResponse.json(
-        { error: message },
-        { status: 429 }
-      );
+      return apiJson(requestContext, { error: message, requestId: requestContext.requestId }, { status: 429 });
     }
 
-    console.error('[generate-characters]', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return apiError(requestContext, 'generate-characters', error, { message: 'Internal server error' });
   }
 }

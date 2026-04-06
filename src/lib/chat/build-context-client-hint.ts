@@ -24,7 +24,6 @@ export interface ContextClientHintParams {
 
 const LEVEL_ES: Record<ContextLevel, string> = {
   dashboard: 'Dashboard (sin proyecto activo en pantalla)',
-  organization: 'Organización',
   project: 'Vista proyecto',
   video: 'Vista vídeo',
   scene: 'Vista escena',
@@ -41,7 +40,7 @@ export function buildContextClientHint(p: ContextClientHintParams): string {
   if (p.projectId) {
     lines.push(`project_id: ${p.projectId}`);
     if (p.projectTitle) lines.push(`Proyecto visible: "${p.projectTitle}"`);
-  } else if (p.contextLevel !== 'dashboard' && p.contextLevel !== 'organization') {
+  } else if (p.contextLevel !== 'dashboard') {
     lines.push('(Sin project_id en sesión — desambigua proyecto si hace falta.)');
   }
 
@@ -73,7 +72,7 @@ export function buildContextClientHint(p: ContextClientHintParams): string {
     );
   }
 
-  if (p.contextLevel === 'dashboard' || p.contextLevel === 'organization') {
+  if (p.contextLevel === 'dashboard') {
     lines.push(
       'Alcance (dashboard/organización): no inventes ni enumeres personajes o fondos concretos. Las ideas creativas, si el usuario las pide, plantéalas a nivel de proyecto o campaña, no como ideas de un vídeo concreto hasta que abra un vídeo.',
     );

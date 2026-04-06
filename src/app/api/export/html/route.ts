@@ -1,4 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import {
+  apiBadRequest,
+  apiError,
+  apiResponse,
+  apiUnauthorized,
+  createApiRequestContext,
+  logServerEvent,
+  parseApiJson,
+} from '@/lib/observability/server';
 import { createClient } from '@/lib/supabase/server';
 
 interface ExportHtmlBody {
@@ -9,26 +18,26 @@ interface ExportHtmlBody {
  * POST /api/export/html
  * Generate a self-contained HTML file for the storyboard project.
  */
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
+  const requestContext = createApiRequestContext(request);
+
   try {
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return apiUnauthorized(requestContext);
     }
 
-    const body: ExportHtmlBody = await request.json();
+    const { data: body, response } = await parseApiJson<ExportHtmlBody>(request, requestContext);
+    if (response) {
+      return response;
+    }
+
     const { projectId } = body;
 
     if (!projectId) {
-      return NextResponse.json(
-        { error: 'Missing required field: projectId' },
-        { status: 400 }
-      );
+      return apiBadRequest(requestContext, 'Missing required field: projectId');
     }
 
     // Fetch project data
@@ -36,14 +45,15 @@ export async function POST(request: NextRequest) {
       .from('projects')
       .select('*')
       .eq('id', projectId)
-      .eq('user_id', user.id)
+      .eq('owner_id', user.id)
       .single();
 
     if (projectError || !project) {
-      return NextResponse.json(
-        { error: 'Project not found' },
-        { status: 404 }
-      );
+      return apiError(requestContext, 'export/html', projectError ?? new Error('Project not found'), {
+        status: 404,
+        message: 'Project not found',
+        extra: { projectId, userId: user.id },
+      });
     }
 
     // Fetch related data
@@ -51,7 +61,7 @@ export async function POST(request: NextRequest) {
       { data: scenes },
       { data: characters },
     ] = await Promise.all([
-      supabase.from('scenes').select('*').eq('project_id', projectId).order('order', { ascending: true }),
+      supabase.from('scenes').select('*').eq('project_id', projectId).order('sort_order', { ascending: true }),
       supabase.from('characters').select('*').eq('project_id', projectId),
     ]);
 
@@ -103,17 +113,19 @@ export async function POST(request: NextRequest) {
 </body>
 </html>`;
 
-    return new NextResponse(html, {
+    logServerEvent('export/html', requestContext, 'Project exported as HTML', {
+      projectId,
+      userId: user.id,
+      sceneCount: scenes?.length ?? 0,
+    });
+
+    return apiResponse(requestContext, new NextResponse(html, {
       headers: {
         'Content-Type': 'text/html; charset=utf-8',
         'Content-Disposition': `attachment; filename="${(project.title ?? 'storyboard').replace(/[^a-zA-Z0-9]/g, '_')}.html"`,
       },
-    });
+    }));
   } catch (error) {
-    console.error('[export/html]', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return apiError(requestContext, 'export/html', error);
   }
 }
