@@ -6,11 +6,11 @@ import { createClient } from '@/lib/supabase/client';
 import { useVideo } from '@/contexts/VideoContext';
 import { queryKeys } from '@/lib/query/keys';
 import { fetchVideoNarration } from '@/lib/queries/videos';
-import { Button } from '@heroui/react';
 import { cn } from '@/lib/utils/cn';
 import {
   Mic, Play, Pause, Download, RefreshCw, Sparkles,
   Loader2, Volume2, Save, AudioLines, FileAudio,
+  AlignLeft, List,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { VideoNarration } from '@/types';
@@ -21,6 +21,15 @@ function formatTime(ms: number): string {
   const m = Math.floor(totalSec / 60);
   const s = totalSec % 60;
   return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function estimateDuration(text: string): string {
+  const chars = text.length;
+  const seconds = Math.round(chars / 13);
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  if (m > 0) return `~${m}m ${s}s`;
+  return `~${s}s`;
 }
 
 // --- Status Badge ---
@@ -140,6 +149,9 @@ export default function NarrationPage() {
   const supabase = createClient();
   const queryClient = useQueryClient();
 
+  // Narration mode toggle
+  const [narrationMode, setNarrationMode] = useState<'scenes' | 'continuous'>('scenes');
+
   // Fetch current narration
   const { data: narration, isLoading } = useQuery({
     queryKey: queryKeys.videos.narration(video?.id ?? ''),
@@ -163,15 +175,19 @@ export default function NarrationPage() {
 
   // Local state
   const [narrationText, setNarrationText] = useState('');
+  const [continuousText, setContinuousText] = useState('');
   const [speed, setSpeed] = useState(1.0);
   const [dirty, setDirty] = useState(false);
+  const [continuousDirty, setContinuousDirty] = useState(false);
 
   // Sync text when narration loads
   useEffect(() => {
     if (narration) {
       setNarrationText(narration.narration_text ?? '');
+      setContinuousText(narration.narration_text ?? '');
       setSpeed(narration.speed ?? 1.0);
       setDirty(false);
+      setContinuousDirty(false);
     }
   }, [narration]);
 
@@ -179,12 +195,13 @@ export default function NarrationPage() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!video?.id) throw new Error('No video');
+      const textToSave = narrationMode === 'continuous' ? continuousText : narrationText;
 
       if (narration) {
         const { error } = await supabase
           .from('video_narrations')
           .update({
-            narration_text: narrationText,
+            narration_text: textToSave,
             speed,
             updated_at: new Date().toISOString(),
           })
@@ -195,7 +212,7 @@ export default function NarrationPage() {
           .from('video_narrations')
           .insert({
             video_id: video.id,
-            narration_text: narrationText,
+            narration_text: textToSave,
             speed,
             is_current: true,
             version: 1,
@@ -207,6 +224,7 @@ export default function NarrationPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.videos.narration(video?.id ?? '') });
       setDirty(false);
+      setContinuousDirty(false);
       toast.success('Narracion guardada');
     },
     onError: () => toast.error('Error al guardar'),
@@ -220,7 +238,7 @@ export default function NarrationPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          mode: 'continuous',
+          mode: narrationMode,
           videoId: video.id,
           config: { language: 'es' },
         }),
@@ -230,8 +248,13 @@ export default function NarrationPage() {
       return data.text ?? '';
     },
     onSuccess: (text) => {
-      setNarrationText(text);
-      setDirty(true);
+      if (narrationMode === 'continuous') {
+        setContinuousText(text);
+        setContinuousDirty(true);
+      } else {
+        setNarrationText(text);
+        setDirty(true);
+      }
       toast.success('Texto generado con IA');
     },
     onError: () => toast.error('Error al generar texto'),
@@ -246,7 +269,7 @@ export default function NarrationPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          text: narrationText,
+          text: narrationMode === 'continuous' ? continuousText : narrationText,
           voice: narration?.voice_id ?? undefined,
           language: 'es',
           speed,
@@ -296,6 +319,10 @@ export default function NarrationPage() {
     a.click();
   }, [narration?.audio_url, video?.short_id]);
 
+  // Continuous mode stats
+  const continuousWordCount = continuousText.split(/\s+/).filter(Boolean).length;
+  const continuousDuration = estimateDuration(continuousText);
+
   // Loading skeleton
   if (isLoading) {
     return (
@@ -306,9 +333,9 @@ export default function NarrationPage() {
   }
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto bg-background p-6 lg:p-8">
+    <div className="mx-auto max-w-5xl px-4 py-6 space-y-6">
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             Narracion
@@ -317,205 +344,325 @@ export default function NarrationPage() {
             Genera y edita el texto y audio de narracion para tu video.
           </p>
         </div>
-        {versionCount > 0 && (
-          <span className="rounded-xl bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground border border-border">
-            v{narration?.version ?? 1} de {versionCount}
-          </span>
-        )}
+        <div className="flex items-center gap-3">
+          {versionCount > 0 && (
+            <span className="rounded-xl bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground border border-border">
+              v{narration?.version ?? 1} de {versionCount}
+            </span>
+          )}
+        </div>
       </div>
 
-      <div className="space-y-6 max-w-3xl">
-        {/* Voice Card */}
-        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="flex items-center justify-center size-8 rounded-lg bg-primary/10 text-primary">
-              <Volume2 className="size-4" />
-            </div>
-            <h2 className="text-lg font-semibold tracking-tight text-foreground">Voz</h2>
-          </div>
+      {/* Mode toggle */}
+      <div className="flex items-center gap-1 rounded-lg border border-border p-0.5 w-fit">
+        <button
+          type="button"
+          onClick={() => setNarrationMode('scenes')}
+          className={cn(
+            'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition',
+            narrationMode === 'scenes'
+              ? 'bg-secondary text-foreground'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          <List className="size-3.5" />
+          Por escenas
+        </button>
+        <button
+          type="button"
+          onClick={() => setNarrationMode('continuous')}
+          className={cn(
+            'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition',
+            narrationMode === 'continuous'
+              ? 'bg-secondary text-foreground'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          <AlignLeft className="size-3.5" />
+          Continuo
+        </button>
+      </div>
 
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-sm font-medium text-foreground">
-                  {narration?.voice_name ?? 'Sin voz asignada'}
-                </span>
-                {narration?.provider && (
-                  <span className="ml-2 text-xs text-muted-foreground">
-                    ({narration.provider})
-                  </span>
-                )}
-              </div>
-              <Button variant="ghost" size="sm" className="rounded-xl">
-                <RefreshCw className="size-3.5 mr-2" />Cambiar voz
-              </Button>
-            </div>
-
-            {/* Speed control */}
-            <div className="rounded-xl bg-background border border-border p-3">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Velocidad</span>
-                <span className="text-sm font-medium text-foreground tabular-nums">
-                  {speed.toFixed(2)}x
-                </span>
-              </div>
-              <input
-                type="range"
-                min={0.7}
-                max={1.3}
-                step={0.05}
-                value={speed}
-                onChange={(e) => {
-                  setSpeed(Number(e.target.value));
-                  setDirty(true);
-                }}
-                className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-secondary accent-primary"
-              />
-              <div className="flex items-center justify-between mt-1">
-                <span className="text-[10px] text-muted-foreground/60">0.7x</span>
-                <span className="text-[10px] text-muted-foreground/60">1.3x</span>
-              </div>
-            </div>
-
-            {/* Style */}
-            {narration?.style && (
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Estilo:</span>
-                <span className="rounded-lg bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-                  {narration.style}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Narration Text Card */}
-        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+      {/* Continuous mode */}
+      {narrationMode === 'continuous' && (
+        <div className="rounded-xl border border-border bg-card p-5">
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="flex items-center justify-center size-8 rounded-lg bg-primary/10 text-primary">
-                <FileAudio className="size-4" />
+                <AlignLeft className="size-4" />
               </div>
-              <h2 className="text-lg font-semibold tracking-tight text-foreground">
-                Texto de la narracion
+              <h2 className="text-lg font-medium text-foreground">
+                Narracion completa
               </h2>
             </div>
-            <Button
-              variant="solid"
-              color="primary"
-              size="sm"
-              isLoading={generateTextMutation.isPending}
+            <button
+              type="button"
               onClick={() => generateTextMutation.mutate()}
-              className="rounded-xl"
+              disabled={generateTextMutation.isPending}
+              className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition disabled:opacity-50 flex items-center gap-2"
             >
-              <Sparkles className="size-3.5 mr-2" />Generar con IA
-            </Button>
-          </div>
-
-          {!narrationText && !narration ? (
-            /* Empty state */
-            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-12">
-              <div className="flex size-12 items-center justify-center rounded-2xl bg-secondary mb-3">
-                <FileAudio className="size-6 text-muted-foreground" />
-              </div>
-              <p className="text-sm font-medium text-foreground">Sin texto de narracion</p>
-              <p className="mt-1 text-xs text-muted-foreground text-center max-w-xs">
-                Escribe el texto manualmente o usa el boton "Generar con IA" para crear una narracion automatica.
-              </p>
-            </div>
-          ) : (
-            <>
-              <textarea
-                value={narrationText}
-                onChange={(e) => {
-                  setNarrationText(e.target.value);
-                  setDirty(true);
-                }}
-                placeholder="Escribe el texto de narracion del video..."
-                rows={8}
-                className={cn(
-                  'w-full resize-y rounded-xl border bg-background px-4 py-3',
-                  'text-sm leading-relaxed text-foreground placeholder:text-muted-foreground',
-                  'focus:border-primary focus:outline-none transition',
-                  dirty ? 'border-primary/50' : 'border-border',
-                )}
-              />
-              {narrationText && (
-                <div className="mt-3 flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">
-                    {narrationText.split(/\s+/).filter(Boolean).length} palabras
-                  </span>
-                  {dirty && (
-                    <Button
-                      variant="solid"
-                      color="primary"
-                      size="sm"
-                      isLoading={saveMutation.isPending}
-                      onClick={() => saveMutation.mutate()}
-                      className="rounded-xl"
-                    >
-                      <Save className="size-3.5 mr-2" />Guardar
-                    </Button>
-                  )}
-                </div>
+              {generateTextMutation.isPending ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="size-3.5" />
               )}
-            </>
-          )}
-        </div>
-
-        {/* Audio Card */}
-        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="flex items-center justify-center size-8 rounded-lg bg-primary/10 text-primary">
-              <AudioLines className="size-4" />
-            </div>
-            <h2 className="text-lg font-semibold tracking-tight text-foreground">Audio</h2>
-            {narration?.status && <StatusBadge status={narration.status} />}
+              Generar con IA
+            </button>
           </div>
 
-          {narration?.audio_url ? (
-            <div className="rounded-xl bg-background border border-border p-4">
-              <AudioPlayer src={narration.audio_url} />
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-10">
-              <div className="flex size-12 items-center justify-center rounded-2xl bg-secondary mb-3">
-                <AudioLines className="size-6 text-muted-foreground" />
-              </div>
-              <p className="text-sm font-medium text-foreground">Sin audio generado</p>
-              <p className="mt-1 text-xs text-muted-foreground text-center max-w-xs">
-                {narrationText
-                  ? 'Genera el audio con el boton de abajo para escuchar la narracion.'
-                  : 'Primero escribe o genera el texto de narracion.'}
-              </p>
-            </div>
-          )}
+          <textarea
+            value={continuousText}
+            onChange={(e) => {
+              setContinuousText(e.target.value);
+              setContinuousDirty(true);
+            }}
+            placeholder="Escribe la narracion completa del video aqui. La IA puede generar todo el texto de una sola vez para todas las escenas."
+            rows={12}
+            className={cn(
+              'w-full resize-y rounded-xl border bg-background px-4 py-3',
+              'text-sm leading-relaxed text-foreground placeholder:text-muted-foreground',
+              'focus:border-primary focus:outline-none transition',
+              continuousDirty ? 'border-primary/50' : 'border-border',
+            )}
+          />
 
-          <div className="mt-4 flex items-center gap-3">
-            <Button
-              variant="solid"
-              color="primary"
-              size="md"
-              isLoading={generateAudioMutation.isPending}
-              isDisabled={!narrationText}
-              onClick={() => generateAudioMutation.mutate()}
-              className="rounded-xl"
-            >
-              <Mic className="size-4 mr-2" />Generar audio TTS
-            </Button>
-            {narration?.audio_url && (
-              <Button
-                variant="bordered"
-                size="md"
-                onClick={handleDownload}
-                className="rounded-xl"
+          <div className="mt-3 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <span className="text-xs text-muted-foreground">
+                {continuousWordCount} palabras
+              </span>
+              {continuousText && (
+                <span className="text-xs text-muted-foreground">
+                  Duracion estimada: {continuousDuration}
+                </span>
+              )}
+            </div>
+            {continuousDirty && (
+              <button
+                type="button"
+                onClick={() => saveMutation.mutate()}
+                disabled={saveMutation.isPending}
+                className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition disabled:opacity-50 flex items-center gap-2"
               >
-                <Download className="size-4 mr-2" />Descargar MP3
-              </Button>
+                {saveMutation.isPending ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Save className="size-3.5" />
+                )}
+                Guardar
+              </button>
             )}
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Per-scene mode */}
+      {narrationMode === 'scenes' && (
+        <div className="space-y-6">
+          {/* Voice Card */}
+          <div className="rounded-xl border border-border bg-card p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="flex items-center justify-center size-8 rounded-lg bg-primary/10 text-primary">
+                <Volume2 className="size-4" />
+              </div>
+              <h2 className="text-lg font-medium text-foreground">Voz</h2>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-sm font-medium text-foreground">
+                    {narration?.voice_name ?? 'Sin voz asignada'}
+                  </span>
+                  {narration?.provider && (
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      ({narration.provider})
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="rounded-xl border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:bg-secondary transition flex items-center gap-2"
+                >
+                  <RefreshCw className="size-3.5" />
+                  Cambiar voz
+                </button>
+              </div>
+
+              {/* Speed control */}
+              <div className="rounded-xl bg-background border border-border p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Velocidad</span>
+                  <span className="text-sm font-medium text-foreground tabular-nums">
+                    {speed.toFixed(2)}x
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={0.7}
+                  max={1.3}
+                  step={0.05}
+                  value={speed}
+                  onChange={(e) => {
+                    setSpeed(Number(e.target.value));
+                    setDirty(true);
+                  }}
+                  className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-secondary accent-primary"
+                />
+                <div className="flex items-center justify-between mt-1">
+                  <span className="text-[10px] text-muted-foreground/60">0.7x</span>
+                  <span className="text-[10px] text-muted-foreground/60">1.3x</span>
+                </div>
+              </div>
+
+              {/* Style */}
+              {narration?.style && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Estilo:</span>
+                  <span className="rounded-lg bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+                    {narration.style}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Narration Text Card */}
+          <div className="rounded-xl border border-border bg-card p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="flex items-center justify-center size-8 rounded-lg bg-primary/10 text-primary">
+                  <FileAudio className="size-4" />
+                </div>
+                <h2 className="text-lg font-medium text-foreground">
+                  Texto de la narracion
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => generateTextMutation.mutate()}
+                disabled={generateTextMutation.isPending}
+                className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition disabled:opacity-50 flex items-center gap-2"
+              >
+                {generateTextMutation.isPending ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="size-3.5" />
+                )}
+                Generar con IA
+              </button>
+            </div>
+
+            {!narrationText && !narration ? (
+              /* Empty state */
+              <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-12">
+                <div className="flex size-12 items-center justify-center rounded-2xl bg-secondary mb-3">
+                  <FileAudio className="size-6 text-muted-foreground" />
+                </div>
+                <p className="text-sm font-medium text-foreground">Sin texto de narracion</p>
+                <p className="mt-1 text-xs text-muted-foreground text-center max-w-xs">
+                  Escribe el texto manualmente o usa el boton &quot;Generar con IA&quot; para crear una narracion automatica.
+                </p>
+              </div>
+            ) : (
+              <>
+                <textarea
+                  value={narrationText}
+                  onChange={(e) => {
+                    setNarrationText(e.target.value);
+                    setDirty(true);
+                  }}
+                  placeholder="Escribe el texto de narracion del video..."
+                  rows={8}
+                  className={cn(
+                    'w-full resize-y rounded-xl border bg-background px-4 py-3',
+                    'text-sm leading-relaxed text-foreground placeholder:text-muted-foreground',
+                    'focus:border-primary focus:outline-none transition',
+                    dirty ? 'border-primary/50' : 'border-border',
+                  )}
+                />
+                {narrationText && (
+                  <div className="mt-3 flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">
+                      {narrationText.split(/\s+/).filter(Boolean).length} palabras
+                    </span>
+                    {dirty && (
+                      <button
+                        type="button"
+                        onClick={() => saveMutation.mutate()}
+                        disabled={saveMutation.isPending}
+                        className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition disabled:opacity-50 flex items-center gap-2"
+                      >
+                        {saveMutation.isPending ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          <Save className="size-3.5" />
+                        )}
+                        Guardar
+                      </button>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Audio Card */}
+          <div className="rounded-xl border border-border bg-card p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="flex items-center justify-center size-8 rounded-lg bg-primary/10 text-primary">
+                <AudioLines className="size-4" />
+              </div>
+              <h2 className="text-lg font-medium text-foreground">Audio</h2>
+              {narration?.status && <StatusBadge status={narration.status} />}
+            </div>
+
+            {narration?.audio_url ? (
+              <div className="rounded-xl bg-background border border-border p-4">
+                <AudioPlayer src={narration.audio_url} />
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-10">
+                <div className="flex size-12 items-center justify-center rounded-2xl bg-secondary mb-3">
+                  <AudioLines className="size-6 text-muted-foreground" />
+                </div>
+                <p className="text-sm font-medium text-foreground">Sin audio generado</p>
+                <p className="mt-1 text-xs text-muted-foreground text-center max-w-xs">
+                  {narrationText
+                    ? 'Genera el audio con el boton de abajo para escuchar la narracion.'
+                    : 'Primero escribe o genera el texto de narracion.'}
+                </p>
+              </div>
+            )}
+
+            <div className="mt-4 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => generateAudioMutation.mutate()}
+                disabled={generateAudioMutation.isPending || !narrationText}
+                className="rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition disabled:opacity-50 flex items-center gap-2"
+              >
+                {generateAudioMutation.isPending ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Mic className="size-4" />
+                )}
+                Generar audio TTS
+              </button>
+              {narration?.audio_url && (
+                <button
+                  type="button"
+                  onClick={handleDownload}
+                  className="rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:bg-secondary transition flex items-center gap-2"
+                >
+                  <Download className="size-4" />
+                  Descargar MP3
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
