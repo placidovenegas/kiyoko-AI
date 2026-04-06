@@ -1,21 +1,29 @@
 'use client';
 
-import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import { useVideo } from '@/contexts/VideoContext';
 import { useProject } from '@/contexts/ProjectContext';
 import Link from 'next/link';
+import Image from 'next/image';
 import { cn } from '@/lib/utils/cn';
 import { useUIStore } from '@/stores/useUIStore';
 import { ArcBar } from '@/components/video/ArcBar';
-import { SceneCard } from '@/components/video/SceneCard';
+import { toast } from 'sonner';
 import {
-  Film, Clock, Monitor, Mic, FileOutput,
-  Video, Loader2, BarChart3, LayoutGrid, List,
-  Settings2, Layers, CheckCircle2, Target,
+  Film, Clock, Monitor, Mic, FileOutput, Music, Image as ImageIcon,
+  Video, Loader2, BarChart3, Layers, CheckCircle2, Target,
+  Settings2, Copy, Sparkles, ExternalLink, MoreHorizontal,
+  Eye, Pencil, Camera, Clapperboard, Plus, Trash2,
 } from 'lucide-react';
-import type { NarrativeArc, Scene } from '@/types';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
+import type { NarrativeArc, Scene, ScenePrompt, SceneMedia } from '@/types';
 
 /* ------------------------------------------------------------------ */
 /*  Stat                                                               */
@@ -50,7 +58,7 @@ function Stat({
 }
 
 /* ------------------------------------------------------------------ */
-/*  Status badge helpers                                               */
+/*  Status / Phase helpers                                             */
 /* ------------------------------------------------------------------ */
 const STATUS_LABELS: Record<string, string> = {
   draft: 'Borrador',
@@ -79,31 +87,21 @@ const SCENE_STATUS_DOT: Record<string, string> = {
   rejected: 'bg-red-500',
 };
 
-/* ------------------------------------------------------------------ */
-/*  Scene list-item (for list view)                                    */
-/* ------------------------------------------------------------------ */
-function SceneListItem({ scene, basePath }: { scene: Scene; basePath: string }) {
-  const sceneLink = scene.short_id
-    ? `${basePath}/scene/${scene.short_id}`
-    : `${basePath}/scenes`;
+const PHASE_STYLES: Record<string, string> = {
+  hook: 'bg-red-500/80 text-white',
+  build: 'bg-amber-500/80 text-white',
+  peak: 'bg-emerald-500/80 text-white',
+  close: 'bg-blue-500/80 text-white',
+};
 
-  return (
-    <Link
-      href={sceneLink}
-      className="flex items-center gap-4 rounded-xl border border-border bg-card p-3 transition-all hover:border-primary/30 hover:shadow-md hover:shadow-black/20"
-    >
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-background text-sm font-bold text-muted-foreground">
-        #{scene.scene_number}
-      </div>
-      <div className="flex-1 min-w-0">
-        <h4 className="text-sm font-medium text-foreground truncate">{scene.title}</h4>
-      </div>
-      <div className="flex items-center gap-3 shrink-0 text-xs text-muted-foreground">
-        <span>{scene.duration_seconds ?? 0}s</span>
-        <span className={cn('h-2 w-2 rounded-full', SCENE_STATUS_DOT[scene.status ?? 'draft'])} />
-      </div>
-    </Link>
-  );
+/* ------------------------------------------------------------------ */
+/*  Audio config type                                                  */
+/* ------------------------------------------------------------------ */
+interface AudioConfig {
+  music: boolean;
+  dialogue: boolean;
+  sfx: boolean;
+  voiceover: boolean;
 }
 
 /* ------------------------------------------------------------------ */
@@ -117,14 +115,283 @@ const QUICK_LINKS = [
 ] as const;
 
 /* ------------------------------------------------------------------ */
-/*  View mode                                                          */
+/*  Clipboard helper                                                   */
 /* ------------------------------------------------------------------ */
-type ViewMode = 'grid' | 'list';
+function copyToClipboard(text: string, label: string) {
+  navigator.clipboard.writeText(text);
+  toast.success(`${label} copiado`);
+}
 
-const VIEW_TABS: Array<{ key: ViewMode; label: string; icon: typeof LayoutGrid }> = [
-  { key: 'grid', label: 'Grid', icon: LayoutGrid },
-  { key: 'list', label: 'Lista', icon: List },
-];
+/* ------------------------------------------------------------------ */
+/*  SceneCamera type (from scene_camera table)                         */
+/* ------------------------------------------------------------------ */
+interface SceneCamera {
+  scene_id: string;
+  camera_angle: string | null;
+  camera_movement: string | null;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Storyboard scene card                                              */
+/* ------------------------------------------------------------------ */
+function StoryboardCard({
+  scene,
+  basePath,
+  imagePrompt,
+  videoPrompt,
+  thumbnail,
+  camera,
+}: {
+  scene: Scene;
+  basePath: string;
+  imagePrompt: ScenePrompt | undefined;
+  videoPrompt: ScenePrompt | undefined;
+  thumbnail: SceneMedia | undefined;
+  camera: SceneCamera | undefined;
+}) {
+  const sceneLink = scene.short_id
+    ? `${basePath}/scene/${scene.short_id}`
+    : `${basePath}/scenes`;
+
+  const audio: AudioConfig = { music: false, dialogue: false, sfx: false, voiceover: false, ...(scene.audio_config as Partial<AudioConfig> | null) };
+  const audioTags: string[] = [];
+  if (audio.music) audioTags.push('Musica');
+  if (audio.sfx) audioTags.push('SFX');
+  if (audio.voiceover) audioTags.push('Voz');
+  if (audio.dialogue) audioTags.push('Dialogo');
+
+  const thumbUrl = thumbnail?.thumbnail_url ?? thumbnail?.file_url;
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-4 space-y-3 transition-colors hover:border-primary/20">
+      {/* ── Top row: number, title, phase, duration, status ── */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="shrink-0 text-sm font-bold text-muted-foreground">#{scene.scene_number}</span>
+          <h4 className="text-sm font-medium text-foreground truncate">{scene.title}</h4>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {scene.arc_phase && (
+            <span className={cn('rounded px-1.5 py-0.5 text-[10px] font-medium', PHASE_STYLES[scene.arc_phase] ?? 'bg-zinc-500/80 text-white')}>
+              {scene.arc_phase}
+            </span>
+          )}
+          <span className="text-xs text-muted-foreground tabular-nums">{scene.duration_seconds ?? 5}s</span>
+          <span className={cn('h-2.5 w-2.5 rounded-full shrink-0', SCENE_STATUS_DOT[scene.status ?? 'draft'])} />
+        </div>
+      </div>
+
+      {/* ── Middle: thumbnail + metadata ── */}
+      <div className="flex gap-4">
+        {/* Thumbnail */}
+        <Link href={sceneLink} className="shrink-0">
+          <div className="relative h-[75px] w-[100px] rounded-lg bg-background border border-border overflow-hidden flex items-center justify-center">
+            {thumbUrl ? (
+              <Image src={thumbUrl} alt={scene.title} fill className="object-cover" sizes="100px" />
+            ) : (
+              <Film className="h-6 w-6 text-muted-foreground/40" />
+            )}
+          </div>
+        </Link>
+
+        {/* Metadata */}
+        <div className="flex-1 min-w-0 space-y-1">
+          {/* Description */}
+          {scene.description && (
+            <p className="text-xs text-muted-foreground line-clamp-1">{scene.description}</p>
+          )}
+
+          {/* Camera */}
+          {camera && (camera.camera_angle || camera.camera_movement) && (
+            <p className="text-xs text-muted-foreground">
+              <Camera className="inline h-3 w-3 mr-1 opacity-60" />
+              {[camera.camera_angle, camera.camera_movement].filter(Boolean).join(' · ')}
+            </p>
+          )}
+
+          {/* Audio */}
+          {audioTags.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              <Music className="inline h-3 w-3 mr-1 opacity-60" />
+              {audioTags.join(' · ')}
+            </p>
+          )}
+
+          {/* Director notes */}
+          {scene.director_notes && (
+            <p className="text-xs text-muted-foreground/70 line-clamp-1 italic">{scene.director_notes}</p>
+          )}
+        </div>
+      </div>
+
+      {/* ── Prompts ── */}
+      <div className="space-y-1.5">
+        {/* Image prompt */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <ImageIcon className="h-3 w-3 text-muted-foreground/60" />
+            <span className="text-[10px] font-medium text-muted-foreground w-10">Imagen</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            {imagePrompt ? (
+              <p className="font-mono text-xs text-muted-foreground line-clamp-1 bg-background rounded-lg px-3 py-1.5">
+                {imagePrompt.prompt_text}
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground/40 italic px-3 py-1.5">Sin prompt</p>
+            )}
+          </div>
+          {imagePrompt && (
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => copyToClipboard(imagePrompt.prompt_text, 'Prompt de imagen')}
+                className="rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                title="Copiar prompt de imagen"
+              >
+                <Copy className="h-3 w-3" />
+              </button>
+              <button
+                type="button"
+                onClick={() => toast.info('Generacion IA proximamente')}
+                className="rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                title="Generar con IA"
+              >
+                <Sparkles className="h-3 w-3" />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Video prompt */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Video className="h-3 w-3 text-muted-foreground/60" />
+            <span className="text-[10px] font-medium text-muted-foreground w-10">Video</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            {videoPrompt ? (
+              <p className="font-mono text-xs text-muted-foreground line-clamp-1 bg-background rounded-lg px-3 py-1.5">
+                {videoPrompt.prompt_text}
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground/40 italic px-3 py-1.5">Sin prompt</p>
+            )}
+          </div>
+          {videoPrompt && (
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => copyToClipboard(videoPrompt.prompt_text, 'Prompt de video')}
+                className="rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                title="Copiar prompt de video"
+              >
+                <Copy className="h-3 w-3" />
+              </button>
+              <button
+                type="button"
+                onClick={() => toast.info('Generacion IA proximamente')}
+                className="rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                title="Generar con IA"
+              >
+                <Sparkles className="h-3 w-3" />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Action buttons ── */}
+      <div className="flex items-center gap-1.5 pt-1 border-t border-border/50">
+        <Link
+          href={sceneLink}
+          className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors flex items-center gap-1.5"
+        >
+          <ExternalLink className="h-3 w-3" />
+          Abrir
+        </Link>
+
+        <button
+          type="button"
+          onClick={() => toast.info('Generacion de prompts proximamente')}
+          className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors flex items-center gap-1.5"
+        >
+          <Sparkles className="h-3 w-3" />
+          Generar prompts
+        </button>
+
+        {(imagePrompt || videoPrompt) && (
+          <button
+            type="button"
+            onClick={() => {
+              const parts: string[] = [];
+              if (imagePrompt) parts.push(imagePrompt.prompt_text);
+              if (videoPrompt) parts.push(videoPrompt.prompt_text);
+              copyToClipboard(parts.join('\n\n'), 'Prompts');
+            }}
+            className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors flex items-center gap-1.5"
+          >
+            <Copy className="h-3 w-3" />
+            Copiar todo
+          </button>
+        )}
+
+        {/* Dropdown menu */}
+        <div className="ml-auto">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem asChild>
+                <Link href={sceneLink}>
+                  <Eye className="h-4 w-4" />
+                  Ver detalle
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => toast.info('Edicion inline proximamente')}>
+                <Pencil className="h-4 w-4" />
+                Editar inline
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => toast.info('Regenerar imagen proximamente')}>
+                <Camera className="h-4 w-4" />
+                Regenerar imagen
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => toast.info('Regenerar clips proximamente')}>
+                <Clapperboard className="h-4 w-4" />
+                Regenerar clips
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => toast.info('Mejorar con IA proximamente')}>
+                <Sparkles className="h-4 w-4" />
+                Mejorar con IA
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => toast.info('Duplicar proximamente')}>
+                <Copy className="h-4 w-4" />
+                Duplicar escena
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => toast.info('Insertar proximamente')}>
+                <Plus className="h-4 w-4" />
+                Insertar antes
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-destructive focus:text-destructive">
+                <Trash2 className="h-4 w-4" />
+                Eliminar
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /* ================================================================== */
 /*  Page                                                               */
@@ -133,8 +400,6 @@ export default function VideoOverviewPage() {
   const { project } = useProject();
   const { video, loading, scenes, scenesLoading } = useVideo();
   const openVideoSettingsModal = useUIStore((s) => s.openVideoSettingsModal);
-
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
 
   // Fetch narrative arcs
   const { data: arcs = [] } = useQuery({
@@ -150,6 +415,72 @@ export default function VideoOverviewPage() {
     },
     enabled: !!video?.id,
   });
+
+  // Fetch scene prompts (current versions)
+  const { data: scenePrompts = [] } = useQuery({
+    queryKey: ['scene-prompts', video?.id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const sceneIds = scenes.map((s) => s.id);
+      if (sceneIds.length === 0) return [];
+      const { data } = await supabase
+        .from('scene_prompts')
+        .select('*')
+        .in('scene_id', sceneIds)
+        .eq('is_current', true);
+      return (data ?? []) as ScenePrompt[];
+    },
+    enabled: !!video?.id && scenes.length > 0,
+  });
+
+  // Fetch scene media (most recent first)
+  const { data: sceneMedia = [] } = useQuery({
+    queryKey: ['scene-media', video?.id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const sceneIds = scenes.map((s) => s.id);
+      if (sceneIds.length === 0) return [];
+      const { data } = await supabase
+        .from('scene_media')
+        .select('*')
+        .in('scene_id', sceneIds)
+        .order('created_at', { ascending: false });
+      return (data ?? []) as SceneMedia[];
+    },
+    enabled: !!video?.id && scenes.length > 0,
+  });
+
+  // Fetch scene cameras
+  const { data: sceneCameras = [] } = useQuery({
+    queryKey: ['scene-cameras', video?.id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const sceneIds = scenes.map((s) => s.id);
+      if (sceneIds.length === 0) return [];
+      const { data } = await supabase
+        .from('scene_camera')
+        .select('scene_id, camera_angle, camera_movement')
+        .in('scene_id', sceneIds);
+      return (data ?? []) as SceneCamera[];
+    },
+    enabled: !!video?.id && scenes.length > 0,
+  });
+
+  /* Copy all prompts in order */
+  function copyAllPrompts() {
+    const imageLines: string[] = [];
+    const videoLines: string[] = [];
+
+    scenes.forEach((scene) => {
+      const ip = scenePrompts.find((p) => p.scene_id === scene.id && p.prompt_type === 'image');
+      const vp = scenePrompts.find((p) => p.scene_id === scene.id && p.prompt_type === 'video');
+      imageLines.push(`#${scene.scene_number}: ${ip?.prompt_text ?? '(sin prompt)'}`);
+      videoLines.push(`#${scene.scene_number}: ${vp?.prompt_text ?? '(sin prompt)'}`);
+    });
+
+    const text = `=== PROMPTS DE IMAGEN ===\n${imageLines.join('\n')}\n\n=== PROMPTS DE VIDEO ===\n${videoLines.join('\n')}`;
+    copyToClipboard(text, 'Todos los prompts');
+  }
 
   /* Loading */
   if (loading) {
@@ -251,40 +582,18 @@ export default function VideoOverviewPage() {
         </div>
       )}
 
-      {/* ── Scenes section ──────────────────────────────────── */}
+      {/* ── Storyboard ─────────────────────────────────────── */}
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Escenas
+            Storyboard
           </p>
-          <div className="flex items-center gap-2">
-            {/* View toggle */}
-            <div className="flex items-center rounded-lg border border-border p-0.5">
-              {VIEW_TABS.map((tab) => (
-                <button
-                  key={tab.key}
-                  type="button"
-                  onClick={() => setViewMode(tab.key)}
-                  className={cn(
-                    'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
-                    viewMode === tab.key
-                      ? 'bg-secondary text-foreground'
-                      : 'text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  <tab.icon className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">{tab.label}</span>
-                </button>
-              ))}
-            </div>
-
-            <Link
-              href={`${basePath}/scenes`}
-              className="text-xs font-medium text-primary hover:underline"
-            >
-              Ver todas
-            </Link>
-          </div>
+          <Link
+            href={`${basePath}/scenes`}
+            className="text-xs font-medium text-primary hover:underline"
+          >
+            Ver todas
+          </Link>
         </div>
 
         {/* Content */}
@@ -304,25 +613,54 @@ export default function VideoOverviewPage() {
               Ir a escenas
             </Link>
           </div>
-        ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-            {scenes.map((scene) => (
-              <SceneCard key={scene.id} scene={scene} basePath={basePath} />
-            ))}
-          </div>
         ) : (
-          <div className="space-y-2">
-            {scenes.map((scene) => (
-              <SceneListItem key={scene.id} scene={scene} basePath={basePath} />
-            ))}
+          <div className="space-y-3">
+            {scenes.map((scene) => {
+              const imagePrompt = scenePrompts.find((p) => p.scene_id === scene.id && p.prompt_type === 'image');
+              const videoPrompt = scenePrompts.find((p) => p.scene_id === scene.id && p.prompt_type === 'video');
+              const thumbnail = sceneMedia.find((m) => m.scene_id === scene.id);
+              const camera = sceneCameras.find((c) => c.scene_id === scene.id);
+
+              return (
+                <StoryboardCard
+                  key={scene.id}
+                  scene={scene}
+                  basePath={basePath}
+                  imagePrompt={imagePrompt}
+                  videoPrompt={videoPrompt}
+                  thumbnail={thumbnail}
+                  camera={camera}
+                />
+              );
+            })}
           </div>
         )}
       </div>
 
-      {/* ── Quick links ─────────────────────────────────────── */}
+      {/* ── Quick actions ───────────────────────────────────── */}
       <div className="space-y-3">
         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Acciones rapidas</p>
         <div className="flex flex-wrap gap-2">
+          {scenes.length > 0 && (
+            <>
+              <button
+                type="button"
+                onClick={() => toast.info('Generacion masiva de prompts proximamente')}
+                className="group flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm transition-all hover:border-primary/30"
+              >
+                <Sparkles className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                <span className="text-foreground">Generar todos los prompts</span>
+              </button>
+              <button
+                type="button"
+                onClick={copyAllPrompts}
+                className="group flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm transition-all hover:border-primary/30"
+              >
+                <Copy className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                <span className="text-foreground">Copiar todos los prompts</span>
+              </button>
+            </>
+          )}
           {QUICK_LINKS.map((link) => (
             <Link
               key={link.href}
