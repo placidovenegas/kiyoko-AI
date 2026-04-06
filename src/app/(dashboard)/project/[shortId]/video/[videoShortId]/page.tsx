@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils/cn';
 import { useUIStore } from '@/stores/useUIStore';
 import { useAIStore } from '@/stores/ai-store';
 import { ArcBar } from '@/components/video/ArcBar';
+import { SceneGeneratorModal } from '@/components/modals/scene/SceneGeneratorModal';
 import { toast } from 'sonner';
 import {
   Film, Clock, Monitor, Mic, FileOutput, Music, Image as ImageIcon,
@@ -552,6 +553,7 @@ export default function VideoOverviewPage() {
   const [generatingAll, setGeneratingAll] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('storyboard');
   const [showCreateScene, setShowCreateScene] = useState(false);
+  const [showSceneGenerator, setShowSceneGenerator] = useState(false);
   const [aiDescription, setAiDescription] = useState('');
 
   async function handleGeneratePrompts(sceneId: string) {
@@ -908,15 +910,7 @@ export default function VideoOverviewPage() {
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
-                onClick={() => {
-                  if (!aiDescription.trim()) {
-                    toast.error('Describe que quieres en tu video');
-                    return;
-                  }
-                  setActiveAgent('scenes');
-                  openChat('sidebar');
-                  toast.loading('Kiyoko esta planificando tus escenas...', { duration: 3000 });
-                }}
+                onClick={() => setShowSceneGenerator(true)}
                 className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
               >
                 <Sparkles className="h-4 w-4" />
@@ -1142,6 +1136,18 @@ export default function VideoOverviewPage() {
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ['scene-prompts', video.id] });
         }}
+      />
+
+      <SceneGeneratorModal
+        open={showSceneGenerator}
+        onOpenChange={setShowSceneGenerator}
+        videoId={video.id}
+        projectId={project.id}
+        videoTitle={video.title}
+        videoPlatform={video.platform ?? 'youtube'}
+        videoDuration={video.target_duration_seconds ?? 60}
+        projectStyle={project.style ?? 'pixar'}
+        existingSceneCount={scenes.length}
       />
     </div>
   );
