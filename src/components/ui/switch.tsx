@@ -1,37 +1,55 @@
 "use client";
 
-/**
- * Switch — Wrapper sobre HeroUI v3 Switch.
- * Mantiene la API: checked, onCheckedChange, disabled.
- */
-
 import * as React from "react";
-import { Switch as HeroSwitch } from "@heroui/react";
 import { cn } from "@/lib/utils/cn";
 
-const Switch = React.forwardRef<
-  HTMLInputElement,
-  {
-    className?: string;
-    checked?: boolean;
-    defaultChecked?: boolean;
-    onCheckedChange?: (checked: boolean) => void;
-    disabled?: boolean;
-    name?: string;
-    id?: string;
-    'aria-label'?: string;
+interface SwitchProps {
+  className?: string;
+  checked?: boolean;
+  defaultChecked?: boolean;
+  onCheckedChange?: (checked: boolean) => void;
+  disabled?: boolean;
+  name?: string;
+  id?: string;
+  'aria-label'?: string;
+}
+
+const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
+  ({ className, checked, defaultChecked, onCheckedChange, disabled, id, name, ...props }, ref) => {
+    const [isOn, setIsOn] = React.useState(defaultChecked ?? false);
+    const active = checked ?? isOn;
+
+    return (
+      <button
+        ref={ref}
+        type="button"
+        role="switch"
+        aria-checked={active}
+        aria-label={props['aria-label']}
+        id={id}
+        disabled={disabled}
+        onClick={() => {
+          const next = !active;
+          setIsOn(next);
+          onCheckedChange?.(next);
+        }}
+        className={cn(
+          'inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors',
+          active ? 'bg-primary' : 'bg-muted',
+          disabled && 'cursor-not-allowed opacity-50',
+          className,
+        )}
+      >
+        <span
+          className={cn(
+            'pointer-events-none block size-4 rounded-full bg-white shadow-sm transition-transform',
+            active ? 'translate-x-4' : 'translate-x-0',
+          )}
+        />
+      </button>
+    );
   }
->(({ className, checked, defaultChecked, onCheckedChange, disabled, ...props }, ref) => (
-  <HeroSwitch
-    ref={ref}
-    isSelected={checked}
-    defaultSelected={defaultChecked}
-    onValueChange={onCheckedChange}
-    disabled={disabled}
-    className={cn(className)}
-    {...props}
-  />
-));
+);
 Switch.displayName = "Switch";
 
 export { Switch };

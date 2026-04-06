@@ -1,15 +1,22 @@
 'use client';
 
-/**
- * Tabs — Wrapper sobre HeroUI v3 Tabs.
- * Mantiene la API: Tabs, TabsList, TabsTrigger, TabsContent.
- */
-
 import * as React from 'react';
-import { Tabs as HeroTabs } from '@heroui/react';
 import { cn } from '@/lib/utils/cn';
 
-interface TabsProps {
+interface TabsContextValue {
+  value: string;
+  onValueChange: (value: string) => void;
+}
+
+const TabsContext = React.createContext<TabsContextValue>({ value: '', onValueChange: () => {} });
+
+function Tabs({
+  className,
+  defaultValue = '',
+  value: controlledValue,
+  onValueChange,
+  children,
+}: {
   className?: string;
   defaultValue?: string;
   value?: string;
@@ -18,26 +25,27 @@ interface TabsProps {
   variant?: string;
   color?: string;
   size?: string;
-}
+}) {
+  const [internalValue, setInternalValue] = React.useState(defaultValue);
+  const currentValue = controlledValue ?? internalValue;
 
-function Tabs({ className, defaultValue, value, onValueChange, children }: TabsProps) {
+  const handleChange = React.useCallback((v: string) => {
+    setInternalValue(v);
+    onValueChange?.(v);
+  }, [onValueChange]);
+
   return (
-    <HeroTabs
-      selectedKey={value}
-      defaultSelectedKey={defaultValue}
-      onSelectionChange={(key) => onValueChange?.(String(key))}
-      className={cn(className)}
-    >
-      {children}
-    </HeroTabs>
+    <TabsContext.Provider value={{ value: currentValue, onValueChange: handleChange }}>
+      <div className={cn(className)}>{children}</div>
+    </TabsContext.Provider>
   );
 }
 
 function TabsList({ className, children }: { className?: string; children: React.ReactNode }) {
   return (
-    <HeroTabs.List className={cn(className)}>
+    <div role="tablist" className={cn('inline-flex items-center gap-1 border-b border-border', className)}>
       {children}
-    </HeroTabs.List>
+    </div>
   );
 }
 
@@ -53,14 +61,27 @@ function TabsTrigger({
   disabled?: boolean;
   icon?: React.ReactNode;
 }) {
+  const ctx = React.useContext(TabsContext);
+  const isActive = ctx.value === value;
+
   return (
-    <HeroTabs.Tab
-      id={value}
-      className={cn(className)}
+    <button
+      type="button"
+      role="tab"
+      aria-selected={isActive}
       disabled={disabled}
+      onClick={() => ctx.onValueChange(value)}
+      className={cn(
+        'inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors -mb-px border-b-2',
+        isActive
+          ? 'border-primary text-foreground'
+          : 'border-transparent text-muted-foreground hover:text-foreground',
+        disabled && 'cursor-not-allowed opacity-50',
+        className,
+      )}
     >
       {children}
-    </HeroTabs.Tab>
+    </button>
   );
 }
 
@@ -73,11 +94,9 @@ function TabsContent({
   value: string;
   children: React.ReactNode;
 }) {
-  return (
-    <HeroTabs.Panel id={value} className={cn(className)}>
-      {children}
-    </HeroTabs.Panel>
-  );
+  const ctx = React.useContext(TabsContext);
+  if (ctx.value !== value) return null;
+  return <div role="tabpanel" className={cn('mt-2', className)}>{children}</div>;
 }
 
 export { Tabs, TabsList, TabsTrigger, TabsContent };
