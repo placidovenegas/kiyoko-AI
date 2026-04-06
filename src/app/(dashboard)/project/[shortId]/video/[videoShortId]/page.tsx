@@ -11,6 +11,7 @@ import { useUIStore } from '@/stores/useUIStore';
 import { useAIStore } from '@/stores/ai-store';
 import { ArcBar } from '@/components/video/ArcBar';
 import { SceneGeneratorModal } from '@/components/modals/scene/SceneGeneratorModal';
+import { SceneEditorModal } from '@/components/modals/scene/SceneEditorModal';
 import { toast } from 'sonner';
 import {
   Film, Clock, Monitor, Mic, FileOutput, Music, Image as ImageIcon,
@@ -216,7 +217,7 @@ function StoryboardCard({
   clips,
   timelineEntry,
   onGeneratePrompts,
-  onChatAboutScene,
+  onEditScene,
   isGenerating,
 }: {
   scene: Scene;
@@ -230,7 +231,7 @@ function StoryboardCard({
   clips: SceneClipRow[];
   timelineEntry: TimelineEntryRow | undefined;
   onGeneratePrompts: () => void;
-  onChatAboutScene: () => void;
+  onEditScene: () => void;
   isGenerating: boolean;
 }) {
   const sceneLink = scene.short_id
@@ -475,12 +476,12 @@ function StoryboardCard({
 
         <button
           type="button"
-          onClick={onChatAboutScene}
+          onClick={onEditScene}
           className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-primary hover:bg-primary/10 transition-colors flex items-center gap-1.5"
-          title="Chat IA sobre esta escena"
+          title="Editar con IA"
         >
-          <MessageCircle className="h-3 w-3" />
-          Chat IA
+          <Sparkles className="h-3 w-3" />
+          Editar con IA
         </button>
 
         {/* Dropdown menu */}
@@ -554,6 +555,7 @@ export default function VideoOverviewPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('storyboard');
   const [showCreateScene, setShowCreateScene] = useState(false);
   const [showSceneGenerator, setShowSceneGenerator] = useState(false);
+  const [editingScene, setEditingScene] = useState<Scene | null>(null);
   const [aiDescription, setAiDescription] = useState('');
 
   async function handleGeneratePrompts(sceneId: string) {
@@ -716,11 +718,8 @@ export default function VideoOverviewPage() {
 
   // Open chat with scene context
   const { openChat, setActiveAgent } = useAIStore();
-  function handleChatAboutScene(scene: Scene) {
-    setActiveAgent('scenes');
-    openChat('sidebar');
-    // The chat will pick up the current scene context from the URL
-    toast.success(`Chat IA abierto para escena #${scene.scene_number}`);
+  function handleEditSceneWithAI(scene: Scene) {
+    setEditingScene(scene);
   }
 
   /* Copy all prompts in order */
@@ -977,7 +976,7 @@ export default function VideoOverviewPage() {
                   clips={clipList}
                   timelineEntry={timelineEntries.find((t) => t.scene_id === scene.id)}
                   onGeneratePrompts={() => handleGeneratePrompts(scene.id)}
-                  onChatAboutScene={() => handleChatAboutScene(scene)}
+                  onEditScene={() => handleEditSceneWithAI(scene)}
                   isGenerating={generatingSceneId === scene.id}
                 />
               );
@@ -1137,6 +1136,20 @@ export default function VideoOverviewPage() {
           queryClient.invalidateQueries({ queryKey: ['scene-prompts', video.id] });
         }}
       />
+
+      {editingScene && (
+        <SceneEditorModal
+          open={!!editingScene}
+          onOpenChange={(open) => { if (!open) setEditingScene(null); }}
+          scene={editingScene}
+          allScenes={scenes}
+          imagePrompt={scenePrompts.find(p => p.scene_id === editingScene.id && p.prompt_type === 'image')?.prompt_text}
+          videoPrompt={scenePrompts.find(p => p.scene_id === editingScene.id && p.prompt_type === 'video')?.prompt_text}
+          onUpdate={() => {
+            queryClient.invalidateQueries({ queryKey: ['scene-prompts', video.id] });
+          }}
+        />
+      )}
 
       <SceneGeneratorModal
         open={showSceneGenerator}
