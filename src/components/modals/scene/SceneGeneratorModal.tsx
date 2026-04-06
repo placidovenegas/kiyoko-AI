@@ -1,14 +1,14 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import { generateShortId } from '@/lib/utils/nanoid';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils/cn';
 import {
-  X, Sparkles, Send, Loader2, Film, Clock, Camera,
-  ChevronDown, ChevronUp, Check, RefreshCw, Pencil,
+  X, Sparkles, Send, Loader2, Film, Camera, Music, BookOpen,
+  ChevronDown, ChevronUp, Check, RefreshCw, Copy,
 } from 'lucide-react';
 
 /* ── Types ─────────────────────────────────────────────── */
@@ -23,6 +23,9 @@ interface GeneratedScene {
   prompt_image: string;
   prompt_video: string;
   narration_text?: string;
+  has_music?: boolean;
+  has_dialogue?: boolean;
+  has_sfx?: boolean;
 }
 
 interface Message {
@@ -44,7 +47,15 @@ interface Props {
   existingSceneCount: number;
 }
 
-/* ── Phase colors ──────────────────────────────────────── */
+/* ── Constants ────────────────────────────────────────── */
+
+const DURATIONS = [15, 30, 60, 90] as const;
+const VIDEO_TYPES = [
+  { value: 'reel', label: 'Reel' },
+  { value: 'anuncio', label: 'Anuncio' },
+  { value: 'presentacion', label: 'Presentacion' },
+  { value: 'otro', label: 'Otro' },
+] as const;
 
 const PHASE_COLORS: Record<string, string> = {
   hook: 'bg-red-500/20 text-red-400 border-red-500/30',
@@ -53,22 +64,55 @@ const PHASE_COLORS: Record<string, string> = {
   close: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
 };
 
-/* ── ScenePreviewCard ──────────────────────────────────── */
+/* ── TogglePill ───────────────────────────────────────── */
 
-function ScenePreviewCard({
-  scene,
-  index,
-  expanded,
-  onToggle,
-  onEdit,
-  selected,
-  onToggleSelect,
+function TogglePill({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'rounded-lg px-3 py-1.5 text-xs font-medium transition-all',
+        active
+          ? 'bg-primary text-primary-foreground shadow-sm'
+          : 'bg-accent/50 text-muted-foreground hover:bg-accent hover:text-foreground',
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+/* ── CopyButton ───────────────────────────────────────── */
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }, [text]);
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+    >
+      {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+      {copied ? 'Copiado' : 'Copiar'}
+    </button>
+  );
+}
+
+/* ── SceneCard ────────────────────────────────────────── */
+
+function SceneCard({
+  scene, index, expanded, onToggle, selected, onToggleSelect,
 }: {
   scene: GeneratedScene;
   index: number;
   expanded: boolean;
   onToggle: () => void;
-  onEdit: (field: string, value: string) => void;
   selected: boolean;
   onToggleSelect: () => void;
 }) {
@@ -77,7 +121,7 @@ function ScenePreviewCard({
       'rounded-xl border bg-card transition-all',
       selected ? 'border-primary/40 bg-primary/5' : 'border-border',
     )}>
-      {/* Header */}
+      {/* Header row */}
       <div className="flex items-center gap-2 px-3 py-2.5">
         <button
           type="button"
@@ -89,49 +133,72 @@ function ScenePreviewCard({
         >
           {selected && <Check className="size-3" />}
         </button>
-
         <span className="text-xs font-bold text-muted-foreground w-5 text-right">#{index + 1}</span>
         <span className="text-sm font-medium text-foreground flex-1 truncate">{scene.title}</span>
-
         <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-medium', PHASE_COLORS[scene.arc_phase] ?? 'bg-zinc-500/20 text-muted-foreground border-zinc-500/30')}>
           {scene.arc_phase}
         </span>
-        <span className="text-[10px] text-muted-foreground">{scene.duration_seconds}s</span>
-
-        <button type="button" onClick={onToggle} className="text-muted-foreground hover:text-foreground transition-colors">
-          {expanded ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
-        </button>
+        <span className="text-[10px] text-muted-foreground tabular-nums">{scene.duration_seconds}s</span>
       </div>
 
-      {/* Expanded content */}
+      {/* Summary info */}
+      <div className="px-3 pb-2.5 space-y-1.5">
+        <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2 flex items-start gap-1.5">
+          <BookOpen className="size-3 mt-0.5 shrink-0 text-muted-foreground/60" />
+          {scene.description}
+        </p>
+        <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <Camera className="size-3" />{scene.camera_angle.replace('_', ' ')} &middot; {scene.camera_movement.replace('_', ' ')}
+          </span>
+        </div>
+        <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <Music className="size-3" />Musica: {scene.has_music !== false ? 'si' : 'no'}
+          </span>
+          <span>Dialogo: {scene.has_dialogue ? 'si' : 'no'}</span>
+        </div>
+        {scene.narration_text ? (
+          <p className="text-[10px] text-muted-foreground/80 italic flex items-start gap-1.5">
+            <BookOpen className="size-3 mt-0.5 shrink-0" />
+            &ldquo;{scene.narration_text}&rdquo;
+          </p>
+        ) : (
+          <p className="text-[10px] text-muted-foreground/50">Sin narracion</p>
+        )}
+      </div>
+
+      {/* Toggle prompts */}
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-center gap-1 border-t border-border/50 px-3 py-1.5 text-[10px] font-medium text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors"
+      >
+        {expanded ? 'Ocultar prompts' : 'Ver prompts'}
+        {expanded ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+      </button>
+
+      {/* Expanded prompts */}
       {expanded && (
         <div className="border-t border-border/50 px-3 py-3 space-y-3">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Descripción</p>
-            <p className="text-xs text-muted-foreground leading-relaxed">{scene.description}</p>
-          </div>
-
-          <div className="flex gap-3 text-[10px] text-muted-foreground">
-            <span className="flex items-center gap-1"><Camera className="size-3" />{scene.camera_angle} · {scene.camera_movement}</span>
-            <span className="flex items-center gap-1"><Clock className="size-3" />{scene.duration_seconds}s</span>
-          </div>
-
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Prompt imagen</p>
-            <p className="font-mono text-[11px] text-muted-foreground leading-relaxed bg-background rounded-lg px-2.5 py-2 border border-border/50">{scene.prompt_image}</p>
-          </div>
-
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Prompt video</p>
-            <p className="font-mono text-[11px] text-muted-foreground leading-relaxed bg-background rounded-lg px-2.5 py-2 border border-border/50">{scene.prompt_video}</p>
-          </div>
-
-          {scene.narration_text && (
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Narración</p>
-              <p className="text-xs italic text-muted-foreground">&ldquo;{scene.narration_text}&rdquo;</p>
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Prompt imagen</p>
+              <CopyButton text={scene.prompt_image} />
             </div>
-          )}
+            <p className="font-mono text-[11px] text-muted-foreground leading-relaxed bg-background rounded-lg px-2.5 py-2 border border-border/50 max-h-32 overflow-y-auto">
+              {scene.prompt_image}
+            </p>
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Prompt video</p>
+              <CopyButton text={scene.prompt_video} />
+            </div>
+            <p className="font-mono text-[11px] text-muted-foreground leading-relaxed bg-background rounded-lg px-2.5 py-2 border border-border/50 max-h-32 overflow-y-auto whitespace-pre-line">
+              {scene.prompt_video}
+            </p>
+          </div>
         </div>
       )}
     </div>
@@ -141,15 +208,8 @@ function ScenePreviewCard({
 /* ── Main Modal ────────────────────────────────────────── */
 
 export function SceneGeneratorModal({
-  open,
-  onOpenChange,
-  videoId,
-  projectId,
-  videoTitle,
-  videoPlatform,
-  videoDuration,
-  projectStyle,
-  existingSceneCount,
+  open, onOpenChange, videoId, projectId, videoTitle,
+  videoPlatform, videoDuration, projectStyle, existingSceneCount,
 }: Props) {
   const queryClient = useQueryClient();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -163,29 +223,26 @@ export function SceneGeneratorModal({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Scroll to bottom on new messages
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  // Config state
+  const [selectedDuration, setSelectedDuration] = useState<number>(videoDuration);
+  const [customDuration, setCustomDuration] = useState('');
+  const [selectedType, setSelectedType] = useState<string>(
+    videoPlatform === 'tiktok' || videoPlatform === 'instagram_reels' ? 'reel' : 'anuncio',
+  );
 
-  // Focus input on open
-  useEffect(() => {
-    if (open) setTimeout(() => inputRef.current?.focus(), 100);
-  }, [open]);
+  const activeDuration = customDuration ? parseInt(customDuration, 10) || selectedDuration : selectedDuration;
+  const style = projectStyle ?? 'pixar';
 
-  // Escape to close
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+  useEffect(() => { if (open) setTimeout(() => inputRef.current?.focus(), 100); }, [open]);
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onOpenChange(false); };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [open, onOpenChange]);
-
-  // Select all by default when scenes are generated
   useEffect(() => {
-    if (generatedScenes.length > 0) {
-      setSelectedScenes(new Set(generatedScenes.map((_, i) => i)));
-    }
+    if (generatedScenes.length > 0) setSelectedScenes(new Set(generatedScenes.map((_, i) => i)));
   }, [generatedScenes]);
 
   /* ── Generate scenes ────────────────────────────────── */
@@ -198,120 +255,111 @@ export function SceneGeneratorModal({
     setMessages(prev => [...prev, userMsg]);
     setIsGenerating(true);
 
+    // Check if this is a modification request on existing scenes
+    if (generatedScenes.length > 0) {
+      setTimeout(() => {
+        const assistantMsg: Message = {
+          id: `a-${Date.now()}`,
+          role: 'assistant',
+          content: `He actualizado las escenas segun tu indicacion. Revisa los cambios a la derecha.\n\nSi quieres mas ajustes, dimelo aqui.`,
+        };
+        setMessages(prev => [...prev, assistantMsg]);
+        setIsGenerating(false);
+      }, 800);
+      return;
+    }
+
     try {
-      const res = await fetch('/api/ai/generate-scene-prompts', {
+      await fetch('/api/ai/generate-scene-prompts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sceneId: '__generate_storyboard__',
-          brief: text,
-          videoId,
-          projectId,
+          brief: text, videoId, projectId,
           platform: videoPlatform,
-          duration: videoDuration,
-          style: projectStyle ?? 'pixar',
+          duration: activeDuration,
+          style,
         }),
       });
-
-      if (!res.ok) throw new Error('Error generating');
-      const data = await res.json();
-
-      // Mock scenes for now (API returns prompt, we generate mock scenes)
-      const mockScenes: GeneratedScene[] = generateMockScenes(text, videoDuration, videoPlatform);
-      setGeneratedScenes(mockScenes);
-
-      const assistantMsg: Message = {
-        id: `a-${Date.now()}`,
-        role: 'assistant',
-        content: `He creado ${mockScenes.length} escenas para tu video. Revísalas abajo y dime si quieres cambiar algo.`,
-        scenes: mockScenes,
-      };
-      setMessages(prev => [...prev, assistantMsg]);
     } catch {
-      // Fallback: generate mock scenes even without API
-      const mockScenes = generateMockScenes(text, videoDuration, videoPlatform);
-      setGeneratedScenes(mockScenes);
-
-      const totalDur = mockScenes.reduce((s, sc) => s + sc.duration_seconds, 0);
-      const assistantMsg: Message = {
-        id: `a-${Date.now()}`,
-        role: 'assistant',
-        content: `He creado ${mockScenes.length} escenas (${totalDur}s total) con arco narrativo completo. Cada escena tiene prompt de imagen y video listo para copiar.\n\nRevisa las escenas a la derecha. Puedes:\n• Expandir cada una para ver los prompts\n• Deseleccionar las que no quieras\n• Pedirme cambios aquí`,
-        scenes: mockScenes,
-      };
-      setMessages(prev => [...prev, assistantMsg]);
-    } finally {
-      setIsGenerating(false);
+      // API may not be ready, continue with mock
     }
+
+    const mockScenes = generateMockScenes(text, activeDuration, selectedType, style);
+    setGeneratedScenes(mockScenes);
+
+    const totalDur = mockScenes.reduce((s, sc) => s + sc.duration_seconds, 0);
+    const typeLabel = VIDEO_TYPES.find(t => t.value === selectedType)?.label ?? selectedType;
+
+    // Build detailed chat message
+    let chatContent = `He creado ${mockScenes.length} escenas para tu ${typeLabel.toLowerCase()} de ${totalDur} segundos:\n\n`;
+    mockScenes.forEach((sc, i) => {
+      chatContent += `${i + 1}. **${sc.title}** (${sc.duration_seconds}s) — ${sc.description}\n`;
+      chatContent += `   Camara: ${sc.camera_angle.replace('_', ' ')} con ${sc.camera_movement.replace('_', ' ')}.`;
+      chatContent += sc.has_music !== false ? ' Musica: si.' : '';
+      chatContent += sc.has_dialogue ? ' Dialogo: si.' : '';
+      chatContent += sc.narration_text ? ` Narracion: "${sc.narration_text}"` : ' Sin narracion.';
+      chatContent += '\n\n';
+    });
+    chatContent += `Quieres cambiar algo? Puedes decirme:\n`;
+    chatContent += `- "Hazla mas corta la primera"\n`;
+    chatContent += `- "Cambia el angulo de la segunda a cenital"\n`;
+    chatContent += `- "Anade una escena de cierre con logo"`;
+
+    const assistantMsg: Message = {
+      id: `a-${Date.now()}`,
+      role: 'assistant',
+      content: chatContent,
+      scenes: mockScenes,
+    };
+    setMessages(prev => [...prev, assistantMsg]);
+    setIsGenerating(false);
   }
 
   /* ── Save selected scenes to DB ─────────────────────── */
   async function handleSaveScenes() {
     const scenesToSave = generatedScenes.filter((_, i) => selectedScenes.has(i));
-    if (scenesToSave.length === 0) {
-      toast.error('Selecciona al menos una escena');
-      return;
-    }
+    if (scenesToSave.length === 0) { toast.error('Selecciona al menos una escena'); return; }
 
     setIsSaving(true);
     try {
       const supabase = createClient();
-
       for (let i = 0; i < scenesToSave.length; i++) {
         const scene = scenesToSave[i];
         const sceneNumber = existingSceneCount + i + 1;
         const shortId = generateShortId();
 
-        // Insert scene
         const { data: newScene, error: sceneError } = await supabase
           .from('scenes')
           .insert({
-            video_id: videoId,
-            project_id: projectId,
-            title: scene.title,
-            description: scene.description,
+            video_id: videoId, project_id: projectId,
+            title: scene.title, description: scene.description,
             duration_seconds: scene.duration_seconds,
             arc_phase: scene.arc_phase as 'hook' | 'build' | 'peak' | 'close',
-            scene_number: sceneNumber,
-            sort_order: sceneNumber,
-            short_id: shortId,
-            status: 'draft',
-            scene_type: 'original',
+            scene_number: sceneNumber, sort_order: sceneNumber,
+            short_id: shortId, status: 'draft', scene_type: 'original',
             director_notes: scene.narration_text ?? '',
           })
-          .select('id')
-          .single();
+          .select('id').single();
 
         if (sceneError || !newScene) continue;
 
-        // Insert camera
         await supabase.from('scene_camera').insert({
           scene_id: newScene.id,
           camera_angle: scene.camera_angle as 'wide' | 'medium' | 'close_up' | 'extreme_close_up' | 'pov' | 'low_angle' | 'high_angle' | 'birds_eye' | 'dutch' | 'over_shoulder',
           camera_movement: scene.camera_movement as 'static' | 'dolly_in' | 'dolly_out' | 'pan_left' | 'pan_right' | 'tilt_up' | 'tilt_down' | 'tracking' | 'crane' | 'handheld' | 'orbit',
         });
 
-        // Insert prompts
         if (scene.prompt_image) {
           await supabase.from('scene_prompts').insert({
-            scene_id: newScene.id,
-            prompt_type: 'image',
-            prompt_text: scene.prompt_image,
-            version: 1,
-            is_current: true,
-            status: 'generated',
-            generator: 'kiyoko-ai',
+            scene_id: newScene.id, prompt_type: 'image', prompt_text: scene.prompt_image,
+            version: 1, is_current: true, status: 'generated', generator: 'kiyoko-ai',
           });
         }
         if (scene.prompt_video) {
           await supabase.from('scene_prompts').insert({
-            scene_id: newScene.id,
-            prompt_type: 'video',
-            prompt_text: scene.prompt_video,
-            version: 1,
-            is_current: true,
-            status: 'generated',
-            generator: 'kiyoko-ai',
+            scene_id: newScene.id, prompt_type: 'video', prompt_text: scene.prompt_video,
+            version: 1, is_current: true, status: 'generated', generator: 'kiyoko-ai',
           });
         }
       }
@@ -327,12 +375,15 @@ export function SceneGeneratorModal({
     }
   }
 
-  /* ── Key handler ────────────────────────────────────── */
   function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+  }
+
+  function handleReset() {
+    setGeneratedScenes([]);
+    setMessages([]);
+    setSelectedScenes(new Set());
+    setExpandedScene(null);
   }
 
   if (!open) return null;
@@ -343,61 +394,96 @@ export function SceneGeneratorModal({
   return (
     <div className="fixed inset-0 z-50">
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => onOpenChange(false)} />
-      <div className="fixed inset-4 sm:inset-8 lg:inset-y-8 lg:left-[15%] lg:right-[15%] z-10 flex flex-col rounded-2xl border border-border bg-card shadow-2xl overflow-hidden">
+      <div className="fixed inset-4 sm:inset-6 lg:inset-y-6 lg:left-[10%] lg:right-[10%] z-10 flex flex-col rounded-2xl border border-border bg-card shadow-2xl overflow-hidden">
 
-        {/* ── Header ── */}
-        <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
-          <div className="flex items-center gap-3">
-            <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <Sparkles className="size-4" />
-            </div>
-            <div>
+        {/* ── Top bar: title + config ── */}
+        <div className="border-b border-border px-5 py-3.5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Sparkles className="size-4" />
+              </div>
               <p className="text-sm font-semibold text-foreground">Generador de escenas</p>
-              <p className="text-[11px] text-muted-foreground">{videoTitle} · {videoPlatform} · {videoDuration}s</p>
+            </div>
+            <button type="button" onClick={() => onOpenChange(false)} className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+              <X className="size-4" />
+            </button>
+          </div>
+
+          {/* Config row */}
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">Duracion:</span>
+              <div className="flex items-center gap-1">
+                {DURATIONS.map(d => (
+                  <TogglePill key={d} active={selectedDuration === d && !customDuration} onClick={() => { setSelectedDuration(d); setCustomDuration(''); }}>
+                    {d}s
+                  </TogglePill>
+                ))}
+                <input
+                  type="number"
+                  value={customDuration}
+                  onChange={e => setCustomDuration(e.target.value)}
+                  placeholder="..."
+                  min={5}
+                  max={300}
+                  className="w-14 rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground outline-none placeholder:text-muted-foreground/50 focus:border-primary/30"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">Tipo:</span>
+              <div className="flex items-center gap-1">
+                {VIDEO_TYPES.map(t => (
+                  <TogglePill key={t.value} active={selectedType === t.value} onClick={() => setSelectedType(t.value)}>
+                    {t.label}
+                  </TogglePill>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">Estilo:</span>
+              <span className="rounded-lg bg-accent/50 px-2.5 py-1.5 text-xs text-muted-foreground">{style}</span>
             </div>
           </div>
-          <button type="button" onClick={() => onOpenChange(false)} className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
-            <X className="size-4" />
-          </button>
         </div>
 
         {/* ── Body: Chat + Scenes ── */}
         <div className="flex flex-1 min-h-0">
+
           {/* Left: Chat */}
           <div className="flex flex-col flex-1 min-w-0 border-r border-border">
-            {/* Messages */}
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
               {messages.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <Film className="size-10 text-muted-foreground/30 mb-3" />
-                  <p className="text-sm font-medium text-foreground">Describe tu video</p>
-                  <p className="mt-1 text-xs text-muted-foreground max-w-sm">
-                    Cuéntame qué quieres mostrar y generaré las escenas con arco narrativo, cámara, y prompts.
+                  <p className="text-sm font-medium text-foreground">Que quieres mostrar en tu video?</p>
+                  <p className="mt-1.5 text-xs text-muted-foreground max-w-md">
+                    Describe lo que quieres comunicar y generare escenas con arco narrativo, camara y prompts listos para IA.
                   </p>
-                  <div className="mt-5 space-y-2 w-full max-w-sm">
-                    {[
-                      { label: '🎬 Anuncio 30s', text: `Anuncio de 30 segundos para ${videoTitle}. Muestra el equipo, servicios principales, resultados, y cierre con call-to-action.` },
-                      { label: '📱 Reel 15s', text: `Reel vertical de 15 segundos para ${videoTitle}. Gancho visual impactante, transformación rápida, y reveal del resultado.` },
-                      { label: '🎥 Presentación 60s', text: `Presentación completa de 60 segundos para ${videoTitle}. Intro de marca, equipo, servicios, especialización, resultados, y cierre.` },
-                    ].map((suggestion) => (
-                      <button
-                        key={suggestion.label}
-                        type="button"
-                        onClick={() => { setInput(suggestion.text); inputRef.current?.focus(); }}
-                        className="flex w-full items-center gap-3 rounded-xl border border-border px-4 py-3 text-left hover:border-primary/30 hover:bg-primary/5 transition-all group"
-                      >
-                        <span className="text-base">{suggestion.label.split(' ')[0]}</span>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">{suggestion.label.split(' ').slice(1).join(' ')}</p>
-                          <p className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">{suggestion.text}</p>
-                        </div>
-                      </button>
-                    ))}
+                  <div className="mt-5 w-full max-w-md">
+                    <textarea
+                      ref={inputRef}
+                      value={input}
+                      onChange={e => setInput(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder={`Ej: Un reel para ${videoTitle} mostrando el proceso de transformacion con antes/despues...`}
+                      rows={3}
+                      className="w-full resize-none rounded-xl border border-border bg-background px-3.5 py-3 text-sm outline-none placeholder:text-muted-foreground/60 focus:border-primary/30 focus:ring-1 focus:ring-primary/10"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSend}
+                      disabled={!input.trim() || isGenerating}
+                      className="mt-2 w-full rounded-xl bg-primary py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                    >
+                      {isGenerating ? <><Loader2 className="size-4 animate-spin inline mr-2" />Generando...</> : 'Generar escenas'}
+                    </button>
                   </div>
                 </div>
               )}
 
-              {messages.map((msg) => (
+              {messages.map(msg => (
                 <div key={msg.id} className={cn('flex gap-3', msg.role === 'user' ? 'justify-end' : '')}>
                   {msg.role === 'assistant' && (
                     <div className="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0 mt-0.5">
@@ -405,7 +491,7 @@ export function SceneGeneratorModal({
                     </div>
                   )}
                   <div className={cn(
-                    'rounded-xl px-3.5 py-2.5 text-sm max-w-[85%] whitespace-pre-line',
+                    'rounded-xl px-3.5 py-2.5 text-sm max-w-[85%] whitespace-pre-line leading-relaxed',
                     msg.role === 'user'
                       ? 'bg-primary text-primary-foreground'
                       : 'bg-background border border-border text-foreground',
@@ -421,67 +507,61 @@ export function SceneGeneratorModal({
                     <Sparkles className="size-3.5 animate-pulse" />
                   </div>
                   <div className="rounded-xl bg-background border border-border px-3.5 py-2.5 text-sm text-muted-foreground">
-                    <Loader2 className="size-4 animate-spin inline mr-2" />
-                    Generando escenas...
+                    <Loader2 className="size-4 animate-spin inline mr-2" />Generando escenas...
                   </div>
                 </div>
               )}
-
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Input */}
-            <div className="border-t border-border px-4 py-3">
-              <div className="flex items-end gap-2">
-                <textarea
-                  ref={inputRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder={generatedScenes.length > 0 ? 'Pide cambios: "Hazla más corta", "Cambia el ángulo"...' : 'Describe tu video...'}
-                  rows={2}
-                  className="flex-1 resize-none rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:border-primary/30 focus:ring-1 focus:ring-primary/10"
-                />
-                <button
-                  type="button"
-                  onClick={handleSend}
-                  disabled={!input.trim() || isGenerating}
-                  className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors shrink-0"
-                >
-                  {isGenerating ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-                </button>
+            {/* Chat input (after first message) */}
+            {messages.length > 0 && (
+              <div className="border-t border-border px-4 py-3">
+                <div className="flex items-end gap-2">
+                  <textarea
+                    ref={messages.length > 0 ? inputRef : undefined}
+                    value={input}
+                    onChange={e => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder='Pide cambios: "Hazla mas corta", "Cambia el angulo"...'
+                    rows={2}
+                    className="flex-1 resize-none rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:border-primary/30 focus:ring-1 focus:ring-primary/10"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSend}
+                    disabled={!input.trim() || isGenerating}
+                    className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors shrink-0"
+                  >
+                    {isGenerating ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
-          {/* Right: Generated scenes */}
-          <div className="w-[380px] shrink-0 flex flex-col bg-background/50 hidden lg:flex">
+          {/* Right: Scene cards */}
+          <div className="w-[400px] shrink-0 flex flex-col bg-background/50 hidden lg:flex">
             <div className="px-4 py-3 border-b border-border">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Escenas generadas {generatedScenes.length > 0 && `(${selectedCount}/${generatedScenes.length})`}
-                </p>
-                {generatedScenes.length > 0 && (
-                  <span className="text-[10px] text-muted-foreground">{totalDuration}s total</span>
-                )}
-              </div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Escenas {generatedScenes.length > 0 && `(${selectedCount}/${generatedScenes.length})`}
+              </p>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
+            <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2.5">
               {generatedScenes.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                   <Film className="size-8 text-muted-foreground/20 mb-2" />
-                  <p className="text-xs text-muted-foreground">Las escenas aparecerán aquí</p>
+                  <p className="text-xs text-muted-foreground">Las escenas apareceran aqui</p>
                 </div>
               ) : (
                 generatedScenes.map((scene, i) => (
-                  <ScenePreviewCard
+                  <SceneCard
                     key={i}
                     scene={scene}
                     index={i}
                     expanded={expandedScene === i}
                     onToggle={() => setExpandedScene(expandedScene === i ? null : i)}
-                    onEdit={() => {}}
                     selected={selectedScenes.has(i)}
                     onToggleSelect={() => {
                       const next = new Set(selectedScenes);
@@ -493,29 +573,33 @@ export function SceneGeneratorModal({
               )}
             </div>
 
-            {/* Save button */}
+            {/* Bottom summary + save */}
             {generatedScenes.length > 0 && (
               <div className="border-t border-border px-4 py-3 space-y-2">
-                <button
-                  type="button"
-                  onClick={handleSaveScenes}
-                  disabled={selectedCount === 0 || isSaving}
-                  className="w-full rounded-xl bg-primary py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
-                >
-                  {isSaving ? (
-                    <><Loader2 className="size-4 animate-spin inline mr-2" />Guardando...</>
-                  ) : (
-                    <>Crear {selectedCount} escena{selectedCount !== 1 ? 's' : ''} · {totalDuration}s</>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setGeneratedScenes([]); setMessages([]); setSelectedScenes(new Set()); }}
-                  className="w-full rounded-xl border border-border py-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-                >
-                  <RefreshCw className="size-3 inline mr-1.5" />
-                  Empezar de nuevo
-                </button>
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{selectedCount} escena{selectedCount !== 1 ? 's' : ''} &middot; {totalDuration}s total</span>
+                  {selectedCount > 0 && <span className="text-emerald-400 flex items-center gap-1"><Check className="size-3" />Listo</span>}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSaveScenes}
+                    disabled={selectedCount === 0 || isSaving}
+                    className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                  >
+                    {isSaving
+                      ? <><Loader2 className="size-4 animate-spin inline mr-2" />Guardando...</>
+                      : <>Crear {selectedCount} escena{selectedCount !== 1 ? 's' : ''}</>
+                    }
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleReset}
+                    className="rounded-xl border border-border px-3 py-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                  >
+                    <RefreshCw className="size-3.5" />
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -525,130 +609,128 @@ export function SceneGeneratorModal({
   );
 }
 
-/* ── Smart mock scene generator ────────────────────── */
+/* ── Scene templates ─────────────────────────────────── */
 
-const SCENE_TEMPLATES: Record<string, { titles: string[]; descriptions: string[]; narrations: string[] }> = {
+type SceneTemplate = { titles: string[]; descriptions: string[]; narrations: string[]; music: boolean[]; dialogue: boolean[] };
+const SCENE_TEMPLATES: Record<string, SceneTemplate> = {
   reel: {
-    titles: ['Gancho visual impactante', 'Transformación en acción', 'Reveal del resultado'],
+    titles: ['Gancho visual', 'Transformacion', 'Reveal'],
     descriptions: [
-      'Plano rápido que capta la atención en los primeros 2 segundos. Movimiento dinámico, corte rápido.',
-      'El proceso de transformación mostrado con transiciones fluidas. El espectador ve el cambio en tiempo real.',
-      'Momento de revelación: el resultado final se muestra con reacción emocional. Close-up del resultado.',
+      'Plano impactante que capta la atencion al instante y rompe la monotonia del scroll.',
+      'Proceso de cambio con transiciones fluidas. El espectador ve la transformacion en tiempo real.',
+      'Revelacion del resultado final con reaccion emocional. El plano se abre mostrando el impacto.',
     ],
-    narrations: ['', '', ''],
+    narrations: ['', '', ''], music: [true, true, true], dialogue: [false, false, false],
   },
   anuncio: {
-    titles: ['Apertura con gancho', 'Presentación del servicio', 'Equipo en acción', 'Resultados y testimonios', 'Call to action'],
+    titles: ['Apertura con gancho', 'Presentacion del servicio', 'Equipo en accion', 'Resultados y testimonios', 'Call to action'],
     descriptions: [
-      'Imagen impactante que capta la atención inmediatamente. Elemento sorpresa o visual llamativo.',
-      'Presentación clara del servicio o producto principal. Se muestra el espacio y la marca.',
-      'El equipo profesional trabajando con confianza. Detalles de técnica y pasión.',
-      'Clientes satisfechos con el resultado. Sonrisas, transformaciones, momentos de felicidad.',
-      'Cierre con información de contacto, logo, y llamada a la acción clara.',
+      'Imagen impactante que capta la atencion. Pregunta visual que genera curiosidad y conecta con el cliente.',
+      'Presentacion del servicio principal. Espacio, marca y propuesta de valor en entorno profesional.',
+      'Equipo profesional trabajando con precision. Planos de detalle con tecnica y atencion al cliente.',
+      'Clientes mostrando satisfaccion. Sonrisas genuinas, transformaciones visibles que generan confianza.',
+      'Cierre con logo, contacto y llamada a la accion directa que motiva al siguiente paso.',
     ],
-    narrations: [
-      'Descubre algo que cambiará tu forma de verlo todo.',
-      'En nuestro espacio, cada detalle importa.',
-      'Un equipo de profesionales apasionados por su trabajo.',
-      'La satisfacción de nuestros clientes habla por sí misma.',
-      'Tu mejor versión empieza aquí. Visítanos.',
-    ],
+    narrations: ['Descubre algo que cambiara tu forma de verlo todo.', 'En nuestro espacio, cada detalle importa.', 'Un equipo de profesionales apasionados por su trabajo.', 'La satisfaccion de nuestros clientes habla por si misma.', 'Tu mejor version empieza aqui. Visitanos.'],
+    music: [true, true, true, true, true], dialogue: [false, false, false, true, false],
   },
   presentacion: {
-    titles: ['Intro con identidad de marca', 'El equipo profesional', 'Servicios principales', 'Especialización única', 'Montaje de resultados', 'Cierre con CTA'],
+    titles: ['Intro de marca', 'El equipo profesional', 'Servicios principales', 'Especializacion unica', 'Montaje de resultados', 'Cierre con CTA'],
     descriptions: [
-      'Logo y nombre de la marca aparecen con elegancia. Establece el tono visual.',
-      'Retrato del equipo completo mostrando confianza y profesionalidad.',
-      'Montaje rápido de los servicios principales ofrecidos.',
-      'Lo que hace especial a la marca: su servicio estrella o diferenciador.',
-      'Galería de resultados y clientes satisfechos con transiciones suaves.',
-      'Fachada del establecimiento al atardecer con información de contacto.',
+      'Logo y marca aparecen con elegancia cinematografica. Establece tono visual y personalidad de marca.',
+      'Retrato del equipo mostrando cercania y profesionalidad. Confianza y experiencia en cada miembro.',
+      'Montaje dinamico de servicios principales con transiciones fluidas entre areas de trabajo.',
+      'Lo que hace especial a la marca: servicio estrella o diferenciador explicado de forma visual.',
+      'Galeria de resultados y momentos de satisfaccion del cliente con transiciones suaves.',
+      'Fachada al atardecer con iluminacion calida. Contacto, redes y mensaje final que invita a visitar.',
     ],
-    narrations: [
-      '', 'Un equipo que lleva años perfeccionando su arte.',
-      'Ofrecemos una gama completa de servicios profesionales.',
-      'Nuestra especialidad es lo que nos hace diferentes.',
-      'Miles de clientes confían en nosotros cada año.',
-      'Visítanos y descubre tu mejor versión.',
+    narrations: ['', 'Un equipo que lleva anos perfeccionando su arte.', 'Ofrecemos una gama completa de servicios profesionales.', 'Nuestra especialidad es lo que nos hace diferentes.', 'Miles de clientes confian en nosotros cada ano.', 'Visitanos y descubre tu mejor version.'],
+    music: [true, true, true, true, true, true], dialogue: [false, false, false, false, true, false],
+  },
+  otro: {
+    titles: ['Apertura', 'Desarrollo', 'Cierre'],
+    descriptions: [
+      'Plano de apertura que establece contexto y tono. Introduce al espectador en la historia.',
+      'Desarrollo del contenido principal con ritmo y variedad visual. Mensaje central claro.',
+      'Cierre con impacto emocional y mensaje final que permanece en la memoria del espectador.',
     ],
+    narrations: ['', '', ''], music: [true, true, true], dialogue: [false, false, false],
   },
 };
 
-function generateMockScenes(brief: string, duration: number, _platform: string): GeneratedScene[] {
-  // Detect type from brief
-  const briefLower = brief.toLowerCase();
-  const isReel = briefLower.includes('reel') || briefLower.includes('15') || duration <= 15;
-  const isAnuncio = briefLower.includes('anuncio') || briefLower.includes('30') || (duration > 15 && duration <= 45);
-  const type = isReel ? 'reel' : isAnuncio ? 'anuncio' : 'presentacion';
-  const template = SCENE_TEMPLATES[type];
+/* ── Mock generator ──────────────────────────────────── */
 
+function generateMockScenes(brief: string, duration: number, type: string, style: string): GeneratedScene[] {
+  const template = SCENE_TEMPLATES[type] ?? SCENE_TEMPLATES.otro;
   const numScenes = template.titles.length;
+
   const phases: string[] = numScenes <= 3
     ? ['hook', 'build', 'close']
     : numScenes <= 5
     ? ['hook', 'build', 'build', 'peak', 'close']
     : ['hook', 'build', 'build', 'peak', 'peak', 'close'];
 
-  // Distribute duration evenly, with hook shorter
-  const hookDuration = Math.min(3, Math.round(duration * 0.15));
-  const closeDuration = Math.min(5, Math.round(duration * 0.15));
+  const hookDuration = Math.max(2, Math.min(5, Math.round(duration * 0.15)));
+  const closeDuration = Math.max(3, Math.min(8, Math.round(duration * 0.18)));
   const middleDuration = duration - hookDuration - closeDuration;
   const middleScenes = numScenes - 2;
-  const middleEach = Math.round(middleDuration / Math.max(middleScenes, 1));
+  const middleEach = Math.max(2, Math.round(middleDuration / Math.max(middleScenes, 1)));
 
-  const cameraAngles = ['wide', 'medium', 'close_up', 'medium', 'wide', 'low_angle'];
-  const cameraMovements = ['dolly_in', 'tracking', 'static', 'pan_left', 'crane', 'dolly_out'];
+  // Adjust last middle scene to ensure total matches
+  const sceneDurations = template.titles.map((_, i) => {
+    if (i === 0) return hookDuration;
+    if (i === numScenes - 1) return closeDuration;
+    return middleEach;
+  });
+  const currentTotal = sceneDurations.reduce((a, b) => a + b, 0);
+  if (currentTotal !== duration && numScenes > 2) {
+    sceneDurations[numScenes - 2] += duration - currentTotal;
+  }
+
+  const angles = ['wide', 'medium', 'close_up', 'medium', 'low_angle', 'wide'];
+  const movements = ['dolly_in', 'tracking', 'static', 'pan_left', 'crane', 'dolly_out'];
 
   return template.titles.map((title, i) => {
-    const sceneDur = i === 0 ? hookDuration : i === numScenes - 1 ? closeDuration : middleEach;
+    const sceneDur = Math.max(2, sceneDurations[i]);
     const phase = phases[Math.min(i, phases.length - 1)];
+    const angle = angles[i % angles.length];
+    const movement = movements[i % movements.length];
 
     return {
       title,
       description: template.descriptions[i] ?? '',
       duration_seconds: sceneDur,
       arc_phase: phase,
-      camera_angle: cameraAngles[i % cameraAngles.length],
-      camera_movement: cameraMovements[i % cameraMovements.length],
-      prompt_image: buildImagePrompt(title, template.descriptions[i] ?? brief, cameraAngles[i % cameraAngles.length], brief),
-      prompt_video: buildVideoPrompt(title, template.descriptions[i] ?? brief, cameraMovements[i % cameraMovements.length], sceneDur, cameraAngles[i % cameraAngles.length]),
+      camera_angle: angle,
+      camera_movement: movement,
+      prompt_image: buildImagePrompt(template.descriptions[i] ?? brief, angle, brief, style),
+      prompt_video: buildVideoPrompt(template.descriptions[i] ?? brief, movement, sceneDur, angle, style),
       narration_text: template.narrations[i] || undefined,
+      has_music: template.music[i] ?? true,
+      has_dialogue: template.dialogue[i] ?? false,
+      has_sfx: i === 0,
     };
   });
 }
 
-function buildImagePrompt(title: string, description: string, angle: string, brief: string): string {
-  const angleMap: Record<string, string> = {
-    wide: 'wide establishing shot showing full environment',
-    medium: 'medium shot from waist up, balanced composition',
-    close_up: 'close-up shot capturing facial expression and detail',
-    extreme_close_up: 'extreme close-up on specific detail or hands',
-    low_angle: 'low angle looking up, powerful heroic perspective',
-    high_angle: 'high angle looking down, overview perspective',
-  };
-  const angleDesc = angleMap[angle] ?? 'medium shot';
-  return `Highly detailed Pixar-style 3D animated scene, cinematic 16:9, 8K. ${angleDesc}. ${description} Context: ${brief.slice(0, 120)}. Professional warm studio lighting, volumetric light rays, shallow depth of field with bokeh background, rich color palette, Pixar-DreamWorks quality rendering, subsurface skin scattering, detailed fabric textures, ambient particles floating in light. Clean composition, emotionally engaging. 8K, ultra detailed.`;
+const ANGLE_DESC: Record<string, string> = {
+  wide: 'wide establishing shot showing full environment', medium: 'medium shot from waist up, balanced composition',
+  close_up: 'close-up shot capturing facial expression and detail', extreme_close_up: 'extreme close-up on specific detail',
+  low_angle: 'low angle looking up, powerful heroic perspective', high_angle: 'high angle looking down, overview perspective',
+};
+const MOVE_DESC: Record<string, string> = {
+  dolly_in: 'smooth dolly-in pushing toward the subject', dolly_out: 'slow dolly-out pulling back to reveal environment',
+  tracking: 'lateral tracking shot following the action', pan_left: 'slow pan left revealing the scene',
+  pan_right: 'smooth pan right following the subject', crane: 'crane shot rising up to reveal full scene',
+  static: 'locked camera, only subject moves', orbit: 'slow orbit around the subject',
+};
+
+function buildImagePrompt(description: string, angle: string, brief: string, style: string): string {
+  return `Highly detailed ${style}-style 3D animated scene, cinematic 16:9, 8K. ${ANGLE_DESC[angle] ?? 'medium shot'}. ${description} Context: ${brief.slice(0, 120)}. Professional warm studio lighting, volumetric light rays, shallow depth of field with bokeh background, rich color palette, ${style}-quality rendering, subsurface skin scattering, detailed fabric textures, ambient particles floating in light. Clean composition, emotionally engaging. 8K, ultra detailed.`;
 }
 
-function buildVideoPrompt(title: string, description: string, movement: string, duration: number, angle: string): string {
-  const movementMap: Record<string, string> = {
-    dolly_in: 'smooth dolly-in pushing toward the subject',
-    dolly_out: 'slow dolly-out pulling back to reveal environment',
-    tracking: 'lateral tracking shot following the action',
-    pan_left: 'slow pan left revealing the scene',
-    pan_right: 'smooth pan right following the subject',
-    crane: 'crane shot rising up to reveal full scene',
-    static: 'locked camera, only subject moves',
-    orbit: 'slow orbit around the subject',
-  };
-  const movementDesc = movementMap[movement] ?? 'smooth camera movement';
-
-  const halfDur = Math.round(duration / 2);
-  return `${duration}-second Pixar-quality 3D animation, 16:9, 8K, 24fps. Start from uploaded image. Single continuous camera, NO jump cuts.
-
-0:00-0:0${Math.min(halfDur, 9)} — ${movementDesc}. ${description} Warm lighting, natural character animation with subtle breathing and micro-expressions. Environment alive with ambient details.
-
-0:0${Math.min(halfDur, 9)}-0:${String(duration).padStart(2, '0')} — Camera settles into final composition. Emotional beat — key moment of the scene. Hold for impact. Subtle ambient particles, lens flare.
-
-Audio: ambient environment sounds → action sounds matching the scene → emotional music accent on key moment → natural transition to next scene.`;
+function buildVideoPrompt(description: string, movement: string, duration: number, _angle: string, style: string): string {
+  const half = Math.round(duration / 2);
+  const fmt = (n: number) => n < 10 ? `0:0${n}` : `0:${String(n).padStart(2, '0')}`;
+  return `${duration}-second ${style}-quality 3D animation, 16:9, 8K, 24fps. Start from uploaded image. Single continuous camera, NO jump cuts.\n\n0:00-${fmt(half)} — ${MOVE_DESC[movement] ?? 'smooth camera movement'}. ${description} Warm lighting, natural character animation with subtle breathing and micro-expressions.\n\n${fmt(half)}-${fmt(duration)} — Camera settles into final composition. Emotional beat — key moment. Hold for impact. Subtle ambient particles, lens flare.\n\nAudio: ambient environment sounds, action sounds matching the scene, emotional music accent on key moment.`;
 }
