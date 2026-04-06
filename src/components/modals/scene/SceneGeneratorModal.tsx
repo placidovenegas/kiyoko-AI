@@ -232,10 +232,11 @@ export function SceneGeneratorModal({
       const mockScenes = generateMockScenes(text, videoDuration, videoPlatform);
       setGeneratedScenes(mockScenes);
 
+      const totalDur = mockScenes.reduce((s, sc) => s + sc.duration_seconds, 0);
       const assistantMsg: Message = {
         id: `a-${Date.now()}`,
         role: 'assistant',
-        content: `He planificado ${mockScenes.length} escenas basándome en tu descripción. Revisa cada una y dime qué cambiar.`,
+        content: `He creado ${mockScenes.length} escenas (${totalDur}s total) con arco narrativo completo. Cada escena tiene prompt de imagen y video listo para copiar.\n\nRevisa las escenas a la derecha. Puedes:\n• Expandir cada una para ver los prompts\n• Deseleccionar las que no quieras\n• Pedirme cambios aquí`,
         scenes: mockScenes,
       };
       setMessages(prev => [...prev, assistantMsg]);
@@ -373,19 +374,23 @@ export function SceneGeneratorModal({
                   <p className="mt-1 text-xs text-muted-foreground max-w-sm">
                     Cuéntame qué quieres mostrar y generaré las escenas con arco narrativo, cámara, y prompts.
                   </p>
-                  <div className="mt-4 flex flex-wrap gap-2 justify-center">
+                  <div className="mt-5 space-y-2 w-full max-w-sm">
                     {[
-                      'Anuncio 30s mostrando el equipo y servicios',
-                      'Reel 15s con transformación antes/después',
-                      'Presentación 60s con todos los profesionales',
+                      { label: '🎬 Anuncio 30s', text: `Anuncio de 30 segundos para ${videoTitle}. Muestra el equipo, servicios principales, resultados, y cierre con call-to-action.` },
+                      { label: '📱 Reel 15s', text: `Reel vertical de 15 segundos para ${videoTitle}. Gancho visual impactante, transformación rápida, y reveal del resultado.` },
+                      { label: '🎥 Presentación 60s', text: `Presentación completa de 60 segundos para ${videoTitle}. Intro de marca, equipo, servicios, especialización, resultados, y cierre.` },
                     ].map((suggestion) => (
                       <button
-                        key={suggestion}
+                        key={suggestion.label}
                         type="button"
-                        onClick={() => setInput(suggestion)}
-                        className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                        onClick={() => { setInput(suggestion.text); inputRef.current?.focus(); }}
+                        className="flex w-full items-center gap-3 rounded-xl border border-border px-4 py-3 text-left hover:border-primary/30 hover:bg-primary/5 transition-all group"
                       >
-                        {suggestion}
+                        <span className="text-base">{suggestion.label.split(' ')[0]}</span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">{suggestion.label.split(' ').slice(1).join(' ')}</p>
+                          <p className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">{suggestion.text}</p>
+                        </div>
                       </button>
                     ))}
                   </div>
@@ -400,7 +405,7 @@ export function SceneGeneratorModal({
                     </div>
                   )}
                   <div className={cn(
-                    'rounded-xl px-3.5 py-2.5 text-sm max-w-[85%]',
+                    'rounded-xl px-3.5 py-2.5 text-sm max-w-[85%] whitespace-pre-line',
                     msg.role === 'user'
                       ? 'bg-primary text-primary-foreground'
                       : 'bg-background border border-border text-foreground',
@@ -520,31 +525,130 @@ export function SceneGeneratorModal({
   );
 }
 
-/* ── Mock scene generator (until API is connected) ──── */
+/* ── Smart mock scene generator ────────────────────── */
 
-function generateMockScenes(brief: string, duration: number, platform: string): GeneratedScene[] {
-  const numScenes = Math.max(3, Math.round(duration / 10));
-  const phases = ['hook', 'build', 'build', 'peak', 'close'];
-  const angles = ['wide', 'medium', 'close_up', 'extreme_close_up', 'low_angle'];
-  const movements = ['dolly_in', 'static', 'tracking', 'pan_left', 'crane'];
+const SCENE_TEMPLATES: Record<string, { titles: string[]; descriptions: string[]; narrations: string[] }> = {
+  reel: {
+    titles: ['Gancho visual impactante', 'Transformación en acción', 'Reveal del resultado'],
+    descriptions: [
+      'Plano rápido que capta la atención en los primeros 2 segundos. Movimiento dinámico, corte rápido.',
+      'El proceso de transformación mostrado con transiciones fluidas. El espectador ve el cambio en tiempo real.',
+      'Momento de revelación: el resultado final se muestra con reacción emocional. Close-up del resultado.',
+    ],
+    narrations: ['', '', ''],
+  },
+  anuncio: {
+    titles: ['Apertura con gancho', 'Presentación del servicio', 'Equipo en acción', 'Resultados y testimonios', 'Call to action'],
+    descriptions: [
+      'Imagen impactante que capta la atención inmediatamente. Elemento sorpresa o visual llamativo.',
+      'Presentación clara del servicio o producto principal. Se muestra el espacio y la marca.',
+      'El equipo profesional trabajando con confianza. Detalles de técnica y pasión.',
+      'Clientes satisfechos con el resultado. Sonrisas, transformaciones, momentos de felicidad.',
+      'Cierre con información de contacto, logo, y llamada a la acción clara.',
+    ],
+    narrations: [
+      'Descubre algo que cambiará tu forma de verlo todo.',
+      'En nuestro espacio, cada detalle importa.',
+      'Un equipo de profesionales apasionados por su trabajo.',
+      'La satisfacción de nuestros clientes habla por sí misma.',
+      'Tu mejor versión empieza aquí. Visítanos.',
+    ],
+  },
+  presentacion: {
+    titles: ['Intro con identidad de marca', 'El equipo profesional', 'Servicios principales', 'Especialización única', 'Montaje de resultados', 'Cierre con CTA'],
+    descriptions: [
+      'Logo y nombre de la marca aparecen con elegancia. Establece el tono visual.',
+      'Retrato del equipo completo mostrando confianza y profesionalidad.',
+      'Montaje rápido de los servicios principales ofrecidos.',
+      'Lo que hace especial a la marca: su servicio estrella o diferenciador.',
+      'Galería de resultados y clientes satisfechos con transiciones suaves.',
+      'Fachada del establecimiento al atardecer con información de contacto.',
+    ],
+    narrations: [
+      '', 'Un equipo que lleva años perfeccionando su arte.',
+      'Ofrecemos una gama completa de servicios profesionales.',
+      'Nuestra especialidad es lo que nos hace diferentes.',
+      'Miles de clientes confían en nosotros cada año.',
+      'Visítanos y descubre tu mejor versión.',
+    ],
+  },
+};
 
-  const scenes: GeneratedScene[] = [];
-  const sceneDuration = Math.round(duration / numScenes);
+function generateMockScenes(brief: string, duration: number, _platform: string): GeneratedScene[] {
+  // Detect type from brief
+  const briefLower = brief.toLowerCase();
+  const isReel = briefLower.includes('reel') || briefLower.includes('15') || duration <= 15;
+  const isAnuncio = briefLower.includes('anuncio') || briefLower.includes('30') || (duration > 15 && duration <= 45);
+  const type = isReel ? 'reel' : isAnuncio ? 'anuncio' : 'presentacion';
+  const template = SCENE_TEMPLATES[type];
 
-  for (let i = 0; i < numScenes; i++) {
+  const numScenes = template.titles.length;
+  const phases: string[] = numScenes <= 3
+    ? ['hook', 'build', 'close']
+    : numScenes <= 5
+    ? ['hook', 'build', 'build', 'peak', 'close']
+    : ['hook', 'build', 'build', 'peak', 'peak', 'close'];
+
+  // Distribute duration evenly, with hook shorter
+  const hookDuration = Math.min(3, Math.round(duration * 0.15));
+  const closeDuration = Math.min(5, Math.round(duration * 0.15));
+  const middleDuration = duration - hookDuration - closeDuration;
+  const middleScenes = numScenes - 2;
+  const middleEach = Math.round(middleDuration / Math.max(middleScenes, 1));
+
+  const cameraAngles = ['wide', 'medium', 'close_up', 'medium', 'wide', 'low_angle'];
+  const cameraMovements = ['dolly_in', 'tracking', 'static', 'pan_left', 'crane', 'dolly_out'];
+
+  return template.titles.map((title, i) => {
+    const sceneDur = i === 0 ? hookDuration : i === numScenes - 1 ? closeDuration : middleEach;
     const phase = phases[Math.min(i, phases.length - 1)];
-    scenes.push({
-      title: `Escena ${i + 1}`,
-      description: `Escena generada basada en: "${brief.slice(0, 60)}..."`,
-      duration_seconds: i === 0 ? Math.min(sceneDuration, 5) : sceneDuration,
-      arc_phase: phase,
-      camera_angle: angles[i % angles.length],
-      camera_movement: movements[i % movements.length],
-      prompt_image: `Pixar 3D animation style, ${brief.slice(0, 100)}, scene ${i + 1}, ${phase} phase, ${angles[i % angles.length]} shot, cinematic, 4K, detailed`,
-      prompt_video: `Starting from frame: ${movements[i % movements.length]} camera, ${brief.slice(0, 80)}, ${sceneDuration} seconds, cinematic motion`,
-      narration_text: i === 0 ? 'Narración de apertura...' : undefined,
-    });
-  }
 
-  return scenes;
+    return {
+      title,
+      description: template.descriptions[i] ?? '',
+      duration_seconds: sceneDur,
+      arc_phase: phase,
+      camera_angle: cameraAngles[i % cameraAngles.length],
+      camera_movement: cameraMovements[i % cameraMovements.length],
+      prompt_image: buildImagePrompt(title, template.descriptions[i] ?? brief, cameraAngles[i % cameraAngles.length], brief),
+      prompt_video: buildVideoPrompt(title, template.descriptions[i] ?? brief, cameraMovements[i % cameraMovements.length], sceneDur, cameraAngles[i % cameraAngles.length]),
+      narration_text: template.narrations[i] || undefined,
+    };
+  });
+}
+
+function buildImagePrompt(title: string, description: string, angle: string, brief: string): string {
+  const angleMap: Record<string, string> = {
+    wide: 'wide establishing shot showing full environment',
+    medium: 'medium shot from waist up, balanced composition',
+    close_up: 'close-up shot capturing facial expression and detail',
+    extreme_close_up: 'extreme close-up on specific detail or hands',
+    low_angle: 'low angle looking up, powerful heroic perspective',
+    high_angle: 'high angle looking down, overview perspective',
+  };
+  const angleDesc = angleMap[angle] ?? 'medium shot';
+  return `Highly detailed Pixar-style 3D animated scene, cinematic 16:9, 8K. ${angleDesc}. ${description} Context: ${brief.slice(0, 120)}. Professional warm studio lighting, volumetric light rays, shallow depth of field with bokeh background, rich color palette, Pixar-DreamWorks quality rendering, subsurface skin scattering, detailed fabric textures, ambient particles floating in light. Clean composition, emotionally engaging. 8K, ultra detailed.`;
+}
+
+function buildVideoPrompt(title: string, description: string, movement: string, duration: number, angle: string): string {
+  const movementMap: Record<string, string> = {
+    dolly_in: 'smooth dolly-in pushing toward the subject',
+    dolly_out: 'slow dolly-out pulling back to reveal environment',
+    tracking: 'lateral tracking shot following the action',
+    pan_left: 'slow pan left revealing the scene',
+    pan_right: 'smooth pan right following the subject',
+    crane: 'crane shot rising up to reveal full scene',
+    static: 'locked camera, only subject moves',
+    orbit: 'slow orbit around the subject',
+  };
+  const movementDesc = movementMap[movement] ?? 'smooth camera movement';
+
+  const halfDur = Math.round(duration / 2);
+  return `${duration}-second Pixar-quality 3D animation, 16:9, 8K, 24fps. Start from uploaded image. Single continuous camera, NO jump cuts.
+
+0:00-0:0${Math.min(halfDur, 9)} — ${movementDesc}. ${description} Warm lighting, natural character animation with subtle breathing and micro-expressions. Environment alive with ambient details.
+
+0:0${Math.min(halfDur, 9)}-0:${String(duration).padStart(2, '0')} — Camera settles into final composition. Emotional beat — key moment of the scene. Hold for impact. Subtle ambient particles, lens flare.
+
+Audio: ambient environment sounds → action sounds matching the scene → emotional music accent on key moment → natural transition to next scene.`;
 }
