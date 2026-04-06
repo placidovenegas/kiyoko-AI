@@ -7,29 +7,51 @@ import { useVideo } from '@/contexts/VideoContext';
 import { useProject } from '@/contexts/ProjectContext';
 import Link from 'next/link';
 import { cn } from '@/lib/utils/cn';
-import { Button } from '@heroui/react';
 import { useUIStore } from '@/stores/useUIStore';
 import { ArcBar } from '@/components/video/ArcBar';
 import { SceneCard } from '@/components/video/SceneCard';
 import {
-  Film, Clock, Monitor, ArrowRight, Mic, FileOutput,
-  Video, Loader2, BarChart3, Share2, Plus, Sparkles,
-  Layers, LayoutGrid, List, Settings2, Table2, Timer,
+  Film, Clock, Monitor, Mic, FileOutput,
+  Video, Loader2, BarChart3, LayoutGrid, List,
+  Settings2, Layers, CheckCircle2, Target,
 } from 'lucide-react';
 import type { NarrativeArc, Scene } from '@/types';
 
-type ViewMode = 'storyboard' | 'list' | 'table' | 'timeline';
+/* ------------------------------------------------------------------ */
+/*  Stat                                                               */
+/* ------------------------------------------------------------------ */
+function Stat({
+  icon: Icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: string | number;
+  tone?: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+      <div
+        className={cn(
+          'flex size-8 items-center justify-center rounded-lg bg-muted/60',
+          tone || 'text-muted-foreground',
+        )}
+      >
+        <Icon className="size-4" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-lg font-semibold tabular-nums text-foreground">{value}</p>
+        <p className="text-[11px] text-muted-foreground truncate">{label}</p>
+      </div>
+    </div>
+  );
+}
 
-const VIEW_TABS: Array<{ key: ViewMode; label: string; icon: typeof LayoutGrid }> = [
-  { key: 'storyboard', label: 'Storyboard', icon: LayoutGrid },
-  { key: 'list', label: 'Lista', icon: List },
-  { key: 'table', label: 'Tabla', icon: Table2 },
-  { key: 'timeline', label: 'Timeline', icon: Timer },
-];
-
-const ALL_PHASES = ['hook', 'build', 'peak', 'close'] as const;
-const ALL_STATUSES = ['draft', 'prompt_ready', 'generating', 'generated', 'approved', 'rejected'] as const;
-
+/* ------------------------------------------------------------------ */
+/*  Status badge helpers                                               */
+/* ------------------------------------------------------------------ */
 const STATUS_LABELS: Record<string, string> = {
   draft: 'Borrador',
   prompting: 'Creando prompts',
@@ -48,15 +70,6 @@ const STATUS_COLORS: Record<string, string> = {
   exported: 'bg-primary/20 text-primary border-primary/20',
 };
 
-const SCENE_STATUS_LABELS: Record<string, string> = {
-  draft: 'Borrador',
-  prompt_ready: 'Prompt listo',
-  generating: 'Generando',
-  generated: 'Generado',
-  approved: 'Aprobado',
-  rejected: 'Rechazado',
-};
-
 const SCENE_STATUS_DOT: Record<string, string> = {
   draft: 'bg-zinc-500',
   prompt_ready: 'bg-blue-500',
@@ -66,55 +79,9 @@ const SCENE_STATUS_DOT: Record<string, string> = {
   rejected: 'bg-red-500',
 };
 
-const PHASE_DOT: Record<string, string> = {
-  hook: 'bg-red-500',
-  build: 'bg-amber-500',
-  peak: 'bg-emerald-500',
-  close: 'bg-blue-500',
-};
-
-const QUICK_LINKS = [
-  { label: 'Escenas', href: '/scenes', icon: Film, desc: 'Board de escenas del video' },
-  { label: 'Timeline', href: '/timeline', icon: Layers, desc: 'Linea de tiempo visual' },
-  { label: 'Narracion', href: '/narration', icon: Mic, desc: 'Texto y audio TTS' },
-  { label: 'Analisis', href: '/analysis', icon: BarChart3, desc: 'Analisis IA del video' },
-  { label: 'Compartir', href: '/share', icon: Share2, desc: 'Compartir escenas con clientes' },
-  { label: 'Exportar', href: '/export', icon: FileOutput, desc: 'PDF, HTML, JSON, MP4' },
-] as const;
-
-// ─── Scene Table Row ─────────────────────────────────────────
-function SceneTableRow({ scene, basePath }: { scene: Scene; basePath: string }) {
-  const sceneLink = scene.short_id
-    ? `${basePath}/scene/${scene.short_id}`
-    : `${basePath}/scenes`;
-
-  return (
-    <Link
-      href={sceneLink}
-      className="flex items-center h-10 border-b border-border text-sm hover:bg-secondary/50 transition-colors"
-    >
-      <div className="w-12 px-3 text-muted-foreground font-mono text-xs">{scene.scene_number}</div>
-      <div className="flex-1 min-w-0 px-3 truncate font-medium text-foreground">{scene.title}</div>
-      <div className="w-16 px-3 text-muted-foreground text-xs text-center">{scene.duration_seconds ?? 0}s</div>
-      <div className="w-20 px-3">
-        {scene.arc_phase && (
-          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span className={cn('h-2 w-2 rounded-full', PHASE_DOT[scene.arc_phase] ?? 'bg-zinc-500')} />
-            {scene.arc_phase}
-          </span>
-        )}
-      </div>
-      <div className="w-24 px-3">
-        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <span className={cn('h-2 w-2 rounded-full', SCENE_STATUS_DOT[scene.status ?? 'draft'])} />
-          {SCENE_STATUS_LABELS[scene.status ?? 'draft']}
-        </span>
-      </div>
-    </Link>
-  );
-}
-
-// ─── Scene List Item ─────────────────────────────────────────
+/* ------------------------------------------------------------------ */
+/*  Scene list-item (for list view)                                    */
+/* ------------------------------------------------------------------ */
 function SceneListItem({ scene, basePath }: { scene: Scene; basePath: string }) {
   const sceneLink = scene.short_id
     ? `${basePath}/scene/${scene.short_id}`
@@ -123,73 +90,53 @@ function SceneListItem({ scene, basePath }: { scene: Scene; basePath: string }) 
   return (
     <Link
       href={sceneLink}
-      className="flex items-center gap-4 rounded-lg border border-border bg-card p-3 transition-all hover:border-primary/30 hover:shadow-md hover:shadow-black/20"
+      className="flex items-center gap-4 rounded-xl border border-border bg-card p-3 transition-all hover:border-primary/30 hover:shadow-md hover:shadow-black/20"
     >
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-background text-sm font-bold text-muted-foreground">
         #{scene.scene_number}
       </div>
       <div className="flex-1 min-w-0">
         <h4 className="text-sm font-medium text-foreground truncate">{scene.title}</h4>
-        {scene.client_annotation && (
-          <p className="text-xs italic text-muted-foreground truncate mt-0.5">
-            &ldquo;{scene.client_annotation}&rdquo;
-          </p>
-        )}
       </div>
       <div className="flex items-center gap-3 shrink-0 text-xs text-muted-foreground">
         <span>{scene.duration_seconds ?? 0}s</span>
-        {scene.arc_phase && (
-          <span className="flex items-center gap-1">
-            <span className={cn('h-2 w-2 rounded-full', PHASE_DOT[scene.arc_phase] ?? 'bg-zinc-500')} />
-            {scene.arc_phase}
-          </span>
-        )}
-        <span className="flex items-center gap-1">
-          <span className={cn('h-2 w-2 rounded-full', SCENE_STATUS_DOT[scene.status ?? 'draft'])} />
-        </span>
+        <span className={cn('h-2 w-2 rounded-full', SCENE_STATUS_DOT[scene.status ?? 'draft'])} />
       </div>
     </Link>
   );
 }
 
-// ─── Timeline Block ──────────────────────────────────────────
-function TimelineBlock({ scene, basePath, maxDuration }: { scene: Scene; basePath: string; maxDuration: number }) {
-  const sceneLink = scene.short_id
-    ? `${basePath}/scene/${scene.short_id}`
-    : `${basePath}/scenes`;
-  const dur = scene.duration_seconds ?? 5;
-  const widthPercent = maxDuration > 0 ? Math.max((dur / maxDuration) * 100, 5) : 10;
-  const phaseColor = scene.arc_phase
-    ? { hook: 'bg-red-500/20 border-red-500/40', build: 'bg-amber-500/20 border-amber-500/40', peak: 'bg-emerald-500/20 border-emerald-500/40', close: 'bg-blue-500/20 border-blue-500/40' }[scene.arc_phase] ?? 'bg-zinc-500/20 border-zinc-500/40'
-    : 'bg-zinc-500/20 border-zinc-500/40';
+/* ------------------------------------------------------------------ */
+/*  Quick links                                                        */
+/* ------------------------------------------------------------------ */
+const QUICK_LINKS = [
+  { label: 'Timeline', href: '/timeline', icon: Layers },
+  { label: 'Narracion', href: '/narration', icon: Mic },
+  { label: 'Analisis', href: '/analysis', icon: BarChart3 },
+  { label: 'Exportar', href: '/export', icon: FileOutput },
+] as const;
 
-  return (
-    <Link
-      href={sceneLink}
-      className={cn(
-        'inline-flex flex-col items-center justify-center rounded-md border px-2 py-1.5 text-[10px] transition-all hover:opacity-80',
-        phaseColor,
-      )}
-      style={{ width: `${widthPercent}%`, minWidth: '40px' }}
-      title={`${scene.title} (${dur}s)`}
-    >
-      <span className="font-bold text-foreground">{scene.scene_number}</span>
-      <span className="text-muted-foreground">{dur}s</span>
-    </Link>
-  );
-}
+/* ------------------------------------------------------------------ */
+/*  View mode                                                          */
+/* ------------------------------------------------------------------ */
+type ViewMode = 'grid' | 'list';
 
+const VIEW_TABS: Array<{ key: ViewMode; label: string; icon: typeof LayoutGrid }> = [
+  { key: 'grid', label: 'Grid', icon: LayoutGrid },
+  { key: 'list', label: 'Lista', icon: List },
+];
+
+/* ================================================================== */
+/*  Page                                                               */
+/* ================================================================== */
 export default function VideoOverviewPage() {
   const { project } = useProject();
   const { video, loading, scenes, scenesLoading } = useVideo();
-  const openTaskCreatePanel = useUIStore((state) => state.openTaskCreatePanel);
-  const openVideoSettingsModal = useUIStore((state) => state.openVideoSettingsModal);
+  const openVideoSettingsModal = useUIStore((s) => s.openVideoSettingsModal);
 
-  const [viewMode, setViewMode] = useState<ViewMode>('storyboard');
-  const [phaseFilter, setPhaseFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
 
-  // Fetch narrative arcs for ArcBar
+  // Fetch narrative arcs
   const { data: arcs = [] } = useQuery({
     queryKey: ['narrative-arcs', video?.id],
     queryFn: async () => {
@@ -204,6 +151,7 @@ export default function VideoOverviewPage() {
     enabled: !!video?.id,
   });
 
+  /* Loading */
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -212,6 +160,7 @@ export default function VideoOverviewPage() {
     );
   }
 
+  /* Not found */
   if (!video || !project) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
@@ -228,102 +177,72 @@ export default function VideoOverviewPage() {
   const totalDuration = scenes.reduce((sum, s) => sum + (s.duration_seconds ?? 0), 0);
   const approvedScenes = scenes.filter((s) => s.status === 'approved').length;
 
-  // Apply filters
-  const filteredScenes = scenes.filter((s) => {
-    if (phaseFilter !== 'all' && s.arc_phase !== phaseFilter) return false;
-    if (statusFilter !== 'all' && s.status !== statusFilter) return false;
-    return true;
-  });
-
-  const maxSceneDuration = Math.max(...scenes.map((s) => s.duration_seconds ?? 0), 1);
-
   return (
-    <div className="h-full overflow-y-auto p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10">
-            <Video className="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-lg font-semibold text-foreground">{video.title}</h1>
-            <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+    <div className="mx-auto max-w-7xl px-4 py-6 space-y-6">
+      {/* ── Header ──────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">{video.title}</h1>
+          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <span className="rounded-md bg-secondary px-2 py-0.5 text-xs font-medium">{video.platform}</span>
+            <span className="flex items-center gap-1">
+              <Clock className="h-3.5 w-3.5" />
+              {video.target_duration_seconds}s
+            </span>
+            {video.aspect_ratio && (
               <span className="flex items-center gap-1">
                 <Monitor className="h-3.5 w-3.5" />
-                {video.platform}
+                {video.aspect_ratio}
               </span>
-              <span className="flex items-center gap-1">
-                <Clock className="h-3.5 w-3.5" />
-                {video.target_duration_seconds}s objetivo
-              </span>
-              {video.aspect_ratio && (
-                <span className="rounded bg-secondary px-1.5 py-0.5 text-xs text-muted-foreground">
-                  {video.aspect_ratio}
-                </span>
+            )}
+            <span
+              className={cn(
+                'rounded-full border px-2.5 py-0.5 text-xs font-medium',
+                STATUS_COLORS[video.status] ?? 'bg-zinc-500/20 text-muted-foreground border-zinc-500/20',
               )}
-            </div>
+            >
+              {STATUS_LABELS[video.status] ?? video.status}
+            </span>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            startContent={<Settings2 className="h-3.5 w-3.5" />}
-            onPress={() => openVideoSettingsModal('general')}
-            className="rounded-md"
-          >
-            Ajustes
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            startContent={<Plus className="h-3.5 w-3.5" />}
-            onPress={() => openTaskCreatePanel({ projectId: project.id, videoId: video.id, source: 'video' })}
-            className="rounded-md"
-          >
-            Nueva tarea
-          </Button>
-          <span className={cn(
-            'shrink-0 rounded-full border px-3 py-1 text-xs font-medium',
-            STATUS_COLORS[video.status] ?? 'bg-zinc-500/20 text-muted-foreground border-zinc-500/20',
-          )}>
-            {STATUS_LABELS[video.status] ?? video.status}
-          </span>
-        </div>
+
+        <button
+          type="button"
+          onClick={() => openVideoSettingsModal('general')}
+          className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
+        >
+          <Settings2 className="h-4 w-4 text-muted-foreground" />
+          Ajustes
+        </button>
       </div>
 
-      {/* Stats Row */}
+      {/* ── Stats row ───────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[
-          { value: scenesLoading ? '...' : scenes.length, label: 'Escenas' },
-          { value: scenesLoading ? '...' : approvedScenes, label: 'Aprobadas' },
-          { value: `${video.target_duration_seconds}s`, label: 'Duracion objetivo' },
-          { value: scenesLoading ? '...' : `${totalDuration}s`, label: 'Duracion actual' },
-        ].map((stat) => (
-          <div key={stat.label} className="rounded-xl border border-border bg-card p-4">
-            <p className="text-2xl font-bold text-foreground">{stat.value}</p>
-            <p className="text-xs text-muted-foreground">{stat.label}</p>
-          </div>
-        ))}
+        <Stat icon={Film} label="Escenas" value={scenesLoading ? '...' : scenes.length} />
+        <Stat icon={CheckCircle2} label="Aprobadas" value={scenesLoading ? '...' : approvedScenes} tone="text-emerald-500" />
+        <Stat icon={Target} label="Duracion objetivo" value={`${video.target_duration_seconds}s`} />
+        <Stat icon={Clock} label="Duracion actual" value={scenesLoading ? '...' : `${totalDuration}s`} />
       </div>
 
-      {/* Narrative Arc Bar */}
+      {/* ── Narrative arc bar ───────────────────────────────── */}
       {arcs.length > 0 && (
         <div className="space-y-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Arco narrativo</h3>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Arco narrativo</p>
           <ArcBar arcs={arcs} totalDuration={totalDuration || video.target_duration_seconds || 60} className="h-3" />
           <div className="flex flex-wrap gap-3 text-[11px] text-muted-foreground">
             {arcs.map((arc) => {
               const duration = (arc.end_second ?? 0) - (arc.start_second ?? 0);
               return (
                 <span key={arc.id} className="flex items-center gap-1">
-                  <span className={cn(
-                    'h-2 w-2 rounded-full',
-                    arc.phase === 'hook' ? 'bg-red-500' :
-                    arc.phase === 'build' ? 'bg-amber-500' :
-                    arc.phase === 'peak' ? 'bg-emerald-500' :
-                    arc.phase === 'close' ? 'bg-blue-500' : 'bg-zinc-500',
-                  )} />
+                  <span
+                    className={cn(
+                      'h-2 w-2 rounded-full',
+                      arc.phase === 'hook' ? 'bg-red-500' :
+                      arc.phase === 'build' ? 'bg-amber-500' :
+                      arc.phase === 'peak' ? 'bg-emerald-500' :
+                      arc.phase === 'close' ? 'bg-blue-500' : 'bg-zinc-500',
+                    )}
+                  />
                   {arc.title} ({duration}s)
                 </span>
               );
@@ -332,25 +251,15 @@ export default function VideoOverviewPage() {
         </div>
       )}
 
-      {/* Scene Grid with Toolbar */}
+      {/* ── Scenes section ──────────────────────────────────── */}
       <div className="space-y-3">
-        {/* Toolbar */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Escenas
+          </p>
           <div className="flex items-center gap-2">
-            <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <LayoutGrid className="h-4 w-4 text-primary" />
-              Escenas
-              {!scenesLoading && (
-                <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-normal text-muted-foreground">
-                  {filteredScenes.length}
-                </span>
-              )}
-            </h3>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* View mode tabs */}
-            <div className="flex items-center rounded-lg border border-border bg-secondary/50 p-0.5">
+            {/* View toggle */}
+            <div className="flex items-center rounded-lg border border-border p-0.5">
               {VIEW_TABS.map((tab) => (
                 <button
                   key={tab.key}
@@ -359,7 +268,7 @@ export default function VideoOverviewPage() {
                   className={cn(
                     'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
                     viewMode === tab.key
-                      ? 'bg-card text-foreground shadow-sm'
+                      ? 'bg-secondary text-foreground'
                       : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
@@ -369,164 +278,68 @@ export default function VideoOverviewPage() {
               ))}
             </div>
 
-            {/* Filters */}
-            <select
-              value={phaseFilter}
-              onChange={(e) => setPhaseFilter(e.target.value)}
-              className="h-8 rounded-lg border border-border bg-secondary/50 px-2 text-xs text-foreground outline-none focus:border-primary transition-colors"
+            <Link
+              href={`${basePath}/scenes`}
+              className="text-xs font-medium text-primary hover:underline"
             >
-              <option value="all">Todas las fases</option>
-              {ALL_PHASES.map((p) => (
-                <option key={p} value={p}>{p}</option>
-              ))}
-            </select>
-
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="h-8 rounded-lg border border-border bg-secondary/50 px-2 text-xs text-foreground outline-none focus:border-primary transition-colors"
-            >
-              <option value="all">Todos los estados</option>
-              {ALL_STATUSES.map((s) => (
-                <option key={s} value={s}>{SCENE_STATUS_LABELS[s]}</option>
-              ))}
-            </select>
-
-            <Link href={`${basePath}/scenes`}>
-              <Button variant="ghost" size="sm" className="rounded-md">
-                Ver todas<ArrowRight className="h-3.5 w-3.5 ml-2" />
-              </Button>
+              Ver todas
             </Link>
           </div>
         </div>
 
-        {/* Scene content by view mode */}
+        {/* Content */}
         {scenesLoading ? (
           <div className="flex h-40 items-center justify-center">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
-        ) : filteredScenes.length === 0 && scenes.length === 0 ? (
+        ) : scenes.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card/50 py-12">
             <Film className="h-10 w-10 text-muted-foreground/60" />
             <h4 className="mt-3 text-sm font-medium text-foreground">Sin escenas todavia</h4>
             <p className="mt-1 text-xs text-muted-foreground">Crea escenas manualmente o genera con IA</p>
-            <div className="mt-4 flex gap-2">
-              <Link href={`${basePath}/scenes`}>
-                <Button variant="outline" size="sm" className="rounded-md">
-                  <Plus className="h-3.5 w-3.5 mr-2" />Crear manual
-                </Button>
-              </Link>
-              <Link href={`${basePath}/scenes`}>
-                <Button variant="primary" size="sm" className="rounded-md">
-                  <Sparkles className="h-3.5 w-3.5 mr-2" />Generar con IA
-                </Button>
-              </Link>
-            </div>
+            <Link
+              href={`${basePath}/scenes`}
+              className="mt-4 text-sm font-medium text-primary hover:underline"
+            >
+              Ir a escenas
+            </Link>
           </div>
-        ) : filteredScenes.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card/50 py-8">
-            <p className="text-sm text-muted-foreground">No hay escenas con los filtros seleccionados</p>
-          </div>
-        ) : viewMode === 'storyboard' ? (
+        ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-            {filteredScenes.map((scene) => (
+            {scenes.map((scene) => (
               <SceneCard key={scene.id} scene={scene} basePath={basePath} />
             ))}
           </div>
-        ) : viewMode === 'list' ? (
+        ) : (
           <div className="space-y-2">
-            {filteredScenes.map((scene) => (
+            {scenes.map((scene) => (
               <SceneListItem key={scene.id} scene={scene} basePath={basePath} />
             ))}
-          </div>
-        ) : viewMode === 'table' ? (
-          <div className="rounded-xl border border-border bg-card overflow-hidden">
-            {/* Table header */}
-            <div className="flex items-center h-9 border-b border-border bg-secondary/50 text-xs font-medium text-muted-foreground uppercase">
-              <div className="w-12 px-3">#</div>
-              <div className="flex-1 px-3">Titulo</div>
-              <div className="w-16 px-3 text-center">Dur.</div>
-              <div className="w-20 px-3">Fase</div>
-              <div className="w-24 px-3">Estado</div>
-            </div>
-            {/* Table rows */}
-            {filteredScenes.map((scene) => (
-              <SceneTableRow key={scene.id} scene={scene} basePath={basePath} />
-            ))}
-            {/* Footer */}
-            <div className="flex items-center h-9 border-t border-border bg-secondary/30 text-xs text-muted-foreground">
-              <div className="w-12 px-3" />
-              <div className="flex-1 px-3 font-medium">Total: {filteredScenes.length} escenas</div>
-              <div className="w-16 px-3 text-center font-medium">{filteredScenes.reduce((s, sc) => s + (sc.duration_seconds ?? 0), 0)}s</div>
-              <div className="w-20 px-3" />
-              <div className="w-24 px-3" />
-            </div>
-          </div>
-        ) : (
-          /* Timeline view */
-          <div className="rounded-xl border border-border bg-card p-4 overflow-x-auto">
-            {/* Time ruler */}
-            <div className="flex items-center gap-0 mb-3 text-[10px] text-muted-foreground">
-              {Array.from({ length: Math.ceil(totalDuration / 15) + 1 }, (_, i) => (
-                <span key={i} className="flex-1 text-center border-l border-border/40 first:border-l-0">
-                  {i * 15}s
-                </span>
-              ))}
-            </div>
-            {/* Group by phase */}
-            {ALL_PHASES.map((phase) => {
-              const phaseScenes = filteredScenes.filter((s) => s.arc_phase === phase);
-              if (phaseScenes.length === 0) return null;
-              return (
-                <div key={phase} className="mb-3">
-                  <div className="text-[10px] font-medium uppercase text-muted-foreground mb-1.5 flex items-center gap-1.5">
-                    <span className={cn('h-2 w-2 rounded-full', PHASE_DOT[phase])} />
-                    {phase}
-                  </div>
-                  <div className="flex gap-1 flex-wrap">
-                    {phaseScenes.map((scene) => (
-                      <TimelineBlock key={scene.id} scene={scene} basePath={basePath} maxDuration={maxSceneDuration} />
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-            {/* Scenes without a phase */}
-            {filteredScenes.filter((s) => !s.arc_phase).length > 0 && (
-              <div className="mb-3">
-                <div className="text-[10px] font-medium uppercase text-muted-foreground mb-1.5">Sin fase</div>
-                <div className="flex gap-1 flex-wrap">
-                  {filteredScenes.filter((s) => !s.arc_phase).map((scene) => (
-                    <TimelineBlock key={scene.id} scene={scene} basePath={basePath} maxDuration={maxSceneDuration} />
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         )}
       </div>
 
-      {/* Quick Actions */}
+      {/* ── Quick links ─────────────────────────────────────── */}
       <div className="space-y-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Acciones rapidas</h3>
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Acciones rapidas</p>
         <div className="flex flex-wrap gap-2">
           {QUICK_LINKS.map((link) => (
             <Link
               key={link.href}
               href={`${basePath}${link.href}`}
-              className="group flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm transition-all duration-200 hover:border-primary/30 hover:shadow-md hover:shadow-black/20"
+              className="group flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm transition-all hover:border-primary/30"
             >
               <link.icon className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-              <span className="text-foreground text-sm">{link.label}</span>
+              <span className="text-foreground">{link.label}</span>
             </Link>
           ))}
         </div>
       </div>
 
-      {/* Description */}
+      {/* ── Description ─────────────────────────────────────── */}
       {video.description && (
         <div className="rounded-xl border border-border bg-card p-5">
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Descripcion</h3>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Descripcion</p>
           <p className="text-sm leading-relaxed text-muted-foreground">{video.description}</p>
         </div>
       )}

@@ -290,6 +290,11 @@
   }
   body {
     @apply bg-background text-foreground;
+    background-image:
+      radial-gradient(ellipse 80% 60% at 10% 0%, rgba(5,139,150,0.10) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 90% 100%, rgba(254,106,60,0.06) 0%, transparent 60%);
+    background-attachment: fixed;
+    min-height: 100vh;
   }
   html {
     @apply font-sans;

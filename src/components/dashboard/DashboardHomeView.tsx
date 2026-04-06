@@ -136,7 +136,7 @@ export function DashboardHomeView() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 space-y-6" style={{ background: 'radial-gradient(ellipse at top left, rgba(5,139,150,0.06) 0%, transparent 50%), radial-gradient(ellipse at bottom right, rgba(254,106,60,0.04) 0%, transparent 50%)' }}>
+    <div className="mx-auto max-w-7xl px-4 py-6 space-y-6">
       {/* ── Header ──────────────────────────────────────── */}
       <div className="flex items-end justify-between">
         <div>
