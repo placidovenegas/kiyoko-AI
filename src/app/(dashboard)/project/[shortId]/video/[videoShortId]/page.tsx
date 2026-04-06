@@ -23,6 +23,25 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+
+/* ── Expandable prompt text ────────────────────────────── */
+function ExpandablePrompt({ text, fallback }: { text?: string | null; fallback: string }) {
+  const [expanded, setExpanded] = useState(false);
+  if (!text) return <p className="flex-1 min-w-0 text-xs text-muted-foreground/40 italic px-3 py-1.5">{fallback}</p>;
+  return (
+    <button
+      type="button"
+      onClick={() => setExpanded(!expanded)}
+      className={cn(
+        'flex-1 min-w-0 text-left font-mono text-xs text-muted-foreground bg-background rounded-lg px-3 py-1.5 cursor-pointer hover:bg-accent/50 transition-colors',
+        !expanded && 'line-clamp-1',
+      )}
+      title={expanded ? 'Click para colapsar' : 'Click para expandir'}
+    >
+      {text}
+    </button>
+  );
+}
 import { useState } from 'react';
 import { SceneCreateModal } from '@/components/modals';
 import type { NarrativeArc, Scene, ScenePrompt, SceneMedia } from '@/types';
@@ -358,33 +377,14 @@ function StoryboardCard({
             <ImageIcon className="h-3 w-3 text-muted-foreground/60" />
             <span className="text-[10px] font-medium text-muted-foreground w-10">Imagen</span>
           </div>
-          <div className="flex-1 min-w-0">
-            {imagePrompt ? (
-              <p className="font-mono text-xs text-muted-foreground line-clamp-1 bg-background rounded-lg px-3 py-1.5">
-                {imagePrompt.prompt_text}
-              </p>
-            ) : (
-              <p className="text-xs text-muted-foreground/40 italic px-3 py-1.5">Sin prompt</p>
-            )}
-          </div>
+          <ExpandablePrompt text={imagePrompt?.prompt_text} fallback="Sin prompt" />
           <div className="flex items-center gap-1 shrink-0">
             {imagePrompt && (
-              <button
-                type="button"
-                onClick={() => copyToClipboard(imagePrompt.prompt_text, 'Prompt de imagen')}
-                className="rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-                title="Copiar prompt de imagen"
-              >
+              <button type="button" onClick={() => copyToClipboard(imagePrompt.prompt_text, 'Prompt de imagen')} className="rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors" title="Copiar">
                 <Copy className="h-3 w-3" />
               </button>
             )}
-            <button
-              type="button"
-              disabled={isGenerating}
-              onClick={onGeneratePrompts}
-              className="rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50"
-              title="Generar con IA"
-            >
+            <button type="button" disabled={isGenerating} onClick={onGeneratePrompts} className="rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50" title="Generar con IA">
               {isGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
             </button>
           </div>
@@ -396,32 +396,14 @@ function StoryboardCard({
             <Video className="h-3 w-3 text-muted-foreground/60" />
             <span className="text-[10px] font-medium text-muted-foreground w-10">Video</span>
           </div>
-          <div className="flex-1 min-w-0">
-            {videoPrompt ? (
-              <p className="font-mono text-xs text-muted-foreground line-clamp-1 bg-background rounded-lg px-3 py-1.5">
-                {videoPrompt.prompt_text}
-              </p>
-            ) : (
-              <p className="text-xs text-muted-foreground/40 italic px-3 py-1.5">Sin prompt</p>
-            )}
-          </div>
+          <ExpandablePrompt text={videoPrompt?.prompt_text} fallback="Sin prompt" />
           <div className="flex items-center gap-1 shrink-0">
             {videoPrompt && (
-              <button
-                type="button"
-                onClick={() => copyToClipboard(videoPrompt.prompt_text, 'Prompt de video')}
-                className="rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-                title="Copiar prompt de video"
-              >
+              <button type="button" onClick={() => copyToClipboard(videoPrompt.prompt_text, 'Prompt de video')} className="rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors" title="Copiar">
                 <Copy className="h-3 w-3" />
               </button>
             )}
-            <button
-              type="button"
-              disabled={isGenerating}
-              onClick={onGeneratePrompts}
-              className="rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50"
-              title="Generar con IA"
+            <button type="button" disabled={isGenerating} onClick={onGeneratePrompts} className="rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50" title="Generar con IA"
             >
               {isGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
             </button>
