@@ -1,6 +1,6 @@
 'use client';
 
-import { Modal, useOverlayState } from '@heroui/react';
+import { useEffect } from 'react';
 import { useUIStore } from '@/stores/useUIStore';
 import { cn } from '@/lib/utils/cn';
 import {
@@ -72,21 +72,21 @@ const SECTION_COMPONENTS: Record<string, React.ComponentType> = {
 export function SettingsModal() {
   const { settingsModalOpen, settingsSection, closeSettingsModal, openSettingsModal } = useUIStore();
 
-  const modalState = useOverlayState({
-    isOpen: settingsModalOpen,
-    onOpenChange: (open) => { if (!open) closeSettingsModal(); },
-  });
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') closeSettingsModal(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [closeSettingsModal]);
 
   const SectionComponent = SECTION_COMPONENTS[settingsSection] ?? PerfilSection;
 
+  if (!settingsModalOpen) return null;
+
   return (
-    <Modal state={modalState}>
-      <Modal.Backdrop  />
-      <Modal.Container placement="center" size="cover" className={cn(
-          'fixed left-[50%] top-[50%] z-50 translate-x-[-50%] translate-y-[-45%]',
-        )}>
-        <Modal.Dialog className="p-0! bg-transparent! shadow-none! max-w-none! w-auto!">
-          <div className="flex flex-row w-[80vw] h-[85vh]  rounded-xl border border-border bg-background shadow-xl overflow-hidden">
+    <div className="fixed inset-0 z-50">
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={closeSettingsModal} />
+      <div className="fixed inset-0 flex items-center justify-center p-4">
+        <div className="relative flex flex-row w-[80vw] h-[85vh] rounded-xl border border-border bg-background shadow-xl overflow-hidden">
           {/* ── Left nav ──────────────────────────────────────────── */}
           <aside className="w-56 shrink-0 border-r border-border bg-card flex flex-col overflow-y-auto">
             <div className="px-4 pt-5 pb-2">
@@ -125,13 +125,15 @@ export function SettingsModal() {
           </main>
 
           {/* ── Close ─────────────────────────────────────────────── */}
-          <Modal.CloseTrigger className="absolute right-3 top-3 flex items-center justify-center size-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors z-10">
+          <button
+            onClick={closeSettingsModal}
+            className="absolute right-3 top-3 flex items-center justify-center size-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors z-10"
+          >
             <X className="h-4 w-4" />
             <span className="sr-only">Cerrar</span>
-          </Modal.CloseTrigger>
-          </div>
-        </Modal.Dialog>
-      </Modal.Container>
-    </Modal>
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

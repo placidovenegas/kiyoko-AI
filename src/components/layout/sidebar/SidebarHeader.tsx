@@ -1,54 +1,32 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import {
-  Check, Plus, Settings, UserPlus, LogOut, ChevronsLeft, MoreHorizontal, Monitor,
+  Settings, LogOut, ChevronsLeft, MoreHorizontal, Monitor,
 } from 'lucide-react';
 import { useSidebar, SidebarMenu, SidebarMenuItem } from '@/components/ui/sidebar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { KiyokoIcon } from '@/components/ui/logo';
-import { useOrganizations, ORG_TYPE_LABELS } from '@/hooks/useOrganizations';
 import { useAuth } from '@/hooks/useAuth';
 import { useUIStore } from '@/stores/useUIStore';
 import { cn } from '@/lib/utils/cn';
-
-const ORG_TYPE_COLORS: Record<string, string> = {
-  personal:  'bg-primary/15 text-primary',
-  freelance: 'bg-blue-500/15 text-blue-500',
-  team:      'bg-purple-500/15 text-purple-500',
-  agency:    'bg-orange-500/15 text-orange-500',
-};
 
 function initials(name: string | null | undefined): string {
   if (!name) return '?';
   return name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
 }
 
-function OrgBadge({ name, orgType, size = 'md' }: { name: string; orgType?: string | null; size?: 'sm' | 'md' | 'lg' }) {
-  const colors = ORG_TYPE_COLORS[orgType ?? 'team'] ?? ORG_TYPE_COLORS.team;
-  const cls = size === 'lg' ? 'h-9 w-9 rounded-md text-xs'
-    : size === 'sm' ? 'h-6 w-6 rounded text-[9px]'
-    : 'h-7 w-7 rounded text-[10px]';
-  return (
-    <span className={cn('flex shrink-0 items-center justify-center font-bold', cls, colors)}>
-      {initials(name)}
-    </span>
-  );
-}
-
 export function SidebarHeaderSection() {
   const { state, toggleSidebar } = useSidebar();
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [hovered, setHovered] = useState(false);
 
   const { user, signOut } = useAuth();
-  const { organizations, currentOrg, currentOrgId, switchOrg } = useOrganizations();
-  const { openWorkspaceModal, openSettingsModal } = useUIStore();
+  const { openSettingsModal } = useUIStore();
 
   const isExpanded = state === 'expanded';
   const userEmail = user?.email ?? '';
+  const userName = user?.full_name ?? userEmail;
 
   return (
     <SidebarMenu>
@@ -69,22 +47,20 @@ export function SidebarHeaderSection() {
                   !isExpanded && 'justify-center px-0',
                 )}
               >
-                {/* Logo por defecto, OrgBadge en hover */}
+                {/* Logo por defecto, user initials en hover */}
                 <span className="relative flex h-7 w-7 shrink-0 items-center justify-center">
                   <KiyokoIcon size={18} className="text-foreground transition-opacity group-hover/header:opacity-0" />
-                  {currentOrg && (
-                    <span className="absolute inset-0 opacity-0 transition-opacity group-hover/header:opacity-100">
-                      <OrgBadge name={currentOrg.name} orgType={currentOrg.org_type} />
-                    </span>
-                  )}
+                  <span className="absolute inset-0 flex items-center justify-center rounded text-[10px] font-bold bg-primary/15 text-primary opacity-0 transition-opacity group-hover/header:opacity-100">
+                    {initials(userName)}
+                  </span>
                 </span>
-                {isExpanded && currentOrg && (
+                {isExpanded && (
                   <div className="min-w-0 flex-1 transition-[padding] duration-200 ease-out group-hover/header:pr-8 pr-1">
                     <p className="truncate text-[13px] font-semibold leading-tight text-foreground">
-                      {currentOrg.name}
+                      {userName}
                     </p>
                     <p className="truncate text-[11px] text-muted-foreground leading-tight">
-                      {ORG_TYPE_LABELS[currentOrg.org_type ?? 'team']}
+                      Workspace personal
                     </p>
                   </div>
                 )}
@@ -100,7 +76,7 @@ export function SidebarHeaderSection() {
                   'hover:bg-sidebar-accent hover:text-foreground',
                   hovered && !open ? 'opacity-100' : 'opacity-0',
                 )}
-                title="Colapsar menú"
+                title="Colapsar menu"
               >
                 <ChevronsLeft size={16} />
               </button>
@@ -125,74 +101,38 @@ export function SidebarHeaderSection() {
               </button>
             </div>
 
-            {/* Org activa */}
-            {currentOrg && (
-              <div className="px-3 pb-3">
-                <div className="flex items-center gap-3 px-1 py-2">
-                  <OrgBadge name={currentOrg.name} orgType={currentOrg.org_type} size="lg" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-foreground">{currentOrg.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Plan Gratis · {ORG_TYPE_LABELS[currentOrg.org_type ?? 'team']}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex gap-2 mt-1">
-                  <button
-                    type="button"
-                    onClick={() => { setOpen(false); openSettingsModal('perfil'); }}
-                    className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg border border-border text-xs font-medium text-foreground hover:bg-accent transition-colors cursor-pointer"
-                  >
-                    <Settings className="h-3.5 w-3.5 text-muted-foreground" />
-                    Ajustes
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setOpen(false); openSettingsModal('org-miembros'); }}
-                    className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg border border-border text-xs font-medium text-foreground hover:bg-accent transition-colors cursor-pointer"
-                  >
-                    <UserPlus className="h-3.5 w-3.5 text-muted-foreground" />
-                    Invitar
-                  </button>
+            {/* User info */}
+            <div className="px-3 pb-3">
+              <div className="flex items-center gap-3 px-1 py-2">
+                {user?.avatar_url ? (
+                  <img
+                    src={user.avatar_url}
+                    alt={userName}
+                    className="h-9 w-9 rounded-md object-cover"
+                  />
+                ) : (
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-xs font-bold bg-primary/15 text-primary">
+                    {initials(userName)}
+                  </span>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-foreground">{userName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Workspace personal
+                  </p>
                 </div>
               </div>
-            )}
 
-            <div className="h-px bg-border" />
-
-            {/* Lista de organizaciones */}
-            <div className="py-1 px-1.5">
-              {organizations.map((org) => {
-                const isActive = org.id === currentOrgId;
-                return (
-                  <button
-                    key={org.id}
-                    type="button"
-                    onClick={() => { switchOrg(org.id); router.push('/dashboard'); setOpen(false); }}
-                    className={cn(
-                      'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors cursor-pointer',
-                      'hover:bg-accent',
-                      isActive && 'bg-accent/60',
-                    )}
-                  >
-                    <OrgBadge name={org.name} orgType={org.org_type} size="sm" />
-                    <p className={cn('flex-1 min-w-0 truncate text-[13px]', isActive && 'font-semibold')}>
-                      {org.name}
-                    </p>
-                    {isActive && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
-                  </button>
-                );
-              })}
-
-              <button
-                type="button"
-                onClick={() => { openWorkspaceModal(); setOpen(false); }}
-                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer mt-0.5"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                <span className="text-[13px]">Añadir organización</span>
-              </button>
+              <div className="flex gap-2 mt-1">
+                <button
+                  type="button"
+                  onClick={() => { setOpen(false); openSettingsModal('perfil'); }}
+                  className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg border border-border text-xs font-medium text-foreground hover:bg-accent transition-colors cursor-pointer"
+                >
+                  <Settings className="h-3.5 w-3.5 text-muted-foreground" />
+                  Ajustes
+                </button>
+              </div>
             </div>
 
             <div className="h-px bg-border" />
@@ -213,7 +153,7 @@ export function SidebarHeaderSection() {
                 className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-foreground hover:bg-accent transition-colors cursor-pointer"
               >
                 <LogOut className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-[13px]">Cerrar sesión</span>
+                <span className="text-[13px]">Cerrar sesion</span>
               </button>
             </div>
           </PopoverContent>

@@ -9,7 +9,6 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import { Settings, ChevronsRight } from 'lucide-react';
-import { Tooltip } from '@heroui/react';
 import { useUIStore } from '@/stores/useUIStore';
 import { SidebarHeaderSection } from './sidebar/SidebarHeader';
 import { SidebarNavFixed } from './sidebar/SidebarNavFixed';
@@ -49,10 +48,7 @@ function SidebarSettingsButton() {
   return (
     <div className={isCollapsed ? 'px-2 py-1' : 'px-1.5 py-1'}>
       {isCollapsed ? (
-        <Tooltip>
-          <Tooltip.Trigger>{btn}</Tooltip.Trigger>
-          <Tooltip.Content placement="right">Ajustes</Tooltip.Content>
-        </Tooltip>
+        <div title="Ajustes">{btn}</div>
       ) : btn}
     </div>
   );
@@ -63,19 +59,14 @@ function SidebarExpandButton() {
   if (state === 'expanded') return null;
 
   return (
-    <div className="px-2 py-1">
-      <Tooltip>
-        <Tooltip.Trigger>
-          <button
-            type="button"
-            onClick={toggleSidebar}
-            className="flex items-center justify-center size-8 rounded-md text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors cursor-pointer"
-          >
-            <ChevronsRight className="h-4 w-4" />
-          </button>
-        </Tooltip.Trigger>
-        <Tooltip.Content placement="right">Abrir menú</Tooltip.Content>
-      </Tooltip>
+    <div className="px-2 py-1" title="Abrir menu">
+      <button
+        type="button"
+        onClick={toggleSidebar}
+        className="flex items-center justify-center size-8 rounded-md text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors cursor-pointer"
+      >
+        <ChevronsRight className="h-4 w-4" />
+      </button>
     </div>
   );
 }

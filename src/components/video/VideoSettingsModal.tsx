@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Modal, useOverlayState } from '@heroui/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUIStore } from '@/stores/useUIStore';
 import { useVideo } from '@/contexts/VideoContext';
@@ -259,12 +258,11 @@ export function VideoSettingsModal() {
     }
   }, [videoSettingsModalOpen, video]);
 
-  const modalState = useOverlayState({
-    isOpen: videoSettingsModalOpen,
-    onOpenChange: (open) => {
-      if (!open) closeVideoSettingsModal();
-    },
-  });
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') closeVideoSettingsModal(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [closeVideoSettingsModal]);
 
   const handleSave = async () => {
     if (!video) return;
@@ -315,18 +313,13 @@ export function VideoSettingsModal() {
     }
   };
 
+  if (!videoSettingsModalOpen) return null;
+
   return (
-    <Modal state={modalState}>
-      <Modal.Backdrop />
-      <Modal.Container
-        placement="center"
-        size="cover"
-        className={cn(
-          'fixed left-[50%] top-[50%] z-50 translate-x-[-50%] translate-y-[-45%]',
-        )}
-      >
-        <Modal.Dialog className="p-0! bg-transparent! shadow-none! max-w-none! w-auto!">
-          <div className="flex flex-row w-[80vw] h-[85vh] rounded-xl border border-border bg-background shadow-xl overflow-hidden">
+    <div className="fixed inset-0 z-50">
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={closeVideoSettingsModal} />
+      <div className="fixed inset-0 flex items-center justify-center p-4">
+        <div className="relative flex flex-row w-[80vw] h-[85vh] rounded-xl border border-border bg-background shadow-xl overflow-hidden">
             {/* ── Left nav ──────────────────────────────────────────── */}
             <aside className="w-56 shrink-0 border-r border-border bg-card flex flex-col overflow-y-auto">
               <div className="px-4 pt-5 pb-2">
@@ -384,13 +377,15 @@ export function VideoSettingsModal() {
             </main>
 
             {/* ── Close ─────────────────────────────────────────────── */}
-            <Modal.CloseTrigger className="absolute right-3 top-3 flex items-center justify-center size-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors z-10">
+            <button
+              onClick={closeVideoSettingsModal}
+              className="absolute right-3 top-3 flex items-center justify-center size-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors z-10"
+            >
               <X className="h-4 w-4" />
               <span className="sr-only">Cerrar</span>
-            </Modal.CloseTrigger>
-          </div>
-        </Modal.Dialog>
-      </Modal.Container>
-    </Modal>
+            </button>
+        </div>
+      </div>
+    </div>
   );
 }
