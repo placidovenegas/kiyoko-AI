@@ -29,8 +29,8 @@ export function ProjectGrid({ projects }: { projects: Project[] }) {
         </div>
 
         <Link href="/new">
-          <Button size="lg" startContent={<Plus className="h-4 w-4" />} className="rounded-md">
-            Nuevo Proyecto
+          <Button size="lg" className="rounded-md">
+            <Plus className="h-4 w-4 mr-2" />Nuevo Proyecto
           </Button>
         </Link>
       </div>

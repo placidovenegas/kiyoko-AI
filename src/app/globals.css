@@ -22,29 +22,29 @@
   --color-default-800: #27272a;
   --color-default-900: #18181b;
 
-  /* Primary (blue) */
-  --color-primary-50:  #e6f1fe;
-  --color-primary-100: #cce3fd;
-  --color-primary-200: #99c7fb;
-  --color-primary-300: #66aaf9;
-  --color-primary-400: #338ef7;
-  --color-primary-500: #006fee;
-  --color-primary-600: #005bc4;
-  --color-primary-700: #004493;
-  --color-primary-800: #002e62;
-  --color-primary-900: #001731;
+  /* Primary (teal — from Kiyoko logo gradient) */
+  --color-primary-50:  #effcf8;
+  --color-primary-100: #d0f7ec;
+  --color-primary-200: #a4eedd;
+  --color-primary-300: #6adfc8;
+  --color-primary-400: #2ec9ac;
+  --color-primary-500: #058b96;
+  --color-primary-600: #047a84;
+  --color-primary-700: #04616a;
+  --color-primary-800: #054d55;
+  --color-primary-900: #033339;
 
-  /* Secondary (purple) */
-  --color-secondary-50:  #f2eafa;
-  --color-secondary-100: #e4d4f4;
-  --color-secondary-200: #c9a9e9;
-  --color-secondary-300: #ae7ede;
-  --color-secondary-400: #9353d3;
-  --color-secondary-500: #7828c8;
-  --color-secondary-600: #6020a0;
-  --color-secondary-700: #481878;
-  --color-secondary-800: #301050;
-  --color-secondary-900: #180828;
+  /* Secondary (coral/orange — from Kiyoko logo accent) */
+  --color-secondary-50:  #fff4ed;
+  --color-secondary-100: #ffe5d4;
+  --color-secondary-200: #ffc8a8;
+  --color-secondary-300: #ffa471;
+  --color-secondary-400: #fe8044;
+  --color-secondary-500: #fe6a3c;
+  --color-secondary-600: #e05020;
+  --color-secondary-700: #b73c18;
+  --color-secondary-800: #8f3118;
+  --color-secondary-900: #6b2816;
 
   /* Success (green) */
   --color-success-50:  #e8faf0;
@@ -132,8 +132,8 @@
   --popover: #ffffff;
   --popover-foreground: oklch(0.145 0.017 253);
 
-  /* Primary — Blue #006FEE */
-  --primary: #006fee;
+  /* Primary — Teal #058B96 (from logo) */
+  --primary: #058b96;
   --primary-foreground: #ffffff;
 
   /* Secondary — surface gray (layout use) */
@@ -144,7 +144,7 @@
   --muted: #f0efee;
   --muted-foreground: oklch(0.522 0.018 250);    /* #6B7280 */
 
-  /* Accent */
+  /* Accent — Coral #FE6A3C (from logo) */
   --accent: #f0efee;
   --accent-foreground: oklch(0.145 0.017 253);
 
@@ -154,27 +154,27 @@
   /* Borders & Input */
   --border: #e8e7e5;
   --input: #e8e7e5;
-  --ring: #006fee;
+  --ring: #058b96;
 
   /* Radius */
   --radius: 0.625rem;
 
   /* Charts */
-  --chart-1: #006fee;
+  --chart-1: #058b96;
   --chart-2: #17c964;
   --chart-3: #f31260;
-  --chart-4: #7828c8;
+  --chart-4: #fe6a3c;
   --chart-5: #f5a524;
 
   /* Sidebar */
   --sidebar: #f9f8f7;                            /* menú lateral */
   --sidebar-foreground: oklch(0.145 0.017 253);
-  --sidebar-primary: #006fee;
+  --sidebar-primary: #058b96;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #f0efee;
   --sidebar-accent-foreground: oklch(0.145 0.017 253);
   --sidebar-border: #e8e7e5;
-  --sidebar-ring: #006fee;
+  --sidebar-ring: #058b96;
 }
 
 .dark {
@@ -186,8 +186,8 @@
   --popover: #242424;                            /* popovers flotantes */
   --popover-foreground: #ebebeb;
 
-  /* Primary — Blue #006FEE */
-  --primary: #006fee;
+  /* Primary — Teal #058B96 (from logo) */
+  --primary: #058b96;
   --primary-foreground: #ffffff;
 
   /* Secondary — surface dark */
@@ -208,24 +208,24 @@
   /* Borders & Input */
   --border: #2e2e2e;
   --input: #2e2e2e;
-  --ring: #006fee;
+  --ring: #058b96;
 
   /* Charts */
-  --chart-1: #006fee;
+  --chart-1: #058b96;
   --chart-2: #17c964;
   --chart-3: #f31260;
-  --chart-4: #7828c8;
+  --chart-4: #fe6a3c;
   --chart-5: #f5a524;
 
   /* Sidebar — darker than background */
   --sidebar: #1f1f1f;                            /* menú lateral */
   --sidebar-foreground: #ececec;
-  --sidebar-primary: #006fee;
+  --sidebar-primary: #058b96;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #2b2b2b;
   --sidebar-accent-foreground: #f5f5f5;
   --sidebar-border: #2a2a2a;
-  --sidebar-ring: #006fee;
+  --sidebar-ring: #058b96;
 }
 
 @theme inline {

@@ -117,11 +117,11 @@ export default function SharingSettingsPage() {
           <Button
             variant="primary"
             size="md"
-            startContent={<Mail className="h-4 w-4" />}
             onClick={() => inviteMutation.mutate()}
             disabled={!inviteEmail.trim() || inviteMutation.isPending}
             className="rounded-md"
           >
+            <Mail className="h-4 w-4 mr-2" />
             {inviteMutation.isPending ? 'Enviando...' : 'Invitar'}
           </Button>
         </div>

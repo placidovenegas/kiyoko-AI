@@ -115,19 +115,19 @@ function CharacterCard({
           </DropdownTrigger>
           <DropdownMenu aria-label="Character actions" className="w-44">
             <DropdownSection>
-              <DropdownItem key="view" startContent={<Eye className="h-4 w-4" />} onClick={() => onAction?.('view', character)}>
-                Ver detalle
+              <DropdownItem key="view" onClick={() => onAction?.('view', character)}>
+                <Eye className="h-4 w-4 mr-2" />Ver detalle
               </DropdownItem>
-              <DropdownItem key="edit" startContent={<Pencil className="h-4 w-4" />} onClick={() => onAction?.('edit', character)}>
-                Editar
+              <DropdownItem key="edit" onClick={() => onAction?.('edit', character)}>
+                <Pencil className="h-4 w-4 mr-2" />Editar
               </DropdownItem>
-              <DropdownItem key="duplicate" startContent={<Copy className="h-4 w-4" />} onClick={() => onAction?.('duplicate', character)}>
-                Duplicar
+              <DropdownItem key="duplicate" onClick={() => onAction?.('duplicate', character)}>
+                <Copy className="h-4 w-4 mr-2" />Duplicar
               </DropdownItem>
             </DropdownSection>
             <DropdownSection>
-              <DropdownItem key="delete" className="text-danger" color="danger" startContent={<Trash2 className="h-4 w-4" />} onClick={() => onAction?.('delete', character)}>
-                Eliminar
+              <DropdownItem key="delete" className="text-danger" onClick={() => onAction?.('delete', character)}>
+                <Trash2 className="h-4 w-4 mr-2" />Eliminar
               </DropdownItem>
             </DropdownSection>
           </DropdownMenu>
@@ -222,10 +222,9 @@ export default function CharactersPage() {
         <Button
           variant="primary"
           size="md"
-          startContent={<Plus className="h-4 w-4" />}
           className="rounded-md"
         >
-          Nuevo personaje
+          <Plus className="h-4 w-4 mr-2" />Nuevo personaje
         </Button>
       </div>
 
@@ -242,10 +241,9 @@ export default function CharactersPage() {
           <Button
             variant="primary"
             size="lg"
-            startContent={<Plus className="h-4 w-4" />}
             className="rounded-md"
           >
-            Crear primer personaje
+            <Plus className="h-4 w-4 mr-2" />Crear primer personaje
           </Button>
         </div>
       ) : (

@@ -344,13 +344,13 @@ export default function DashboardPage() {
             />
           </div>
           <Link href="/new">
-            <Button size="md" startContent={<Plus className="h-4 w-4" />} className="rounded-md">
-              <span className="hidden sm:inline">Nuevo Proyecto</span>
+            <Button size="md" className="rounded-md">
+              <Plus className="h-4 w-4 mr-2" /><span className="hidden sm:inline">Nuevo Proyecto</span>
             </Button>
           </Link>
           <Link href="/new?mode=ai">
-            <Button variant="secondary" size="md" startContent={<Sparkles className="h-4 w-4" />} className="rounded-md">
-              <span className="hidden sm:inline">Generar con IA</span>
+            <Button variant="secondary" size="md" className="rounded-md">
+              <Sparkles className="h-4 w-4 mr-2" /><span className="hidden sm:inline">Generar con IA</span>
             </Button>
           </Link>
         </div>

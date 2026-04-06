@@ -246,20 +246,20 @@ export default function TasksPage() {
             <Button
               variant="secondary"
               size="sm"
-              startContent={<Sparkles className="h-3.5 w-3.5" />}
               onClick={() =>
                 toast.info('Proximamente: generar plan de tareas con IA')
               }
               className="rounded-md"
             >
+              <Sparkles className="h-3.5 w-3.5 mr-2" />
               Generar con IA
             </Button>
             <Button
               size="sm"
-              startContent={<Plus className="h-3.5 w-3.5" />}
               onClick={() => setCreateModalOpen(true)}
               className="rounded-md"
             >
+              <Plus className="h-3.5 w-3.5 mr-2" />
               Nueva tarea
             </Button>
           </div>

@@ -262,9 +262,9 @@ export function VideoCreateModal({ open, onClose, projectId, onCreated }: VideoC
             onPress={handleCreate}
             isDisabled={creating || (mode === 'manual' ? !title.trim() : !aiBrief.trim())}
             isPending={creating}
-            startContent={mode === 'ai' ? <Sparkles className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
             className="shadow-lg shadow-primary/20 rounded-md"
           >
+            {mode === 'ai' ? <Sparkles className="h-4 w-4 mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
             {creating ? 'Creando...' : mode === 'ai' ? 'Generar video' : 'Crear video'}
           </Button>
         </div>

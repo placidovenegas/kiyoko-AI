@@ -88,13 +88,12 @@ function EmptyState({ basePath }: { basePath: string }) {
         Crea tu primera escena para empezar a construir el video
       </p>
       <Button
-        startContent={<Plus className="h-4 w-4" />}
         onClick={() => {
           /* TODO: open create scene modal */
         }}
         className="rounded-md"
       >
-        Nueva escena
+        <Plus className="h-4 w-4 mr-2" />Nueva escena
       </Button>
     </div>
   );
@@ -317,23 +316,21 @@ export default function ScenesPage() {
             <Button
               variant="secondary"
               size="sm"
-              startContent={<Sparkles className="h-3.5 w-3.5" />}
               onClick={() => {
                 /* TODO: AI generate scenes */
               }}
               className="rounded-md"
             >
-              IA
+              <Sparkles className="h-3.5 w-3.5 mr-2" />IA
             </Button>
             <Button
               size="sm"
-              startContent={<Plus className="h-3.5 w-3.5" />}
               onClick={() => {
                 /* TODO: open create scene modal */
               }}
               className="rounded-md"
             >
-              Nueva escena
+              <Plus className="h-3.5 w-3.5 mr-2" />Nueva escena
             </Button>
           </div>
         </div>

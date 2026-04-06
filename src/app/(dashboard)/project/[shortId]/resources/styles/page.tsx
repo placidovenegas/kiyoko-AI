@@ -70,8 +70,8 @@ export default function StylesPage() {
             <span className="font-normal text-muted-foreground">({presets.length})</span>
           </h1>
         </div>
-        <Button variant="primary" size="md" startContent={<Plus className="h-4 w-4" />} className="rounded-md">
-          Nuevo estilo
+        <Button variant="primary" size="md" className="rounded-md">
+          <Plus className="h-4 w-4 mr-2" />Nuevo estilo
         </Button>
       </div>
 
@@ -83,8 +83,8 @@ export default function StylesPage() {
           <p className="mb-6 max-w-sm text-center text-sm text-muted-foreground">
             Crea presets de estilo para mantener consistencia visual en tu proyecto.
           </p>
-          <Button variant="primary" size="lg" startContent={<Plus className="h-4 w-4" />} className="rounded-md">
-            Crear primer estilo
+          <Button variant="primary" size="lg" className="rounded-md">
+            <Plus className="h-4 w-4 mr-2" />Crear primer estilo
           </Button>
         </div>
       ) : (
@@ -120,7 +120,6 @@ export default function StylesPage() {
                     <Button
                       variant="primary"
                       size="sm"
-                      startContent={<Save className="h-3.5 w-3.5" />}
                       onClick={() =>
                         updatePreset.mutate({
                           id: preset.id,
@@ -129,7 +128,7 @@ export default function StylesPage() {
                       }
                       className="rounded-md"
                     >
-                      Guardar
+                      <Save className="h-3.5 w-3.5 mr-2" />Guardar
                     </Button>
                   </div>
                 </div>

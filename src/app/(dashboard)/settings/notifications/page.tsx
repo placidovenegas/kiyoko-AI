@@ -114,11 +114,11 @@ export default function NotificationsPage() {
         <Button
           variant="primary"
           size="md"
-          startContent={saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
           onClick={() => saveMutation.mutate()}
           disabled={saveMutation.isPending}
           className="rounded-md"
         >
+          {saved ? <Check className="h-4 w-4 mr-2" /> : <Save className="h-4 w-4 mr-2" />}
           {saved ? 'Guardado' : saveMutation.isPending ? 'Guardando...' : 'Guardar'}
         </Button>
       </div>

@@ -85,11 +85,10 @@ export default function VideoAnalysisPage() {
         <Button
           variant="primary"
           size="lg"
-          startContent={<BarChart3 className="h-4 w-4" />}
           onClick={handleReAnalyze}
           className="rounded-md"
         >
-          Analizar video
+          <BarChart3 className="h-4 w-4 mr-2" />Analizar video
         </Button>
       </div>
     );
@@ -119,7 +118,6 @@ export default function VideoAnalysisPage() {
         <Button
           variant="secondary"
           size="md"
-          startContent={<RefreshCw className="h-3.5 w-3.5" />}
           isLoading={isFetching}
           onClick={() => {
             handleReAnalyze();
@@ -127,7 +125,7 @@ export default function VideoAnalysisPage() {
           }}
           className="rounded-md"
         >
-          Re-analizar
+          <RefreshCw className="h-3.5 w-3.5 mr-2" />Re-analizar
         </Button>
       </div>
 

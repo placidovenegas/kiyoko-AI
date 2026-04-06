@@ -98,9 +98,9 @@ export default function OrganizationPage() {
         <Button
           variant="primary"
           size="md"
-          startContent={<UserPlus className="h-4 w-4" />}
           className="rounded-md"
         >
+          <UserPlus className="h-4 w-4 mr-2" />
           Invitar miembro
         </Button>
       </div>

@@ -55,8 +55,8 @@ export default function TemplatesPage() {
             <span className="font-normal text-muted-foreground">({templates.length})</span>
           </h1>
         </div>
-        <Button variant="primary" size="md" startContent={<Plus className="h-4 w-4" />} className="rounded-md">
-          Nueva plantilla
+        <Button variant="primary" size="md" className="rounded-md">
+          <Plus className="h-4 w-4 mr-2" />Nueva plantilla
         </Button>
       </div>
 
@@ -68,8 +68,8 @@ export default function TemplatesPage() {
           <p className="mb-6 max-w-sm text-center text-sm text-muted-foreground">
             Crea plantillas de prompts reutilizables para acelerar la generacion de contenido.
           </p>
-          <Button variant="primary" size="lg" startContent={<Plus className="h-4 w-4" />} className="rounded-md">
-            Crear primera plantilla
+          <Button variant="primary" size="lg" className="rounded-md">
+            <Plus className="h-4 w-4 mr-2" />Crear primera plantilla
           </Button>
         </div>
       ) : (

@@ -27,7 +27,7 @@ const Switch = React.forwardRef<
     isSelected={checked}
     defaultSelected={defaultChecked}
     onValueChange={onCheckedChange}
-    isDisabled={disabled}
+    disabled={disabled}
     className={cn(className)}
     {...props}
   />

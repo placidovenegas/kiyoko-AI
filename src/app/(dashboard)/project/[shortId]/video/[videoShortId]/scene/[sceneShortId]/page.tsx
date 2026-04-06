@@ -565,10 +565,9 @@ export default function SceneDetailPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  startContent={<RefreshCw className="h-3.5 w-3.5" />}
                   className="rounded-md"
                 >
-                  Regenerar imagen
+                  <RefreshCw className="h-3.5 w-3.5 mr-2" />Regenerar imagen
                 </Button>
               </div>
             </Card>
@@ -613,11 +612,11 @@ export default function SceneDetailPage() {
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">Total: {totalClipDuration}s</span>
                     <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm" startContent={<Play className="h-3.5 w-3.5" />} className="rounded-md">
-                        Reproducir todo
+                      <Button variant="outline" size="sm" className="rounded-md">
+                        <Play className="h-3.5 w-3.5 mr-2" />Reproducir todo
                       </Button>
-                      <Button variant="outline" size="sm" startContent={<RefreshCw className="h-3.5 w-3.5" />} className="rounded-md">
-                        Regenerar clips
+                      <Button variant="outline" size="sm" className="rounded-md">
+                        <RefreshCw className="h-3.5 w-3.5 mr-2" />Regenerar clips
                       </Button>
                     </div>
                   </div>

@@ -154,10 +154,10 @@ export default function PublicationDetailPage() {
                 <Button
                   variant="primary"
                   size="sm"
-                  startContent={<Save className="h-3 w-3" />}
                   onClick={() => updatePub.mutate({ caption: editCaption })}
                   className="rounded-md"
                 >
+                  <Save className="h-3 w-3 mr-1.5" />
                   Guardar
                 </Button>
               )}
@@ -194,7 +194,6 @@ export default function PublicationDetailPage() {
                 <Button
                   variant="primary"
                   size="sm"
-                  startContent={<Save className="h-3 w-3" />}
                   onClick={() =>
                     updatePub.mutate({
                       hashtags: editHashtags
@@ -205,6 +204,7 @@ export default function PublicationDetailPage() {
                   }
                   className="rounded-md"
                 >
+                  <Save className="h-3 w-3 mr-1.5" />
                   Guardar
                 </Button>
               )}

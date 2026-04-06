@@ -31,9 +31,9 @@ export default function BlockedPage() {
         variant="outline"
         size="lg"
         onClick={handleSignOut}
-        startContent={<LogOut className="h-4 w-4" />}
         className="mt-6 rounded-md"
       >
+        <LogOut className="h-4 w-4 mr-2" />
         Cerrar sesión
       </Button>
     </AuthCard>

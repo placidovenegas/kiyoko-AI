@@ -315,8 +315,8 @@ export default function NarrationPage() {
                   </span>
                 )}
               </div>
-              <Button variant="ghost" size="sm" startContent={<RefreshCw className="h-3.5 w-3.5" />} className="rounded-md">
-                Cambiar voz
+              <Button variant="ghost" size="sm" className="rounded-md">
+                <RefreshCw className="h-3.5 w-3.5 mr-2" />Cambiar voz
               </Button>
             </div>
 
@@ -361,12 +361,11 @@ export default function NarrationPage() {
             <Button
               variant="secondary"
               size="sm"
-              startContent={<Sparkles className="h-3.5 w-3.5" />}
               isLoading={generateTextMutation.isPending}
               onClick={() => generateTextMutation.mutate()}
               className="rounded-md"
             >
-              Generar con IA
+              <Sparkles className="h-3.5 w-3.5 mr-2" />Generar con IA
             </Button>
           </div>
           <textarea
@@ -393,12 +392,11 @@ export default function NarrationPage() {
                 <Button
                   variant="primary"
                   size="sm"
-                  startContent={<Save className="h-3.5 w-3.5" />}
                   isLoading={saveMutation.isPending}
                   onClick={() => saveMutation.mutate()}
                   className="rounded-md"
                 >
-                  Guardar
+                  <Save className="h-3.5 w-3.5 mr-2" />Guardar
                 </Button>
               )}
             </div>
@@ -426,23 +424,21 @@ export default function NarrationPage() {
             <Button
               variant="primary"
               size="md"
-              startContent={<Mic className="h-4 w-4" />}
               isLoading={generateAudioMutation.isPending}
               disabled={!narrationText}
               onClick={() => generateAudioMutation.mutate()}
               className="rounded-md"
             >
-              Generar audio TTS
+              <Mic className="h-4 w-4 mr-2" />Generar audio TTS
             </Button>
             {narration?.audio_url && (
               <Button
                 variant="outline"
                 size="md"
-                startContent={<Download className="h-4 w-4" />}
                 onClick={handleDownload}
                 className="rounded-md"
               >
-                Descargar MP3
+                <Download className="h-4 w-4 mr-2" />Descargar MP3
               </Button>
             )}
           </div>

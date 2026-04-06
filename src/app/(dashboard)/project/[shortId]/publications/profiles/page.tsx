@@ -99,10 +99,10 @@ export default function SocialProfilesPage() {
         <Button
           variant="primary"
           size="md"
-          startContent={<Plus className="h-4 w-4" />}
           onClick={() => setShowForm(true)}
           className="rounded-md"
         >
+          <Plus className="h-4 w-4 mr-2" />
           Nuevo perfil
         </Button>
       </div>
@@ -161,11 +161,11 @@ export default function SocialProfilesPage() {
             <Button
               variant="primary"
               size="sm"
-              startContent={<Plus className="h-3.5 w-3.5" />}
               onClick={() => createProfile.mutate()}
-              isDisabled={!formName.trim() || createProfile.isPending}
+              disabled={!formName.trim() || createProfile.isPending}
               className="rounded-md"
             >
+              <Plus className="h-3.5 w-3.5 mr-2" />
               {createProfile.isPending ? 'Creando...' : 'Crear perfil'}
             </Button>
           </div>
@@ -183,10 +183,10 @@ export default function SocialProfilesPage() {
           <Button
             variant="primary"
             size="lg"
-            startContent={<Plus className="h-4 w-4" />}
             onClick={() => setShowForm(true)}
             className="rounded-md"
           >
+            <Plus className="h-4 w-4 mr-2" />
             Crear primer perfil
           </Button>
         </div>

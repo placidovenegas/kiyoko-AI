@@ -498,7 +498,7 @@ function EditableSection({
             <Button variant="outline" size="sm" onClick={onCancel}>
               Cancelar
             </Button>
-            <Button variant="primary" color="primary" size="sm" onClick={() => onSave(fieldKey)} isDisabled={saving}>
+            <Button variant="primary" color="primary" size="sm" onClick={() => onSave(fieldKey)} disabled={saving}>
               {saving ? 'Guardando...' : 'Guardar'}
             </Button>
           </div>

@@ -57,7 +57,7 @@ function TabsTrigger({
     <HeroTabs.Tab
       id={value}
       className={cn(className)}
-      isDisabled={disabled}
+      disabled={disabled}
     >
       {children}
     </HeroTabs.Tab>

@@ -370,8 +370,8 @@ export default function VideoOverviewPage() {
             </select>
 
             <Link href={`${basePath}/scenes`}>
-              <Button variant="ghost" size="sm" endContent={<ArrowRight className="h-3.5 w-3.5" />} className="rounded-md">
-                Ver todas
+              <Button variant="ghost" size="sm" className="rounded-md">
+                Ver todas<ArrowRight className="h-3.5 w-3.5 ml-2" />
               </Button>
             </Link>
           </div>
@@ -389,13 +389,13 @@ export default function VideoOverviewPage() {
             <p className="mt-1 text-xs text-muted-foreground">Crea escenas manualmente o genera con IA</p>
             <div className="mt-4 flex gap-2">
               <Link href={`${basePath}/scenes`}>
-                <Button variant="outline" size="sm" startContent={<Plus className="h-3.5 w-3.5" />} className="rounded-md">
-                  Crear manual
+                <Button variant="outline" size="sm" className="rounded-md">
+                  <Plus className="h-3.5 w-3.5 mr-2" />Crear manual
                 </Button>
               </Link>
               <Link href={`${basePath}/scenes`}>
-                <Button variant="primary" size="sm" startContent={<Sparkles className="h-3.5 w-3.5" />} className="rounded-md">
-                  Generar con IA
+                <Button variant="primary" size="sm" className="rounded-md">
+                  <Sparkles className="h-3.5 w-3.5 mr-2" />Generar con IA
                 </Button>
               </Link>
             </div>

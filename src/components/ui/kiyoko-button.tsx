@@ -8,7 +8,7 @@
 import { forwardRef } from 'react';
 import { Button, type ButtonProps } from '@/components/ui/button';
 
-export interface KButtonProps extends Omit<ButtonProps, 'variant' | 'color' | 'size' | 'startContent' | 'endContent'> {
+export interface KButtonProps extends Omit<ButtonProps, 'variant' | 'color' | 'size'> {
   variant?:      'primary' | 'secondary' | 'ghost' | 'outline' | 'danger' | 'ai' | 'success';
   size?:         'xs' | 'sm' | 'md' | 'lg';
   loading?:      boolean;
@@ -41,6 +41,9 @@ export const KButton = forwardRef<HTMLButtonElement, KButtonProps>(
   ) => {
     const mapped = VARIANT_MAP[variant] ?? VARIANT_MAP.primary;
 
+    const leftIcon = iconPosition === 'left' && icon ? <span className="mr-2">{icon}</span> : null;
+    const rightIcon = iconPosition === 'right' && icon ? <span className="ml-2">{icon}</span> : null;
+
     return (
       <Button
         ref={ref}
@@ -48,11 +51,11 @@ export const KButton = forwardRef<HTMLButtonElement, KButtonProps>(
         color={mapped.color}
         size={size}
         isLoading={loading}
-        startContent={iconPosition === 'left' ? icon : undefined}
-        endContent={iconPosition === 'right' ? icon : undefined}
         {...props}
       >
+        {leftIcon}
         {children}
+        {rightIcon}
       </Button>
     );
   }

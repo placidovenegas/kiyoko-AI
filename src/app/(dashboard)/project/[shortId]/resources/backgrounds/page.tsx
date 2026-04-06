@@ -154,10 +154,9 @@ export default function BackgroundsPage() {
         <Button
           variant="primary"
           size="md"
-          startContent={<Plus className="h-4 w-4" />}
           className="rounded-md"
         >
-          Nuevo fondo
+          <Plus className="h-4 w-4 mr-2" />Nuevo fondo
         </Button>
       </div>
 
@@ -174,10 +173,9 @@ export default function BackgroundsPage() {
           <Button
             variant="primary"
             size="lg"
-            startContent={<Plus className="h-4 w-4" />}
             className="rounded-md"
           >
-            Crear primer fondo
+            <Plus className="h-4 w-4 mr-2" />Crear primer fondo
           </Button>
         </div>
       ) : (

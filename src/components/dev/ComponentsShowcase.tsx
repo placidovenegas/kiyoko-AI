@@ -141,9 +141,9 @@ export function ComponentsShowcase() {
             <Button isLoading variant="bordered" color="success">Generating</Button>
           </Row>
           <Row label="With icons">
-            <Button color="primary" startContent={<Plus />}>Nuevo</Button>
-            <Button variant="flat" color="danger" endContent={<Trash2 />}>Eliminar</Button>
-            <Button variant="bordered" color="default" startContent={<Settings />}>Ajustes</Button>
+            <Button color="primary"><Plus className="mr-2" />Nuevo</Button>
+            <Button variant="flat" color="danger">Eliminar<Trash2 className="ml-2" /></Button>
+            <Button variant="bordered" color="default"><Settings className="mr-2" />Ajustes</Button>
           </Row>
           <Row label="Icon only">
             <Button isIconOnly size="xs" variant="flat" color="default"><Bell /></Button>
@@ -234,8 +234,15 @@ export function ComponentsShowcase() {
             />
           </Row>
           <Row label="With icons">
-            <Input variant="bordered" startContent={<Search className="size-4" />} placeholder="Buscar..." className="w-64" />
-            <Input variant="bordered" startContent={<Mail className="size-4" />} endContent={<Eye className="size-4" />} placeholder="Email" className="w-64" />
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <Input variant="bordered" placeholder="Buscar..." className="w-64 pl-9" />
+            </div>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <Eye className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <Input variant="bordered" placeholder="Email" className="w-64 pl-9 pr-9" />
+            </div>
           </Row>
           <Row label="Sizes">
             <Input size="sm" variant="bordered" placeholder="Small" className="w-40" />
@@ -678,39 +685,39 @@ export function ComponentsShowcase() {
           <Row label="Types">
             <Button
               variant="flat" color="success"
-              startContent={<CheckCircle2 className="size-4" />}
               onClick={() => toast.success('Proyecto guardado correctamente', { description: 'Los cambios se han guardado en la nube.' })}
             >
+              <CheckCircle2 className="size-4 mr-2" />
               Success
             </Button>
             <Button
               variant="flat" color="danger"
-              startContent={<Trash2 className="size-4" />}
               onClick={() => toast.error('Error al eliminar', { description: 'No se pudo conectar con el servidor.' })}
             >
+              <Trash2 className="size-4 mr-2" />
               Error
             </Button>
             <Button
               variant="flat" color="warning"
-              startContent={<AlertTriangle className="size-4" />}
               onClick={() => toast.warning('Cambios sin guardar', { description: 'Guarda antes de salir.' })}
             >
+              <AlertTriangle className="size-4 mr-2" />
               Warning
             </Button>
             <Button
               variant="flat" color="primary"
-              startContent={<Info className="size-4" />}
               onClick={() => toast.info('Nueva funcionalidad disponible', { description: 'Revisa el changelog para más detalles.' })}
             >
+              <Info className="size-4 mr-2" />
               Info
             </Button>
           </Row>
           <Row label="Loading & Promise">
             <Button
               variant="bordered" color="default"
-              startContent={<Spinner size="xs" color="primary" />}
               onClick={() => toast.loading('Generando storyboard...', { duration: 3000 })}
             >
+              <Spinner size="xs" color="primary" className="mr-2" />
               Loading
             </Button>
             <Button
@@ -776,18 +783,18 @@ export function ComponentsShowcase() {
           <Row>
             <Dropdown>
               <DropdownTrigger>
-                <Button variant="bordered" color="default" endContent={<ChevronDown />}>
-                  Opciones
+                <Button variant="bordered" color="default">
+                  Opciones<ChevronDown className="ml-2" />
                 </Button>
               </DropdownTrigger>
               <DropdownMenu aria-label="Options">
                 <DropdownSection>
-                  <DropdownItem key="new" startContent={<Plus className="h-4 w-4" />}>Nuevo</DropdownItem>
-                  <DropdownItem key="settings" startContent={<Settings className="h-4 w-4" />}>Ajustes</DropdownItem>
+                  <DropdownItem key="new"><Plus className="h-4 w-4 mr-2 inline" />Nuevo</DropdownItem>
+                  <DropdownItem key="settings"><Settings className="h-4 w-4 mr-2 inline" />Ajustes</DropdownItem>
                 </DropdownSection>
                 <DropdownSection>
-                  <DropdownItem key="delete" className="text-danger" color="danger" startContent={<Trash2 className="h-4 w-4" />}>
-                    Eliminar
+                  <DropdownItem key="delete" className="text-danger">
+                    <Trash2 className="h-4 w-4 mr-2 inline" />Eliminar
                   </DropdownItem>
                 </DropdownSection>
               </DropdownMenu>
@@ -803,7 +810,7 @@ export function ComponentsShowcase() {
             {/* Danger */}
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="flat" color="danger" startContent={<Trash2 />}>Eliminar</Button>
+                <Button variant="flat" color="danger"><Trash2 className="mr-2" />Eliminar</Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogIcon color="danger"><Trash2 className="size-5" /></AlertDialogIcon>
@@ -823,7 +830,7 @@ export function ComponentsShowcase() {
             {/* Warning */}
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="flat" color="warning" startContent={<AlertTriangle />}>Advertencia</Button>
+                <Button variant="flat" color="warning"><AlertTriangle className="mr-2" />Advertencia</Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogIcon color="warning"><AlertTriangle className="size-5" /></AlertDialogIcon>
@@ -843,7 +850,7 @@ export function ComponentsShowcase() {
             {/* Info */}
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="flat" color="primary" startContent={<Info />}>Info</Button>
+                <Button variant="flat" color="primary"><Info className="mr-2" />Info</Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogIcon color="primary"><Info className="size-5" /></AlertDialogIcon>
@@ -904,9 +911,9 @@ export function ComponentsShowcase() {
             <Chip color="danger" variant="bordered" onClose={() => {}}>Eliminar</Chip>
           </Row>
           <Row label="With icons">
-            <Chip color="primary" startContent={<Film className="size-3" />}>Video</Chip>
-            <Chip color="secondary" startContent={<Tag className="size-3" />}>Tag</Chip>
-            <Chip color="warning" variant="faded" startContent={<Zap className="size-3" />}>AI</Chip>
+            <Chip color="primary"><Film className="size-3 mr-1" />Video</Chip>
+            <Chip color="secondary"><Tag className="size-3 mr-1" />Tag</Chip>
+            <Chip color="warning" variant="faded"><Zap className="size-3 mr-1" />AI</Chip>
           </Row>
         </Section>
 

@@ -245,19 +245,19 @@ function VideoRow({
           </DropdownTrigger>
           <DropdownMenu aria-label="Video actions" className="min-w-48">
             <DropdownSection>
-              <DropdownItem key="open" startContent={<FolderOpen className="h-4 w-4" />} onClick={() => router.push(`/project/${projectShortId}/video/${video.short_id}`)}>
-                Abrir video
+              <DropdownItem key="open" onClick={() => router.push(`/project/${projectShortId}/video/${video.short_id}`)}>
+                <FolderOpen className="h-4 w-4 mr-2" />Abrir video
               </DropdownItem>
             </DropdownSection>
             <DropdownSection>
-              <DropdownItem key="rename" startContent={<Pencil className="h-4 w-4" />} onClick={() => router.push(`/project/${projectShortId}/video/${video.short_id}`)}>
-                Renombrar
+              <DropdownItem key="rename" onClick={() => router.push(`/project/${projectShortId}/video/${video.short_id}`)}>
+                <Pencil className="h-4 w-4 mr-2" />Renombrar
               </DropdownItem>
-              <DropdownItem key="duplicate" startContent={<Copy className="h-4 w-4" />}>
-                Duplicar
+              <DropdownItem key="duplicate">
+                <Copy className="h-4 w-4 mr-2" />Duplicar
               </DropdownItem>
             </DropdownSection>
-            <DropdownSection title="Cambiar estado">
+            <DropdownSection>
               {['draft', 'prompting', 'generating', 'review', 'approved', 'exported'].map((s) => (
                 <DropdownItem
                   key={s}
@@ -270,8 +270,8 @@ function VideoRow({
               ))}
             </DropdownSection>
             <DropdownSection>
-              <DropdownItem key="delete" className="text-danger" color="danger" startContent={<Trash2 className="h-4 w-4" />} onClick={() => deleteMutation.mutate()}>
-                Eliminar
+              <DropdownItem key="delete" className="text-danger" onClick={() => deleteMutation.mutate()}>
+                <Trash2 className="h-4 w-4 mr-2" />Eliminar
               </DropdownItem>
             </DropdownSection>
           </DropdownMenu>
@@ -398,8 +398,8 @@ export default function ProjectOverviewPage() {
         <div className="flex items-start justify-between gap-4">
           <h1 className="text-xl font-semibold text-foreground">{project.title}</h1>
           <Link href={`/project/${sid}/settings`}>
-            <Button variant="ghost" size="sm" startContent={<Settings className="h-4 w-4" />} className="rounded-md">
-              Ajustes
+            <Button variant="ghost" size="sm" className="rounded-md">
+              <Settings className="h-4 w-4 mr-2" />Ajustes
             </Button>
           </Link>
         </div>
@@ -483,8 +483,8 @@ export default function ProjectOverviewPage() {
             Videos ({videos.length})
           </h3>
           <Link href={`/project/${sid}/videos`}>
-            <Button size="sm" startContent={<Plus className="h-3.5 w-3.5" />} className="rounded-md">
-              Nuevo video
+            <Button size="sm" className="rounded-md">
+              <Plus className="h-3.5 w-3.5 mr-2" />Nuevo video
             </Button>
           </Link>
         </div>

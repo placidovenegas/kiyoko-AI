@@ -215,11 +215,11 @@ export default function NewPublicationPage() {
           <Button
             variant="primary"
             size="md"
-            startContent={<Send className="h-4 w-4" />}
             onClick={() => createPub.mutate()}
             disabled={!canSubmit || createPub.isPending}
             className="rounded-md"
           >
+            <Send className="h-4 w-4 mr-2" />
             {createPub.isPending ? 'Creando...' : 'Crear publicacion'}
           </Button>
         </div>

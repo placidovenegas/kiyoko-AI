@@ -115,9 +115,9 @@ export default function SubscriptionPage() {
           <Button
             variant="primary"
             size="lg"
-            startContent={<Sparkles className="h-4 w-4" />}
             className="rounded-md"
           >
+            <Sparkles className="h-4 w-4 mr-2" />
             Actualizar plan
           </Button>
         </div>
@@ -132,9 +132,9 @@ export default function SubscriptionPage() {
           <Button
             variant="primary"
             size="lg"
-            startContent={<Sparkles className="h-4 w-4" />}
             className="rounded-md"
           >
+            <Sparkles className="h-4 w-4 mr-2" />
             Contactar ventas
           </Button>
         </div>

@@ -128,29 +128,29 @@ function VideoRow({
             </DropdownTrigger>
             <DropdownMenu aria-label="Video actions" className="w-48">
               <DropdownSection>
-                <DropdownItem key="open" startContent={<ExternalLink className="h-4 w-4" />} href={`/project/${projectShortId}/video/${video.short_id}`}>
-                  Abrir vídeo
+                <DropdownItem key="open" onAction={() => window.location.href = `/project/${projectShortId}/video/${video.short_id}`}>
+                  <ExternalLink className="h-4 w-4 mr-2" />Abrir vídeo
                 </DropdownItem>
               </DropdownSection>
               <DropdownSection>
-                <DropdownItem key="duplicate" startContent={<Copy className="h-4 w-4" />} onClick={() => onDuplicate(video)}>
-                  Duplicar
+                <DropdownItem key="duplicate" onClick={() => onDuplicate(video)}>
+                  <Copy className="h-4 w-4 mr-2" />Duplicar
                 </DropdownItem>
               </DropdownSection>
-              <DropdownSection title="Cambiar estado">
+              <DropdownSection>
                 {VIDEO_STATUSES.map((s) => (
                   <DropdownItem
                     key={s}
                     onClick={() => onStatusChange(video.id, s)}
                     className={video.status === s ? 'text-primary' : ''}
-                    endContent={video.status === s ? <CheckCircle2 className="h-3.5 w-3.5" /> : undefined}
                   >
-                    {STATUS_LABELS[s]}
+                    {STATUS_LABELS[s]}{video.status === s && <CheckCircle2 className="h-3.5 w-3.5 ml-auto" />}
                   </DropdownItem>
                 ))}
               </DropdownSection>
               <DropdownSection>
-                <DropdownItem key="delete" className="text-danger" color="danger" startContent={<Trash2 className="h-4 w-4" />} onClick={() => onDelete(video.id)}>
+                <DropdownItem key="delete" className="text-danger" onClick={() => onDelete(video.id)}>
+                  <Trash2 className="h-4 w-4 mr-2" />
                   Eliminar
                 </DropdownItem>
               </DropdownSection>
