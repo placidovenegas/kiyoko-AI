@@ -145,7 +145,7 @@ export function SidebarProjectNav({ projectShortId }: { projectShortId: string }
           <ul className="flex flex-col gap-0.5">
             {renderSettingsButton({ label: t('settings.title'), icon: Settings, section: 'general' })}
             {renderSettingsButton({ label: t('ai.director'), icon: Bot, section: 'ia' })}
-            <NavItem href={`${base}/settings/sharing`} icon={UserPlus} label={t('settings.organizations')} pathname={pathname} isCollapsed />
+            <NavItem href={`${base}/settings/sharing`} icon={UserPlus} label="Compartir" pathname={pathname} isCollapsed />
           </ul>
         </div>
       </div>
@@ -199,7 +199,7 @@ export function SidebarProjectNav({ projectShortId }: { projectShortId: string }
         <ul className="flex flex-col gap-0.5">
           {renderSettingsButton({ label: 'General', icon: Settings, section: 'general' })}
           {renderSettingsButton({ label: t('ai.director'), icon: Bot, section: 'ia' })}
-          <NavItem href={`${base}/settings/sharing`} icon={UserPlus} label={t('settings.organizations')} pathname={pathname} isCollapsed={false} />
+          <NavItem href={`${base}/settings/sharing`} icon={UserPlus} label="Compartir" pathname={pathname} isCollapsed={false} />
         </ul>
       </div>
     </div>
