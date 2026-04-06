@@ -552,6 +552,7 @@ export default function VideoOverviewPage() {
   const [generatingAll, setGeneratingAll] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('storyboard');
   const [showCreateScene, setShowCreateScene] = useState(false);
+  const [aiDescription, setAiDescription] = useState('');
 
   async function handleGeneratePrompts(sceneId: string) {
     setGeneratingSceneId(sceneId);
@@ -888,17 +889,73 @@ export default function VideoOverviewPage() {
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         ) : scenes.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card/50 py-12">
-            <Film className="h-10 w-10 text-muted-foreground/60" />
-            <h4 className="mt-3 text-sm font-medium text-foreground">Sin escenas todavia</h4>
-            <p className="mt-1 text-xs text-muted-foreground">Crea escenas manualmente o genera con IA</p>
-            <button
-              type="button"
-              onClick={() => setShowCreateScene(true)}
-              className="mt-4 text-sm font-medium text-primary hover:underline"
-            >
-              Crear primera escena
-            </button>
+          <div className="rounded-xl border border-border bg-card p-6 sm:p-8 space-y-5">
+            <div className="text-center space-y-2">
+              <h4 className="text-lg font-semibold text-foreground">Vamos a crear tu storyboard!</h4>
+              <p className="text-sm text-muted-foreground max-w-lg mx-auto">
+                Describe que quieres en tu video y Kiyoko generara las escenas automaticamente con arco narrativo, camara, y prompts listos para copiar.
+              </p>
+            </div>
+
+            <textarea
+              value={aiDescription}
+              onChange={(e) => setAiDescription(e.target.value)}
+              placeholder="Describe tu video: ej. Anuncio de 60s para peluqueria mostrando los 4 profesionales, con gancho inicial, servicios destacados y call-to-action final..."
+              rows={4}
+              className="w-full rounded-lg border border-border bg-background px-4 py-3 text-sm outline-none focus:border-primary/30 focus:ring-1 focus:ring-primary/10 resize-y placeholder:text-muted-foreground/50"
+            />
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!aiDescription.trim()) {
+                    toast.error('Describe que quieres en tu video');
+                    return;
+                  }
+                  setActiveAgent('scenes');
+                  openChat('sidebar');
+                  toast.loading('Kiyoko esta planificando tus escenas...', { duration: 3000 });
+                }}
+                className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                <Sparkles className="h-4 w-4" />
+                Generar escenas con IA
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowCreateScene(true)}
+                className="flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
+              >
+                <Plus className="h-4 w-4 text-muted-foreground" />
+                Crear manualmente
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">O elige una opcion rapida:</p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { label: 'Anuncio 30s', text: 'Crea un anuncio de 30 segundos con gancho inicial, presentacion del producto, y call-to-action final.' },
+                  { label: 'Reel 15s', text: 'Crea un reel vertical de 15 segundos con transiciones rapidas y texto overlay.' },
+                  { label: 'Presentacion 60s', text: 'Crea una presentacion de 60 segundos mostrando el equipo, servicios, y resultados.' },
+                ].map((option) => (
+                  <button
+                    key={option.label}
+                    type="button"
+                    onClick={() => setAiDescription(option.text)}
+                    className={cn(
+                      'rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors',
+                      aiDescription === option.text
+                        ? 'border-primary/40 bg-primary/10 text-primary'
+                        : 'border-border text-muted-foreground hover:border-primary/20 hover:text-foreground',
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         ) : viewMode === 'storyboard' ? (
           /* ── Storyboard view ── */

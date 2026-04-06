@@ -12,9 +12,10 @@ import { cn } from '@/lib/utils/cn';
 import { toast } from 'sonner';
 import {
   ArrowLeft, Film, Camera, Sparkles, Users, Image as ImageIcon,
-  StickyNote, MessageSquare, Loader2, ChevronLeft, ChevronRight,
+  StickyNote, MessageSquare, MessageCircle, Loader2, ChevronLeft, ChevronRight,
   RefreshCw, Copy, MapPin, Upload, Music, Mic, Volume2,
 } from 'lucide-react';
+import { useAIStore } from '@/stores/ai-store';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { CameraAngle, CameraMovement } from '@/types';
 
@@ -170,6 +171,7 @@ export default function SceneDetailPage() {
   const queryClient = useQueryClient();
 
   const [imageVersionIndex, setImageVersionIndex] = useState(0);
+  const { openChat, setActiveAgent } = useAIStore();
 
   // ---- Generate prompts mutation ----
 
@@ -332,6 +334,19 @@ export default function SceneDetailPage() {
           />
 
           <div className="ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveAgent('scenes');
+                openChat('sidebar');
+                toast.success(`Analizando escena #${scene.scene_number}...`);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-primary/20 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
+            >
+              <MessageCircle className="h-3.5 w-3.5" />
+              Chat IA
+            </button>
+
             <span className={cn(
               'inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border',
               STATUS_COLORS[scene.status] ?? STATUS_COLORS.draft,
@@ -520,6 +535,19 @@ export default function SceneDetailPage() {
 
           {/* =================== RIGHT COLUMN (45%) =================== */}
           <div className="lg:col-span-5 space-y-4">
+
+            {/* Hint: no prompts yet */}
+            {!imagePrompt?.prompt_text && !videoPrompt?.prompt_text && (
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="size-4 text-primary" />
+                  <p className="text-sm font-medium text-foreground">Esta escena no tiene prompts</p>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Pulsa &quot;Generar con IA&quot; para crear prompts de imagen y video automaticamente, o usa el Chat IA para describir lo que quieres.
+                </p>
+              </div>
+            )}
 
             {/* Prompt Imagen */}
             <div className="rounded-xl border border-border bg-card p-4">
