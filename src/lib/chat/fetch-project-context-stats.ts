@@ -10,7 +10,7 @@ export interface ProjectContextStatsLite {
   openTaskCount: number;
   /** Todas las tareas del proyecto (incl. completadas) */
   totalTaskCount: number;
-  /** Proyectos en el mismo ámbito (misma organización o mismo owner si no hay org) */
+  /** Proyectos visibles del mismo owner */
   projectsInScopeCount: number;
   /** Si hay vídeo activo: escenas de ese vídeo */
   scenesInCurrentVideo?: number;
@@ -27,7 +27,7 @@ export async function fetchProjectContextStats(
 
   const { data: projRow, error: projErr } = await supabase
     .from('projects')
-    .select('organization_id, owner_id')
+    .select('owner_id')
     .eq('id', projectId)
     .single();
 
@@ -35,13 +35,10 @@ export async function fetchProjectContextStats(
     return null;
   }
 
-  const scopeQ =
-    projRow.organization_id != null
-      ? supabase
-          .from('projects')
-          .select('id', { count: 'exact', head: true })
-          .eq('organization_id', projRow.organization_id)
-      : supabase.from('projects').select('id', { count: 'exact', head: true }).eq('owner_id', projRow.owner_id);
+  const scopeQ = supabase
+    .from('projects')
+    .select('id', { count: 'exact', head: true })
+    .eq('owner_id', projRow.owner_id);
 
   const [v, c, b, s, tOpen, tTotal, pScope] = await Promise.all([
     supabase.from('videos').select('id', { count: 'exact', head: true }).eq('project_id', projectId),

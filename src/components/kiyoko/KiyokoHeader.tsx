@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { Button as HeroButton } from '@heroui/react';
+import { Button as HeroButton, Popover } from '@heroui/react';
 import {
   ChevronsRight,
   Plus,
@@ -30,7 +30,6 @@ import {
   Settings2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useAIStore } from '@/stores/ai-store';
 import type { KiyokoPanelMode, KiyokoActiveAgent } from '@/stores/ai-store';
 
@@ -140,8 +139,8 @@ export function KiyokoHeader({
       </HeroButton>
 
       {/* Agent badge + status popover — left aligned after close */}
-      <Popover open={agentOpen} onOpenChange={setAgentOpen}>
-        <PopoverTrigger asChild>
+      <Popover isOpen={agentOpen} onOpenChange={setAgentOpen}>
+        <Popover.Trigger>
           <button
             type="button"
             className={cn(
@@ -157,14 +156,9 @@ export function KiyokoHeader({
               {agent.label}
             </span>
           </button>
-        </PopoverTrigger>
+        </Popover.Trigger>
 
-        <PopoverContent
-          side="bottom"
-          align="start"
-          sideOffset={6}
-          className="w-80 p-0 bg-popover border-border shadow-xl rounded-xl overflow-hidden"
-        >
+        <Popover.Content className="w-80 p-0 bg-popover border-border shadow-xl rounded-xl overflow-hidden">
           {/* ── Status ── */}
           <div className="px-3 py-2.5 border-b border-border/50">
             <div className="flex items-center gap-2">
@@ -203,7 +197,7 @@ export function KiyokoHeader({
 
           {/* ── Context strip ── */}
           {contextStrip}
-        </PopoverContent>
+        </Popover.Content>
       </Popover>
 
       {/* Spacer */}
@@ -236,8 +230,8 @@ export function KiyokoHeader({
       </HeroButton>
 
       {/* ⋯ More menu */}
-      <Popover open={menuOpen} onOpenChange={setMenuOpen}>
-        <PopoverTrigger asChild>
+      <Popover isOpen={menuOpen} onOpenChange={setMenuOpen}>
+        <Popover.Trigger>
           <HeroButton
             isIconOnly
             variant="ghost"
@@ -247,13 +241,8 @@ export function KiyokoHeader({
           >
             <MoreHorizontal size={14} />
           </HeroButton>
-        </PopoverTrigger>
-        <PopoverContent
-          side="bottom"
-          align="end"
-          sideOffset={6}
-          className="w-52 p-1 bg-popover border-border shadow-xl rounded-xl"
-        >
+        </Popover.Trigger>
+        <Popover.Content className="w-52 p-1 bg-popover border-border shadow-xl rounded-xl">
           {/* Context */}
           <MenuButton
             icon={<MapPin size={14} />}
@@ -299,7 +288,7 @@ export function KiyokoHeader({
               />
             );
           })}
-        </PopoverContent>
+        </Popover.Content>
       </Popover>
     </div>
   );

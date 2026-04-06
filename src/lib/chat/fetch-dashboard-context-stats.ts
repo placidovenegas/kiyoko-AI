@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/client';
 
 /**
- * Conteos agregados del espacio de trabajo (dashboard / org), alineados con el guión de interacción:
+ * Conteos agregados del espacio de trabajo personal, alineados con el guión de interacción:
  * números reales para desambiguación sin project_id.
  */
 export interface DashboardContextStatsLite {
@@ -14,19 +14,10 @@ export interface DashboardContextStatsLite {
   sceneCount: number;
 }
 
-/**
- * @param organizationId Si hay org activa, solo proyectos de esa org; si no, todos los visibles por RLS.
- */
-export async function fetchDashboardContextStats(
-  organizationId: string | null,
-): Promise<DashboardContextStatsLite | null> {
+export async function fetchDashboardContextStats(): Promise<DashboardContextStatsLite | null> {
   const supabase = createClient();
 
-  let pq = supabase.from('projects').select('id');
-  if (organizationId) {
-    pq = pq.eq('organization_id', organizationId);
-  }
-  const { data: projects, error: pe } = await pq;
+  const { data: projects, error: pe } = await supabase.from('projects').select('id');
   if (pe) return null;
 
   const ids = (projects ?? []).map((p) => p.id as string);

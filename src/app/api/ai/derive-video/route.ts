@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getUserModel } from '@/lib/ai/get-user-model';
 import { generateObject } from 'ai';
@@ -6,6 +6,14 @@ import { z } from 'zod';
 import { logUsage } from '@/lib/ai/sdk-router';
 import { nanoid } from 'nanoid';
 import type { Database } from '@/types/database.types';
+import {
+  apiBadRequest,
+  apiJson,
+  apiUnauthorized,
+  createApiRequestContext,
+  logServerEvent,
+  parseApiJson,
+} from '@/lib/observability/server';
 
 type TargetPlatform = Database['public']['Enums']['target_platform'];
 type VideoType = Database['public']['Enums']['video_type'];
@@ -73,15 +81,20 @@ function resolvePlatform(input: string | undefined, fallback: TargetPlatform): T
 }
 
 export async function POST(req: NextRequest) {
+  const requestContext = createApiRequestContext(req);
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    return apiUnauthorized(requestContext, 'Not authenticated');
   }
 
-  const body: DeriveVideoBody = await req.json();
+  const { data: body, response } = await parseApiJson<DeriveVideoBody>(req, requestContext);
+  if (response || !body) {
+    return response;
+  }
+
   const {
     projectId,
     sourceVideoId,
@@ -92,10 +105,18 @@ export async function POST(req: NextRequest) {
   } = body;
 
   if (!projectId || !sourceVideoId) {
-    return NextResponse.json(
-      { error: 'Missing projectId or sourceVideoId' },
-      { status: 400 }
-    );
+    return apiBadRequest(requestContext, 'Missing projectId or sourceVideoId');
+  }
+
+  const { data: project } = await supabase
+    .from('projects')
+    .select('id')
+    .eq('id', projectId)
+    .eq('owner_id', user.id)
+    .single();
+
+  if (!project) {
+    return apiJson(requestContext, { error: 'Project not found or no access', requestId: requestContext.requestId }, { status: 403 });
   }
 
   // Get source video + scenes
@@ -103,12 +124,10 @@ export async function POST(req: NextRequest) {
     .from('videos')
     .select('*')
     .eq('id', sourceVideoId)
+    .eq('project_id', projectId)
     .single();
   if (!sourceVideo) {
-    return NextResponse.json(
-      { error: 'Source video not found' },
-      { status: 404 }
-    );
+    return apiJson(requestContext, { error: 'Source video not found', requestId: requestContext.requestId }, { status: 404 });
   }
 
   const { data: scenes } = await supabase
@@ -140,6 +159,15 @@ Select the most impactful scenes, suggest duration adjustments, and optionally a
   });
 
   const responseTimeMs = Date.now() - startTime;
+
+  logServerEvent('derive-video', requestContext, 'Generated derivation plan', {
+    userId: user.id,
+    projectId,
+    sourceVideoId,
+    providerId,
+    shouldExecute: req.headers.get('x-execute-plan') === 'true',
+    sceneCount: scenes?.length ?? 0,
+  });
 
   await logUsage({
     userId: user.id,
@@ -216,8 +244,8 @@ Select the most impactful scenes, suggest duration adjustments, and optionally a
       }
     }
 
-    return NextResponse.json({ plan, video: newVideo });
+    return apiJson(requestContext, { plan, video: newVideo });
   }
 
-  return NextResponse.json({ plan });
+  return apiJson(requestContext, { plan });
 }

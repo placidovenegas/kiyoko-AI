@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import { useProject } from '@/contexts/ProjectContext';
 import { queryKeys } from '@/lib/query/keys';
-import { Button } from '@/components/ui/button';
+import { Button } from '@heroui/react';
 import {
   Loader2, Clock, Play, Square, CalendarDays, Timer,
 } from 'lucide-react';

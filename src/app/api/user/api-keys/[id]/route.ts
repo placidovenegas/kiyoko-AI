@@ -1,6 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { encrypt, getApiKeyHint } from '@/lib/utils/crypto';
+import {
+  apiBadRequest,
+  apiError,
+  apiJson,
+  apiUnauthorized,
+  createApiRequestContext,
+  parseApiJson,
+} from '@/lib/observability/server';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -17,16 +25,14 @@ interface PatchKeyBody {
  * Update an existing API key (key value, active status, or budget).
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
+  const requestContext = createApiRequestContext(request);
   try {
     const { id } = await params;
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return apiUnauthorized(requestContext);
     }
 
     // Verify the key belongs to the user
@@ -38,18 +44,19 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .single();
 
     if (fetchError || !existingKey) {
-      return NextResponse.json(
-        { error: 'API key not found' },
-        { status: 404 }
-      );
+      return apiJson(requestContext, { error: 'API key not found', requestId: requestContext.requestId }, { status: 404 });
     }
 
-    const body: PatchKeyBody = await request.json();
+    const { data: body, response } = await parseApiJson<PatchKeyBody>(request, requestContext);
+    if (response || !body) {
+      return response;
+    }
+
     const updates: Record<string, unknown> = {};
 
     if (body.apiKey !== undefined) {
       updates.api_key_encrypted = encrypt(body.apiKey);
-      updates.key_hint = getApiKeyHint(body.apiKey);
+      updates.api_key_hint = getApiKeyHint(body.apiKey);
     }
 
     if (body.isActive !== undefined) {
@@ -61,10 +68,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     if (Object.keys(updates).length === 0) {
-      return NextResponse.json(
-        { error: 'No fields to update' },
-        { status: 400 }
-      );
+      return apiBadRequest(requestContext, 'No fields to update');
     }
 
     updates.updated_at = new Date().toISOString();
@@ -74,27 +78,22 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .update(updates)
       .eq('id', id)
       .eq('user_id', user.id)
-      .select('id, provider, key_hint, is_active, monthly_budget_usd, monthly_spent_usd, updated_at')
+      .select('id, provider, api_key_hint, is_active, monthly_budget_usd, monthly_spent_usd, updated_at')
       .single();
 
     if (updateError) {
-      console.error('[api-keys/PATCH]', updateError);
-      return NextResponse.json(
-        { error: 'Failed to update API key' },
-        { status: 500 }
-      );
+      return apiError(requestContext, 'api-keys/[id]/PATCH', updateError, {
+        message: 'Failed to update API key',
+        extra: { userId: user.id, apiKeyId: id },
+      });
     }
 
-    return NextResponse.json({
+    return apiJson(requestContext, {
       success: true,
       key: updatedKey,
     });
   } catch (error) {
-    console.error('[api-keys/PATCH]', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return apiError(requestContext, 'api-keys/[id]/PATCH', error);
   }
 }
 
@@ -102,17 +101,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
  * DELETE /api/user/api-keys/[id]
  * Remove an API key.
  */
-export async function DELETE(_request: NextRequest, { params }: RouteParams) {
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  const requestContext = createApiRequestContext(request);
   try {
     const { id } = await params;
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return apiUnauthorized(requestContext);
     }
 
     const { error: deleteError } = await supabase
@@ -122,22 +119,17 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
       .eq('user_id', user.id);
 
     if (deleteError) {
-      console.error('[api-keys/DELETE]', deleteError);
-      return NextResponse.json(
-        { error: 'Failed to delete API key' },
-        { status: 500 }
-      );
+      return apiError(requestContext, 'api-keys/[id]/DELETE', deleteError, {
+        message: 'Failed to delete API key',
+        extra: { userId: user.id, apiKeyId: id },
+      });
     }
 
-    return NextResponse.json({
+    return apiJson(requestContext, {
       success: true,
       message: 'API key deleted',
     });
   } catch (error) {
-    console.error('[api-keys/DELETE]', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return apiError(requestContext, 'api-keys/[id]/DELETE', error);
   }
 }

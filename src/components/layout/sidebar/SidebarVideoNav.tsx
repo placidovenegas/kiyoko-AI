@@ -3,129 +3,130 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import {
-  LayoutDashboard, Film, Clock, Mic, BarChart3,
-  Share2, Download, ChevronDown, ChevronLeft,
-} from 'lucide-react';
+import { LayoutDashboard, Clapperboard, GanttChart, Mic, BarChart3, Share2, Download } from 'lucide-react';
+import { Popover, Tooltip } from '@heroui/react';
 import { createClient } from '@/lib/supabase/client';
-import { Button } from '@/components/ui/button';
-import { queryKeys } from '@/lib/query/keys';
-import {
-  SidebarGroup, SidebarGroupLabel, SidebarGroupContent,
-  SidebarMenu, SidebarMenuItem, SidebarMenuButton,
-} from '@/components/ui/sidebar';
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-interface Props {
-  projectShortId: string;
-  videoShortId: string;
-}
+import { useSidebar } from '@/components/ui/sidebar';
+import { cn } from '@/lib/utils/cn';
+import { NavItem, SectionLabel, Divider } from './shared/NavItem';
 
-export function SidebarVideoNav({ projectShortId, videoShortId }: Props) {
+const SCENE_STATUS_COLORS: Record<string, string> = {
+  draft: 'bg-zinc-400', prompt_ready: 'bg-blue-400', generating: 'bg-amber-400',
+  generated: 'bg-emerald-400', approved: 'bg-emerald-600', rejected: 'bg-red-400',
+};
+
+export function SidebarVideoNav({ projectShortId, videoShortId }: { projectShortId: string; videoShortId: string }) {
   const pathname = usePathname();
   const supabase = createClient();
+  const { state } = useSidebar();
+  const isCollapsed = state === 'collapsed';
   const base = `/project/${projectShortId}/video/${videoShortId}`;
 
   const { data: currentVideo } = useQuery({
     queryKey: ['video-meta', videoShortId],
     queryFn: async () => {
-      const { data } = await supabase
-        .from('videos')
-        .select('id, title, platform, project_id')
-        .eq('short_id', videoShortId)
-        .single();
+      const { data } = await supabase.from('videos').select('id, title, project_id').eq('short_id', videoShortId).single();
       return data;
     },
   });
 
-  const { data: allVideos } = useQuery({
-    queryKey: queryKeys.videos.byProject(currentVideo?.project_id ?? ''),
+  const { data: scenes } = useQuery({
+    queryKey: ['scenes-nav', currentVideo?.id],
     queryFn: async () => {
-      const { data } = await supabase
-        .from('videos')
-        .select('id, short_id, title, platform')
-        .eq('project_id', currentVideo!.project_id)
-        .order('sort_order');
+      if (!currentVideo) return [];
+      const { data } = await supabase.from('scenes').select('id, short_id, title, scene_number, status').eq('video_id', currentVideo.id).order('sort_order');
       return data ?? [];
     },
-    enabled: !!currentVideo?.project_id,
+    enabled: !!currentVideo?.id,
   });
 
-  const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
-
-  const navItems = [
-    { title: 'Overview', icon: LayoutDashboard, href: base },
-    { title: 'Escenas', icon: Film, href: `${base}/scenes` },
-    { title: 'Timeline', icon: Clock, href: `${base}/timeline` },
-    { title: 'Narracion', icon: Mic, href: `${base}/narration` },
-    { title: 'Analisis', icon: BarChart3, href: `${base}/analysis` },
-    { title: 'Compartir', icon: Share2, href: `${base}/share` },
-    { title: 'Exportar', icon: Download, href: `${base}/export` },
-  ];
+  if (isCollapsed) {
+    return (
+      <div className="flex flex-col">
+        <div className="px-2 py-1">
+          <ul className="flex flex-col gap-0.5">
+            <NavItem href={base} icon={LayoutDashboard} label="Vista general" pathname={pathname} isCollapsed exact />
+            <NavItem href={`${base}/scenes`} icon={Clapperboard} label="Escenas" pathname={pathname} isCollapsed />
+            <NavItem href={`${base}/timeline`} icon={GanttChart} label="Timeline" pathname={pathname} isCollapsed />
+            <NavItem href={`${base}/narration`} icon={Mic} label="Narración" pathname={pathname} isCollapsed />
+            <NavItem href={`${base}/analysis`} icon={BarChart3} label="Análisis" pathname={pathname} isCollapsed />
+          </ul>
+        </div>
+        <Divider />
+        <div className="px-2 py-1">
+          <Popover>
+            <Tooltip><Tooltip.Trigger>
+              <Popover.Trigger><button type="button" className="flex items-center justify-center size-8 rounded-md text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors cursor-pointer"><Clapperboard className="h-4 w-4" /></button></Popover.Trigger>
+            </Tooltip.Trigger><Tooltip.Content placement="right">Escenas</Tooltip.Content></Tooltip>
+            <Popover.Content className="w-56 p-1">
+              <p className="px-2 py-1 text-[11px] font-medium text-muted-foreground">Escenas</p>
+              {scenes?.map((s) => (
+                <Link key={s.id} href={`${base}/scene/${s.short_id}`} className={cn('flex w-full items-center gap-2 rounded-md px-2 h-7 text-[12px] transition-colors', pathname.startsWith(`${base}/scene/${s.short_id}`) ? 'bg-accent font-medium text-foreground' : 'text-foreground/80 hover:bg-accent')}>
+                  <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', SCENE_STATUS_COLORS[s.status] ?? 'bg-zinc-400')} />
+                  <span className="text-[10px] text-muted-foreground w-3 text-right shrink-0 tabular-nums">{s.scene_number}</span>
+                  <span className="truncate">{s.title}</span>
+                </Link>
+              ))}
+            </Popover.Content>
+          </Popover>
+        </div>
+        <Divider />
+        <div className="px-2 py-1">
+          <ul className="flex flex-col gap-0.5">
+            <NavItem href={`${base}/share`} icon={Share2} label="Compartir" pathname={pathname} isCollapsed />
+            <NavItem href={`${base}/export`} icon={Download} label="Exportar" pathname={pathname} isCollapsed />
+          </ul>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <>
-      {/* Back to Project */}
-      <SidebarGroup>
-        <SidebarGroupContent>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                render={<Link href={`/project/${projectShortId}`} />}
-                className="text-muted-foreground"
-              >
-                <ChevronLeft className="h-4 w-4" />
-                <span>Proyecto</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarGroupContent>
-      </SidebarGroup>
+    <div className="flex flex-col">
+      <div className="px-1.5 py-1">
+        <ul className="flex flex-col gap-0.5">
+          <NavItem href={base} icon={LayoutDashboard} label="Vista general" pathname={pathname} isCollapsed={false} exact />
+          <NavItem href={`${base}/scenes`} icon={Clapperboard} label="Escenas" pathname={pathname} isCollapsed={false} />
+          <NavItem href={`${base}/timeline`} icon={GanttChart} label="Timeline" pathname={pathname} isCollapsed={false} />
+          <NavItem href={`${base}/narration`} icon={Mic} label="Narración" pathname={pathname} isCollapsed={false} />
+          <NavItem href={`${base}/analysis`} icon={BarChart3} label="Análisis" pathname={pathname} isCollapsed={false} />
+        </ul>
+      </div>
 
-      <SidebarGroup>
-        <SidebarGroupLabel>Video</SidebarGroupLabel>
-        <SidebarGroupContent>
-          <div className="px-2 pb-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="bordered" className="flex w-full items-center gap-2 rounded-lg border border-sidebar-border bg-sidebar-accent/30 px-3 py-2 text-sm hover:bg-sidebar-accent transition-colors">
-                  <Film className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <span className="flex-1 text-left truncate">
-                    {currentVideo?.title ?? 'Cargando...'}
-                  </span>
-                  <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-[--radix-dropdown-menu-trigger-width]">
-                {allVideos?.map((v) => (
-                  <DropdownMenuItem key={v.id} asChild>
-                    <Link href={`/project/${projectShortId}/video/${v.short_id}`}>
-                      <Film className="mr-2 h-4 w-4" />
-                      {v.title}
-                    </Link>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+      <Divider />
 
-          <SidebarMenu>
-            {navItems.map((item) => (
-              <SidebarMenuItem key={item.href}>
-                <SidebarMenuButton
-                  render={<Link href={item.href} />}
-                  isActive={item.href === base ? pathname === base : isActive(item.href)}
-                >
-                  <item.icon className="h-4 w-4" />
-                  <span>{item.title}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarGroupContent>
-      </SidebarGroup>
+      <div className="px-1.5 py-1">
+        <SectionLabel>Escenas {scenes ? `(${scenes.length})` : ''}</SectionLabel>
+        <ul className="flex flex-col gap-0.5">
+          {scenes?.map((s) => {
+            const sceneHref = `${base}/scene/${s.short_id}`;
+            const isActive = pathname.startsWith(sceneHref);
+            return (
+              <li key={s.id}>
+                <Link href={sceneHref} className={cn(
+                  'flex w-full items-center gap-2 rounded-md px-2 h-7 text-[12px] transition-colors',
+                  isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium' : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                )}>
+                  <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', SCENE_STATUS_COLORS[s.status] ?? 'bg-zinc-400')} />
+                  <span className="text-[10px] text-sidebar-foreground/40 w-3 text-right shrink-0 tabular-nums">{s.scene_number}</span>
+                  <span className="truncate">{s.title}</span>
+                </Link>
+              </li>
+            );
+          })}
+          {scenes && scenes.length === 0 && <li className="px-2 py-1 text-xs text-sidebar-foreground/40">Sin escenas</li>}
+        </ul>
+      </div>
 
-    </>
+      <Divider />
+
+      <div className="px-1.5 py-1">
+        <SectionLabel>Acciones</SectionLabel>
+        <ul className="flex flex-col gap-0.5">
+          <NavItem href={`${base}/share`} icon={Share2} label="Compartir" pathname={pathname} isCollapsed={false} />
+          <NavItem href={`${base}/export`} icon={Download} label="Exportar" pathname={pathname} isCollapsed={false} />
+        </ul>
+      </div>
+    </div>
   );
 }

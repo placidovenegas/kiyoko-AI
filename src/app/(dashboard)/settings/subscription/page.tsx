@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import { queryKeys } from '@/lib/query/keys';
-import { Button } from '@/components/ui/button';
+import { Button } from '@heroui/react';
 import {
   Loader2, CreditCard, Sparkles, CalendarDays, AlertTriangle,
 } from 'lucide-react';

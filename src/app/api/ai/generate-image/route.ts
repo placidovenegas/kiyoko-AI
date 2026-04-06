@@ -1,7 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getAvailableProvider, logUsage } from '@/lib/ai/router';
+import {
+  apiBadRequest,
+  apiError,
+  apiJson,
+  apiUnauthorized,
+  createApiRequestContext,
+  logServerEvent,
+  logServerWarning,
+  parseApiJson,
+} from '@/lib/observability/server';
 
 interface GenerateImageBody {
   prompt: string;
@@ -11,25 +21,24 @@ interface GenerateImageBody {
 }
 
 export async function POST(request: NextRequest) {
+  const requestContext = createApiRequestContext(request);
   try {
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return apiUnauthorized(requestContext);
     }
 
-    const body: GenerateImageBody = await request.json();
+    const { data: body, response } = await parseApiJson<GenerateImageBody>(request, requestContext);
+    if (response || !body) {
+      return response;
+    }
+
     const { prompt: rawPrompt, projectId, videoId, sceneId } = body;
 
     if (!rawPrompt) {
-      return NextResponse.json(
-        { error: 'Missing required field: prompt' },
-        { status: 400 }
-      );
+      return apiBadRequest(requestContext, 'Missing required field: prompt');
     }
 
     // Verify user owns this project if projectId is provided
@@ -38,14 +47,11 @@ export async function POST(request: NextRequest) {
         .from('projects')
         .select('id')
         .eq('id', projectId)
-        .eq('user_id', user.id)
+        .eq('owner_id', user.id)
         .single();
 
       if (projectError || !project) {
-        return NextResponse.json(
-          { error: 'Project not found' },
-          { status: 404 }
-        );
+        return apiJson(requestContext, { error: 'Project not found', requestId: requestContext.requestId }, { status: 404 });
       }
     }
 
@@ -70,11 +76,22 @@ export async function POST(request: NextRequest) {
     const provider = await getAvailableProvider(user.id, 'image');
     const startTime = Date.now();
 
+    logServerEvent('generate-image', requestContext, 'Generating image', {
+      userId: user.id,
+      projectId,
+      videoId: videoId ?? null,
+      sceneId: sceneId ?? null,
+      providerId: provider.providerId,
+      model: provider.model,
+      promptLength: prompt.length,
+    });
+
     if (!provider.instance.generateImage) {
-      return NextResponse.json(
-        { error: 'Selected provider does not support image generation' },
-        { status: 500 }
-      );
+      return apiError(requestContext, 'generate-image', new Error('Selected provider does not support image generation'), {
+        message: 'Selected provider does not support image generation',
+        status: 500,
+        extra: { userId: user.id, providerId: provider.providerId },
+      });
     }
 
     const result = await provider.instance.generateImage(
@@ -128,7 +145,14 @@ export async function POST(request: NextRequest) {
           });
 
         if (uploadError) {
-          console.error('[generate-image] Storage upload error:', uploadError);
+          logServerWarning('generate-image', requestContext, 'Storage upload error', {
+            userId: user.id,
+            projectId,
+            videoId: videoId ?? null,
+            sceneId,
+            storagePath,
+            errorMessage: uploadError.message,
+          });
         } else {
           // Get the public URL
           const { data: urlData } = db.storage
@@ -173,16 +197,29 @@ export async function POST(request: NextRequest) {
             });
 
           if (insertError) {
-            console.error('[generate-image] DB insert error:', insertError);
+            logServerWarning('generate-image', requestContext, 'DB insert error for scene_media', {
+              userId: user.id,
+              projectId,
+              videoId: videoId ?? null,
+              sceneId,
+              storagePath,
+              errorMessage: insertError.message,
+            });
           }
         }
       } catch (saveError) {
         // Don't fail the whole request if saving fails — still return the image URL
-        console.error('[generate-image] Error saving to storage/DB:', saveError);
+        logServerWarning('generate-image', requestContext, 'Error saving generated image to storage or DB', {
+          userId: user.id,
+          projectId,
+          videoId: videoId ?? null,
+          sceneId,
+          errorMessage: saveError instanceof Error ? saveError.message : String(saveError),
+        });
       }
     }
 
-    return NextResponse.json({
+    return apiJson(requestContext, {
       success: true,
       imageUrl: storedUrl,
       provider: provider.providerId,
@@ -192,16 +229,12 @@ export async function POST(request: NextRequest) {
     const message = error instanceof Error ? error.message : 'Unknown error';
 
     if (message.startsWith('NO_PROVIDER_AVAILABLE')) {
-      return NextResponse.json(
-        { error: message },
-        { status: 429 }
-      );
+      return apiJson(requestContext, { error: message, requestId: requestContext.requestId }, { status: 429 });
     }
 
-    console.error('[generate-image]', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return apiError(requestContext, 'generate-image', error, {
+      message: 'Internal server error',
+      extra: { projectId: body?.projectId ?? null, videoId: body?.videoId ?? null, sceneId: body?.sceneId ?? null },
+    });
   }
 }

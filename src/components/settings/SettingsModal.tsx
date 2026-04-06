@@ -4,17 +4,14 @@ import { Modal, useOverlayState } from '@heroui/react';
 import { useUIStore } from '@/stores/useUIStore';
 import { cn } from '@/lib/utils/cn';
 import {
-  X, User, Settings, Bell, Shield, Building2, Users,
-  Key as KeyIcon, CreditCard, LayoutGrid,
+  X, User, Settings, Bell, Shield,
+  Key as KeyIcon, CreditCard,
 } from 'lucide-react';
 import {
   PerfilSection,
   PreferenciasSection,
   NotificacionesSection,
   SeguridadSection,
-  OrganizacionesSection,
-  OrgGeneralSection,
-  OrgMiembrosSection,
   ApiKeysSection,
   SuscripcionSection,
 } from './modal-settings';
@@ -29,14 +26,6 @@ const NAV = [
       { id: 'preferencias', label: 'Preferencias', icon: Settings },
       { id: 'notificaciones', label: 'Notificaciones', icon: Bell },
       { id: 'seguridad', label: 'Seguridad', icon: Shield },
-    ],
-  },
-  {
-    group: 'Organización',
-    items: [
-      { id: 'organizaciones', label: 'Mis organizaciones', icon: LayoutGrid },
-      { id: 'org-general', label: 'General', icon: Building2 },
-      { id: 'org-miembros', label: 'Miembros', icon: Users },
     ],
   },
   {
@@ -60,9 +49,6 @@ const SECTION_COMPONENTS: Record<string, React.ComponentType> = {
   preferencias: PreferenciasSection,
   notificaciones: NotificacionesSection,
   seguridad: SeguridadSection,
-  organizaciones: OrganizacionesSection,
-  'org-general': OrgGeneralSection,
-  'org-miembros': OrgMiembrosSection,
   'api-keys': ApiKeysSection,
   suscripcion: SuscripcionSection,
 };
@@ -81,12 +67,10 @@ export function SettingsModal() {
 
   return (
     <Modal state={modalState}>
-      <Modal.Backdrop  />
-      <Modal.Container placement="center" size="cover" className={cn(
-          'fixed left-[50%] top-[50%] z-50 translate-x-[-50%] translate-y-[-45%]',
-        )}>
-        <Modal.Dialog className="p-0! bg-transparent! shadow-none! max-w-none! w-auto!">
-          <div className="flex flex-row w-[80vw] h-[85vh]  rounded-xl border border-border bg-background shadow-xl overflow-hidden">
+      <Modal.Backdrop isDismissable>
+        <Modal.Container placement="center">
+          <Modal.Dialog className="p-0! bg-transparent! shadow-none! max-w-none! w-auto!">
+            <div className="flex flex-row w-[80vw] max-w-5xl h-[85vh] rounded-xl border border-border bg-background shadow-xl overflow-hidden">
           {/* ── Left nav ──────────────────────────────────────────── */}
           <aside className="w-56 shrink-0 border-r border-border bg-card flex flex-col overflow-y-auto">
             <div className="px-4 pt-5 pb-2">
@@ -129,9 +113,10 @@ export function SettingsModal() {
             <X className="h-4 w-4" />
             <span className="sr-only">Cerrar</span>
           </Modal.CloseTrigger>
-          </div>
-        </Modal.Dialog>
-      </Modal.Container>
+            </div>
+          </Modal.Dialog>
+        </Modal.Container>
+      </Modal.Backdrop>
     </Modal>
   );
 }

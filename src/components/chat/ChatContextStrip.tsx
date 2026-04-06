@@ -8,7 +8,6 @@ import type { ProjectContextStatsLite } from '@/lib/chat/fetch-project-context-s
 
 const LEVEL_SHORT: Record<ContextLevel, string> = {
   dashboard: 'Dashboard',
-  organization: 'Organización',
   project: 'Proyecto',
   video: 'Vídeo',
   scene: 'Escena',
@@ -53,7 +52,7 @@ export function ChatContextStrip({
   const panelId = useId();
 
   const projectVal =
-    contextLevel === 'dashboard' || contextLevel === 'organization'
+    contextLevel === 'dashboard'
       ? '—'
       : projectLoading
         ? 'Cargando…'
@@ -83,7 +82,7 @@ export function ChatContextStrip({
     .join(' · ');
 
   const showWorkspaceStrip =
-    (contextLevel === 'dashboard' || contextLevel === 'organization') && !stats;
+    contextLevel === 'dashboard' && !stats;
 
   const statsSuffixFull =
     stats && !statsLoading

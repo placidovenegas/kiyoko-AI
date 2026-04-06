@@ -1,10 +1,19 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { generateText, Output } from 'ai';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { logUsage } from '@/lib/ai/sdk-router';
 import { getUserModel } from '@/lib/ai/get-user-model';
 import { SYSTEM_PROJECT_GENERATOR } from '@/lib/ai/prompts/system-project-generator';
+import {
+  apiBadRequest,
+  apiError,
+  apiJson,
+  apiUnauthorized,
+  createApiRequestContext,
+  logServerEvent,
+  parseApiJson,
+} from '@/lib/observability/server';
 
 interface GenerateArcBody {
   projectId: string;
@@ -26,25 +35,24 @@ const arcOutputSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  const requestContext = createApiRequestContext(request);
   try {
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return apiUnauthorized(requestContext);
     }
 
-    const body: GenerateArcBody = await request.json();
+    const { data: body, response } = await parseApiJson<GenerateArcBody>(request, requestContext);
+    if (response || !body) {
+      return response;
+    }
+
     const { projectId } = body;
 
     if (!projectId) {
-      return NextResponse.json(
-        { error: 'Missing required field: projectId' },
-        { status: 400 }
-      );
+      return apiBadRequest(requestContext, 'Missing required field: projectId');
     }
 
     // Fetch project and scenes
@@ -52,24 +60,28 @@ export async function POST(request: NextRequest) {
       .from('projects')
       .select('*')
       .eq('id', projectId)
-      .eq('user_id', user.id)
+      .eq('owner_id', user.id)
       .single();
 
     if (projectError || !project) {
-      return NextResponse.json(
-        { error: 'Project not found' },
-        { status: 404 }
-      );
+      return apiJson(requestContext, { error: 'Project not found', requestId: requestContext.requestId }, { status: 404 });
     }
 
     const { data: scenes } = await supabase
       .from('scenes')
       .select('*')
       .eq('project_id', projectId)
-      .order('order', { ascending: true });
+      .order('sort_order', { ascending: true });
 
     const { model, providerId } = await getUserModel(user.id);
     const startTime = Date.now();
+
+    logServerEvent('generate-arc', requestContext, 'Generating narrative arc', {
+      userId: user.id,
+      projectId,
+      providerId,
+      sceneCount: scenes?.length ?? 0,
+    });
 
     const userPrompt = `Generate a narrative arc for this storyboard project:
 
@@ -105,7 +117,7 @@ Generate the narrative arc with phases (hook, build, peak, close), overall_theme
       success: true,
     });
 
-    return NextResponse.json({
+    return apiJson(requestContext, {
       success: true,
       data: output,
       provider: providerId,
@@ -114,16 +126,9 @@ Generate the narrative arc with phases (hook, build, peak, close), overall_theme
     const message = error instanceof Error ? error.message : 'Unknown error';
 
     if (message.startsWith('NO_PROVIDER_AVAILABLE')) {
-      return NextResponse.json(
-        { error: message },
-        { status: 429 }
-      );
+      return apiJson(requestContext, { error: message, requestId: requestContext.requestId }, { status: 429 });
     }
 
-    console.error('[generate-arc]', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return apiError(requestContext, 'generate-arc', error, { message: 'Internal server error' });
   }
 }

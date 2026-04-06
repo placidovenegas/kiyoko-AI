@@ -1,20 +1,24 @@
-import { NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import {
+  apiError,
+  apiJson,
+  apiUnauthorized,
+  createApiRequestContext,
+} from '@/lib/observability/server';
 
 /**
  * GET /api/user/usage
  * Return monthly usage statistics for the current user.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const requestContext = createApiRequestContext(request);
   try {
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return apiUnauthorized(requestContext);
     }
 
     // Get the start of the current month
@@ -30,11 +34,10 @@ export async function GET() {
       .order('created_at', { ascending: false });
 
     if (usageError) {
-      console.error('[usage/GET]', usageError);
-      return NextResponse.json(
-        { error: 'Failed to fetch usage data' },
-        { status: 500 }
-      );
+      return apiError(requestContext, 'usage/GET', usageError, {
+        message: 'Failed to fetch usage data',
+        extra: { userId: user.id },
+      });
     }
 
     const logs = usageLogs ?? [];
@@ -86,7 +89,7 @@ export async function GET() {
     const totalCost = logs.reduce((sum, l) => sum + (l.estimated_cost_usd ?? 0), 0);
     const successCount = logs.filter((l) => l.success).length;
 
-    return NextResponse.json({
+    return apiJson(requestContext, {
       success: true,
       usage: {
         period: {
@@ -105,10 +108,6 @@ export async function GET() {
       },
     });
   } catch (error) {
-    console.error('[usage/GET]', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return apiError(requestContext, 'usage/GET', error);
   }
 }

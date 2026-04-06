@@ -1,9 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { generateText, Output } from 'ai';
 import { createClient } from '@/lib/supabase/server';
 import { getUserModel } from '@/lib/ai/get-user-model';
 import { SYSTEM_SCENE_GENERATOR } from '@/lib/ai/prompts/system-scene-generator';
 import { sceneOutputSchema } from '@/lib/ai/schemas/scene-output';
+import {
+  apiBadRequest,
+  apiError,
+  apiJson,
+  apiUnauthorized,
+  createApiRequestContext,
+  logServerEvent,
+  parseApiJson,
+} from '@/lib/observability/server';
 
 interface GenerateScenesBody {
   projectId: string;
@@ -11,25 +20,24 @@ interface GenerateScenesBody {
 }
 
 export async function POST(request: NextRequest) {
+  const requestContext = createApiRequestContext(request);
   try {
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return apiUnauthorized(requestContext);
     }
 
-    const body: GenerateScenesBody = await request.json();
+    const { data: body, response } = await parseApiJson<GenerateScenesBody>(request, requestContext);
+    if (response || !body) {
+      return response;
+    }
+
     const { projectId, instruction } = body;
 
     if (!projectId || !instruction) {
-      return NextResponse.json(
-        { error: 'Missing required fields: projectId, instruction' },
-        { status: 400 }
-      );
+      return apiBadRequest(requestContext, 'Missing required fields: projectId, instruction');
     }
 
     // Verify user owns this project and get project data
@@ -41,10 +49,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (projectError || !project) {
-      return NextResponse.json(
-        { error: 'Project not found' },
-        { status: 404 }
-      );
+      return apiJson(requestContext, { error: 'Project not found', requestId: requestContext.requestId }, { status: 404 });
     }
 
     // Fetch project context in parallel
@@ -91,6 +96,16 @@ export async function POST(request: NextRequest) {
 
     const { model, providerId } = await getUserModel(user.id);
 
+    logServerEvent('generate-scenes', requestContext, 'Generating scene suggestion', {
+      userId: user.id,
+      projectId,
+      providerId,
+      sceneCount: scenes.length,
+      characterCount: characters.length,
+      backgroundCount: backgrounds.length,
+      instructionLength: instruction.length,
+    });
+
     const userPrompt = `Generate a new scene for this storyboard project based on the user's instruction.
 
 === PROJECT ===
@@ -120,7 +135,7 @@ Generate a scene that fits naturally within the existing storyboard. Return a si
       output: Output.object({ schema: sceneOutputSchema }),
     });
 
-    return NextResponse.json({
+    return apiJson(requestContext, {
       success: true,
       data: output,
       provider: providerId,
@@ -129,16 +144,9 @@ Generate a scene that fits naturally within the existing storyboard. Return a si
     const message = error instanceof Error ? error.message : 'Unknown error';
 
     if (message.startsWith('NO_PROVIDER_AVAILABLE')) {
-      return NextResponse.json(
-        { error: message },
-        { status: 429 }
-      );
+      return apiJson(requestContext, { error: message, requestId: requestContext.requestId }, { status: 429 });
     }
 
-    console.error('[generate-scenes]', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return apiError(requestContext, 'generate-scenes', error, { message: 'Internal server error' });
   }
 }

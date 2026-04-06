@@ -1,4 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
+import {
+  apiBadRequest,
+  apiError,
+  apiJson,
+  apiUnauthorized,
+  createApiRequestContext,
+  logServerEvent,
+  parseApiJson,
+} from '@/lib/observability/server';
 import { createClient } from '@/lib/supabase/server';
 
 interface ExportPdfBody {
@@ -9,26 +17,26 @@ interface ExportPdfBody {
  * POST /api/export/pdf
  * Export the project as a PDF document.
  */
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
+  const requestContext = createApiRequestContext(request);
+
   try {
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return apiUnauthorized(requestContext);
     }
 
-    const body: ExportPdfBody = await request.json();
+    const { data: body, response } = await parseApiJson<ExportPdfBody>(request, requestContext);
+    if (response) {
+      return response;
+    }
+
     const { projectId } = body;
 
     if (!projectId) {
-      return NextResponse.json(
-        { error: 'Missing required field: projectId' },
-        { status: 400 }
-      );
+      return apiBadRequest(requestContext, 'Missing required field: projectId');
     }
 
     // Fetch project data
@@ -36,14 +44,15 @@ export async function POST(request: NextRequest) {
       .from('projects')
       .select('*')
       .eq('id', projectId)
-      .eq('user_id', user.id)
+      .eq('owner_id', user.id)
       .single();
 
     if (projectError || !project) {
-      return NextResponse.json(
-        { error: 'Project not found' },
-        { status: 404 }
-      );
+      return apiError(requestContext, 'export/pdf', projectError ?? new Error('Project not found'), {
+        status: 404,
+        message: 'Project not found',
+        extra: { projectId, userId: user.id },
+      });
     }
 
     // Fetch related data
@@ -51,7 +60,7 @@ export async function POST(request: NextRequest) {
       { data: scenes },
       { data: characters },
     ] = await Promise.all([
-      supabase.from('scenes').select('*').eq('project_id', projectId).order('order', { ascending: true }),
+      supabase.from('scenes').select('*').eq('project_id', projectId).order('sort_order', { ascending: true }),
       supabase.from('characters').select('*').eq('project_id', projectId),
     ]);
 
@@ -66,9 +75,15 @@ export async function POST(request: NextRequest) {
     // TODO: Replace with actual PDF generation implementation
 
     // Placeholder: generate a minimal PDF-like structure
-    console.log('[export/pdf] Project has', scenes?.length ?? 0, 'scenes and', characters?.length ?? 0, 'characters');
+    logServerEvent('export/pdf', requestContext, 'PDF export requested but not implemented', {
+      projectId,
+      userId: user.id,
+      sceneCount: scenes?.length ?? 0,
+      characterCount: characters?.length ?? 0,
+    });
 
-    return NextResponse.json(
+    return apiJson(
+      requestContext,
       {
         error: 'PDF export is not yet implemented. Please use HTML export as an alternative.',
         suggestion: 'POST /api/export/html',
@@ -77,10 +92,6 @@ export async function POST(request: NextRequest) {
       { status: 501 }
     );
   } catch (error) {
-    console.error('[export/pdf]', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return apiError(requestContext, 'export/pdf', error);
   }
 }

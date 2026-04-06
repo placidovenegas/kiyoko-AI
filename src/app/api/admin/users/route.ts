@@ -1,4 +1,10 @@
-import { NextResponse } from 'next/server';
+import {
+  apiError,
+  apiJson,
+  apiUnauthorized,
+  createApiRequestContext,
+  logServerEvent,
+} from '@/lib/observability/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
@@ -6,16 +12,15 @@ import { createAdminClient } from '@/lib/supabase/admin';
  * GET /api/admin/users
  * List all users (admin only).
  */
-export async function GET() {
+export async function GET(request: Request) {
+  const requestContext = createApiRequestContext(request);
+
   try {
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return apiUnauthorized(requestContext);
     }
 
     // Check if user is admin
@@ -26,16 +31,13 @@ export async function GET() {
       .single();
 
     if (profileError || profile?.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Forbidden: Admin access required' },
-        { status: 403 }
-      );
+      return apiJson(requestContext, { error: 'Forbidden: Admin access required', requestId: requestContext.requestId }, { status: 403 });
     }
 
     // Use admin client to bypass RLS and list all users
     const adminClient = createAdminClient();
     if (!adminClient) {
-      return NextResponse.json({ error: 'Admin client not configured' }, { status: 500 });
+      return apiJson(requestContext, { error: 'Admin client not configured', requestId: requestContext.requestId }, { status: 500 });
     }
 
     const { data: users, error: usersError } = await adminClient
@@ -44,26 +46,26 @@ export async function GET() {
       .order('created_at', { ascending: false });
 
     if (usersError) {
-      console.error('[admin/users/GET]', usersError);
-      return NextResponse.json(
-        { error: 'Failed to fetch users' },
-        { status: 500 }
-      );
+      return apiError(requestContext, 'admin/users', usersError, {
+        message: 'Failed to fetch users',
+        extra: { adminUserId: user.id },
+      });
     }
 
     // TODO: Optionally fetch usage stats per user
     // TODO: Add pagination support (limit, offset)
 
-    return NextResponse.json({
+    logServerEvent('admin/users', requestContext, 'Listed admin users', {
+      adminUserId: user.id,
+      total: users?.length ?? 0,
+    });
+
+    return apiJson(requestContext, {
       success: true,
       users: users ?? [],
       total: users?.length ?? 0,
     });
   } catch (error) {
-    console.error('[admin/users/GET]', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return apiError(requestContext, 'admin/users', error);
   }
 }

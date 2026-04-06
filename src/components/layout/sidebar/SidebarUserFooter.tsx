@@ -15,7 +15,7 @@ import {
   DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent,
   DropdownMenuPortal,
 } from '@/components/ui/dropdown-menu';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar } from '@heroui/react';
 
 function getInitials(name: string | null, email: string): string {
   if (name) return name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
@@ -71,10 +71,12 @@ export function SidebarUserFooter() {
               size="lg"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
-              <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarImage src={profile.avatar_url ?? undefined} alt={profile.full_name ?? ''} />
-                <AvatarFallback className="rounded-lg text-xs">{initials}</AvatarFallback>
-              </Avatar>
+              <Avatar
+                className="h-8 w-8 rounded-lg"
+                src={profile.avatar_url ?? undefined}
+                alt={profile.full_name ?? ''}
+                name={profile.full_name ?? initials}
+              />
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">{profile.full_name ?? 'Usuario'}</span>
                 <span className="truncate text-xs text-sidebar-foreground/50">{profile.email}</span>
@@ -90,10 +92,12 @@ export function SidebarUserFooter() {
           >
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                <Avatar className="h-8 w-8 rounded-lg">
-                  <AvatarImage src={profile.avatar_url ?? undefined} />
-                  <AvatarFallback className="rounded-lg text-xs">{initials}</AvatarFallback>
-                </Avatar>
+                <Avatar
+                  className="h-8 w-8 rounded-lg"
+                  src={profile.avatar_url ?? undefined}
+                  alt={profile.full_name ?? ''}
+                  name={profile.full_name ?? initials}
+                />
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">{profile.full_name ?? 'Usuario'}</span>
                   <span className="truncate text-xs text-muted-foreground">{profile.email}</span>

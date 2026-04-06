@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useVideo } from '@/contexts/VideoContext';
 import { queryKeys } from '@/lib/query/keys';
 import { fetchVideoNarration } from '@/lib/queries/videos';
-import { Button } from '@/components/ui/button';
+import { Button } from '@heroui/react';
 import { cn } from '@/lib/utils/cn';
 import {
   Mic, Play, Pause, Download, RefreshCw, Sparkles,

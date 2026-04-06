@@ -15,7 +15,7 @@ import {
   Clock, Loader2, Save, ChevronDown, ChevronRight, MapPin,
   ChevronLeft, Download, ZoomIn, Play, Copy, Pencil, Bot,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@heroui/react';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { CameraAngle, CameraMovement } from '@/types';
 

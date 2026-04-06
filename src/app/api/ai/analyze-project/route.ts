@@ -1,41 +1,52 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import {
+  apiBadRequest,
+  apiError,
+  apiResponse,
+  createApiRequestContext,
+  logServerEvent,
+  parseApiJson,
+} from '@/lib/observability/server';
 
 /**
  * @deprecated Use /api/ai/analyze-video instead.
  * This route is kept for backwards compatibility and redirects to the new endpoint.
  */
 export async function POST(request: NextRequest) {
+  const requestContext = createApiRequestContext(request);
   try {
-    const body = await request.json() as { projectId?: string; videoId?: string };
+    const { data: body, response } = await parseApiJson<{ projectId?: string; videoId?: string }>(request, requestContext);
+    if (response || !body) {
+      return response;
+    }
 
     if (!body.videoId) {
-      return NextResponse.json(
-        {
-          error: 'This endpoint is deprecated. Use /api/ai/analyze-video with { projectId, videoId } instead.',
-          redirect: '/api/ai/analyze-video',
-        },
-        { status: 400 }
+      return apiBadRequest(
+        requestContext,
+        'This endpoint is deprecated. Use /api/ai/analyze-video with { projectId, videoId } instead.'
       );
     }
 
     // Forward to the new endpoint
     const origin = request.nextUrl.origin;
+    logServerEvent('analyze-project', requestContext, 'Forwarding deprecated endpoint to analyze-video', {
+      projectId: body.projectId ?? null,
+      videoId: body.videoId,
+    });
+
     const response = await fetch(`${origin}/api/ai/analyze-video`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         cookie: request.headers.get('cookie') ?? '',
+        'x-request-id': requestContext.requestId,
+        ...(requestContext.clientRequestId ? { 'x-kiyoko-client-request-id': requestContext.clientRequestId } : {}),
       },
       body: JSON.stringify(body),
     });
 
-    const data = await response.json();
-    return NextResponse.json(data, { status: response.status });
+    return apiResponse(requestContext, response);
   } catch (error) {
-    console.error('[analyze-project] redirect error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return apiError(requestContext, 'analyze-project', error, { message: 'Internal server error' });
   }
 }

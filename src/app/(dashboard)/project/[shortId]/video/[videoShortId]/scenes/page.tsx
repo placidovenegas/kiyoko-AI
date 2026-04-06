@@ -4,16 +4,11 @@ import { useState, useMemo } from 'react';
 import { useVideo } from '@/contexts/VideoContext';
 import { useProject } from '@/contexts/ProjectContext';
 import { SceneCard } from '@/components/video/SceneCard';
-import { Button } from '@/components/ui/button';
+import { SceneCreateModal } from '@/components/modals';
 import { cn } from '@/lib/utils/cn';
 import {
-  Plus,
-  Sparkles,
-  LayoutGrid,
-  List,
-  Clock,
-  Loader2,
-  Film,
+  Plus, Sparkles, LayoutGrid, List, Clock, Film,
+  CheckCircle2, AlertCircle, Loader2,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Scene } from '@/types';
@@ -21,368 +16,222 @@ import type { Scene } from '@/types';
 type ViewMode = 'grid' | 'list' | 'timeline';
 
 const VIEW_TABS: Array<{ key: ViewMode; label: string; icon: typeof LayoutGrid }> = [
-  { key: 'grid', label: 'Cuadricula', icon: LayoutGrid },
+  { key: 'grid', label: 'Cuadrícula', icon: LayoutGrid },
   { key: 'list', label: 'Lista', icon: List },
-  { key: 'timeline', label: 'Linea de tiempo', icon: Clock },
+  { key: 'timeline', label: 'Timeline', icon: Clock },
 ];
 
 const STATUS_LABELS: Record<string, string> = {
-  draft: 'Borrador',
-  prompt_ready: 'Prompt listo',
-  generating: 'Generando',
-  generated: 'Generado',
-  approved: 'Aprobado',
-  rejected: 'Rechazado',
+  draft: 'Borrador', prompt_ready: 'Prompt listo', generating: 'Generando',
+  generated: 'Generado', approved: 'Aprobado', rejected: 'Rechazado',
 };
-
 const STATUS_DOT: Record<string, string> = {
-  draft: 'bg-zinc-500',
-  prompt_ready: 'bg-blue-500',
-  generating: 'bg-amber-500 animate-pulse',
-  generated: 'bg-purple-500',
-  approved: 'bg-emerald-500',
-  rejected: 'bg-red-500',
+  draft: 'bg-zinc-400', prompt_ready: 'bg-blue-400', generating: 'bg-amber-400 animate-pulse',
+  generated: 'bg-purple-400', approved: 'bg-emerald-400', rejected: 'bg-red-400',
+};
+const ARC_COLORS: Record<string, { bg: string; text: string; label: string }> = {
+  hook: { bg: 'bg-blue-500/80', text: 'text-blue-400', label: 'Hook' },
+  build: { bg: 'bg-amber-500/80', text: 'text-amber-400', label: 'Build' },
+  peak: { bg: 'bg-red-500/80', text: 'text-red-400', label: 'Peak' },
+  close: { bg: 'bg-emerald-500/80', text: 'text-emerald-400', label: 'Close' },
 };
 
-const ARC_PHASE_COLORS: Record<string, string> = {
-  hook: 'bg-red-500/80',
-  build: 'bg-amber-500/80',
-  peak: 'bg-emerald-500/80',
-  resolve: 'bg-blue-500/80',
-};
+export default function ScenesPage() {
+  const { video, scenes, loading: videoLoading } = useVideo();
+  const { project } = useProject();
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
-const ARC_PHASE_TEXT: Record<string, string> = {
-  hook: 'text-red-400',
-  build: 'text-amber-400',
-  peak: 'text-emerald-400',
-  resolve: 'text-blue-400',
-};
-
-function SkeletonGrid() {
-  return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-      {Array.from({ length: 8 }).map((_, i) => (
-        <div
-          key={i}
-          className="animate-pulse rounded-xl border border-border bg-card"
-        >
-          <div className="aspect-video w-full bg-background" />
-          <div className="space-y-2 p-3">
-            <div className="h-4 w-3/4 rounded bg-secondary" />
-            <div className="h-3 w-1/2 rounded bg-secondary" />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function EmptyState({ basePath }: { basePath: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20">
-      <Film className="mb-4 h-12 w-12 text-muted-foreground/60" />
-      <h3 className="mb-1 text-lg font-semibold text-foreground">
-        Sin escenas
-      </h3>
-      <p className="mb-6 text-sm text-muted-foreground">
-        Crea tu primera escena para empezar a construir el video
-      </p>
-      <Button
-        startContent={<Plus className="h-4 w-4" />}
-        onClick={() => {
-          /* TODO: open create scene modal */
-        }}
-        className="rounded-md"
-      >
-        Nueva escena
-      </Button>
-    </div>
-  );
-}
-
-function ListView({
-  scenes,
-  basePath,
-}: {
-  scenes: Scene[];
-  basePath: string;
-}) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left text-sm">
-        <thead>
-          <tr className="border-b border-border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            <th className="px-3 py-2 w-10">#</th>
-            <th className="px-3 py-2">Titulo</th>
-            <th className="px-3 py-2 hidden md:table-cell">Descripcion</th>
-            <th className="px-3 py-2 w-20 text-center">Duracion</th>
-            <th className="px-3 py-2 w-24 text-center">Estado</th>
-            <th className="px-3 py-2 w-20 text-center hidden sm:table-cell">Fase</th>
-          </tr>
-        </thead>
-        <tbody>
-          {scenes.map((scene) => {
-            const sceneLink = scene.short_id
-              ? `${basePath}/scene/${scene.short_id}`
-              : `${basePath}/scenes`;
-
-            return (
-              <tr
-                key={scene.id}
-                className="border-b border-border/50 transition hover:bg-card"
-              >
-                <td className="px-3 py-2.5 text-muted-foreground font-mono text-xs">
-                  {scene.scene_number}
-                </td>
-                <td className="px-3 py-2.5">
-                  <Link
-                    href={sceneLink}
-                    className="font-medium text-foreground hover:text-primary transition"
-                  >
-                    {scene.title}
-                  </Link>
-                </td>
-                <td className="px-3 py-2.5 hidden md:table-cell">
-                  <span className="line-clamp-1 text-muted-foreground text-xs">
-                    {scene.description ?? '—'}
-                  </span>
-                </td>
-                <td className="px-3 py-2.5 text-center text-muted-foreground">
-                  {scene.duration_seconds ?? 5}s
-                </td>
-                <td className="px-3 py-2.5 text-center">
-                  <span className="inline-flex items-center gap-1.5">
-                    <span
-                      className={cn(
-                        'h-2 w-2 rounded-full',
-                        STATUS_DOT[scene.status ?? 'draft'],
-                      )}
-                    />
-                    <span className="text-xs text-muted-foreground">
-                      {STATUS_LABELS[scene.status ?? 'draft']}
-                    </span>
-                  </span>
-                </td>
-                <td className="px-3 py-2.5 text-center hidden sm:table-cell">
-                  {scene.arc_phase ? (
-                    <span
-                      className={cn(
-                        'text-xs font-medium',
-                        ARC_PHASE_TEXT[scene.arc_phase],
-                      )}
-                    >
-                      {scene.arc_phase}
-                    </span>
-                  ) : (
-                    <span className="text-xs text-muted-foreground/60">—</span>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function TimelineView({
-  scenes,
-  basePath,
-}: {
-  scenes: Scene[];
-  basePath: string;
-}) {
-  const totalDuration = useMemo(
-    () => scenes.reduce((acc, s) => acc + (s.duration_seconds ?? 5), 0),
+  const basePath = `/project/${project?.short_id}/video/${video?.short_id}`;
+  const sortedScenes = useMemo(
+    () => [...(scenes ?? [])].sort((a, b) => (a.scene_number ?? 0) - (b.scene_number ?? 0)),
     [scenes],
   );
+  const totalDuration = sortedScenes.reduce((s, sc) => s + (sc.duration_seconds ?? 0), 0);
+  const nextSceneNumber = sortedScenes.length > 0 ? Math.max(...sortedScenes.map((s) => s.scene_number ?? 0)) + 1 : 1;
 
-  if (totalDuration === 0) return null;
-
-  return (
-    <div className="space-y-4">
-      {/* Duration summary */}
-      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-        <span>Duracion total: <strong className="text-foreground">{totalDuration}s</strong></span>
-        <div className="flex items-center gap-3">
-          {Object.entries(ARC_PHASE_COLORS).map(([phase, color]) => (
-            <span key={phase} className="flex items-center gap-1">
-              <span className={cn('h-2.5 w-2.5 rounded-sm', color)} />
-              {phase}
-            </span>
+  if (videoLoading) {
+    return (
+      <div className="p-6">
+        <div className="h-8 w-48 bg-muted rounded animate-pulse mb-6" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="rounded-lg border border-border overflow-hidden">
+              <div className="aspect-video bg-muted animate-pulse" />
+              <div className="p-3 space-y-2"><div className="h-4 w-3/4 bg-muted rounded animate-pulse" /><div className="h-3 w-1/2 bg-muted rounded animate-pulse" /></div>
+            </div>
           ))}
         </div>
       </div>
-
-      {/* Timeline bar */}
-      <div className="flex h-20 gap-0.5 rounded-lg overflow-hidden border border-border">
-        {scenes.map((scene) => {
-          const pct = ((scene.duration_seconds ?? 5) / totalDuration) * 100;
-          const phase = scene.arc_phase ?? 'build';
-          const sceneLink = scene.short_id
-            ? `${basePath}/scene/${scene.short_id}`
-            : `${basePath}/scenes`;
-
-          return (
-            <Link
-              key={scene.id}
-              href={sceneLink}
-              className={cn(
-                'group relative flex flex-col items-center justify-center transition-opacity hover:opacity-90',
-                ARC_PHASE_COLORS[phase] ?? 'bg-zinc-600/80',
-              )}
-              style={{ width: `${Math.max(pct, 2)}%` }}
-              title={`E${scene.scene_number}: ${scene.title} (${scene.duration_seconds ?? 5}s)`}
-            >
-              <span className="text-xs font-bold text-white drop-shadow">
-                {scene.scene_number}
-              </span>
-              <span className="text-[9px] text-white/70 line-clamp-1 px-1 text-center hidden sm:block">
-                {scene.title}
-              </span>
-              <span className="text-[9px] text-white/50">
-                {scene.duration_seconds ?? 5}s
-              </span>
-            </Link>
-          );
-        })}
-      </div>
-
-      {/* Scene list below timeline */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-        {scenes.map((scene) => {
-          const phase = scene.arc_phase ?? 'build';
-          const sceneLink = scene.short_id
-            ? `${basePath}/scene/${scene.short_id}`
-            : `${basePath}/scenes`;
-
-          return (
-            <Link
-              key={scene.id}
-              href={sceneLink}
-              className="flex items-center gap-2 rounded-lg border border-border bg-card p-2 transition hover:border-primary/30"
-            >
-              <span
-                className={cn(
-                  'flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[10px] font-bold text-white',
-                  ARC_PHASE_COLORS[phase] ?? 'bg-zinc-600',
-                )}
-              >
-                {scene.scene_number}
-              </span>
-              <div className="min-w-0">
-                <p className="truncate text-xs font-medium text-foreground">
-                  {scene.title}
-                </p>
-                <p className="text-[10px] text-muted-foreground">
-                  {scene.duration_seconds ?? 5}s
-                </p>
-              </div>
-            </Link>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-export default function ScenesPage() {
-  const { video, scenes, scenesLoading } = useVideo();
-  const { project } = useProject();
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
-
-  if (!video || !project) return null;
-  const basePath = `/project/${project.short_id}/video/${video.short_id}`;
-
-  const sortedScenes = useMemo(
-    () => [...scenes].sort((a, b) => a.scene_number - b.scene_number),
-    [scenes],
-  );
+    );
+  }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="shrink-0 border-b border-border px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h2 className="text-lg font-semibold text-foreground">Escenas</h2>
-            {!scenesLoading && (
-              <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-semibold text-muted-foreground">
-                {scenes.length}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              startContent={<Sparkles className="h-3.5 w-3.5" />}
-              onClick={() => {
-                /* TODO: AI generate scenes */
-              }}
-              className="rounded-md"
-            >
-              IA
-            </Button>
-            <Button
-              size="sm"
-              startContent={<Plus className="h-3.5 w-3.5" />}
-              onClick={() => {
-                /* TODO: open create scene modal */
-              }}
-              className="rounded-md"
-            >
-              Nueva escena
-            </Button>
-          </div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Escenas</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {sortedScenes.length} escenas · {totalDuration}s total
+            {video?.target_duration_seconds ? ` / ${video.target_duration_seconds}s target` : ''}
+          </p>
         </div>
-
-        {/* View mode tabs */}
-        <div className="mt-3 flex items-center gap-1 rounded-lg border border-border p-0.5 w-fit">
-          {VIEW_TABS.map((tab) => {
-            const Icon = tab.icon;
-            return (
+        <div className="flex items-center gap-2">
+          {/* View mode toggle */}
+          <div className="flex items-center border border-border rounded-lg overflow-hidden">
+            {VIEW_TABS.map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setViewMode(tab.key)}
                 className={cn(
-                  'inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium transition',
-                  viewMode === tab.key
-                    ? 'bg-secondary text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground',
+                  'flex items-center gap-1.5 px-3 h-8 text-xs font-medium transition-colors cursor-pointer',
+                  viewMode === tab.key ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-accent/50',
                 )}
               >
-                <Icon className="h-3.5 w-3.5" />
-                {tab.label}
+                <tab.icon className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">{tab.label}</span>
               </button>
-            );
-          })}
+            ))}
+          </div>
+
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-1.5 px-3 h-8 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors cursor-pointer"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Nueva escena
+          </button>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-auto p-6">
-        {scenesLoading ? (
-          <SkeletonGrid />
-        ) : sortedScenes.length === 0 ? (
-          <EmptyState basePath={basePath} />
-        ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      {/* Empty state */}
+      {sortedScenes.length === 0 && (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20">
+          <Film className="mb-4 h-12 w-12 text-muted-foreground/30" />
+          <h3 className="mb-1 text-lg font-semibold text-foreground">Sin escenas</h3>
+          <p className="mb-6 text-sm text-muted-foreground max-w-xs text-center">
+            Crea tu primera escena o deja que la IA planifique el video completo
+          </p>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center gap-1.5 px-4 h-9 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors cursor-pointer"
+            >
+              <Plus className="h-4 w-4" />
+              Nueva escena
+            </button>
+            <button
+              onClick={() => { /* TODO: AI generate */ }}
+              className="flex items-center gap-1.5 px-4 h-9 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-accent transition-colors cursor-pointer"
+            >
+              <Sparkles className="h-4 w-4 text-primary" />
+              Auto-planificar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Grid view */}
+      {sortedScenes.length > 0 && viewMode === 'grid' && (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          {sortedScenes.map((scene) => (
+            <SceneCard key={scene.id} scene={scene} basePath={basePath} />
+          ))}
+        </div>
+      )}
+
+      {/* List view */}
+      {sortedScenes.length > 0 && viewMode === 'list' && (
+        <div className="rounded-lg border border-border overflow-hidden">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-border bg-muted/30 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <th className="px-3 py-2.5 w-10">#</th>
+                <th className="px-3 py-2.5">Título</th>
+                <th className="px-3 py-2.5 hidden md:table-cell">Descripción</th>
+                <th className="px-3 py-2.5 w-20 text-center">Duración</th>
+                <th className="px-3 py-2.5 w-20 text-center">Fase</th>
+                <th className="px-3 py-2.5 w-24 text-center">Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedScenes.map((scene) => {
+                const arc = ARC_COLORS[scene.arc_phase ?? 'build'];
+                return (
+                  <tr key={scene.id} className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
+                    <td className="px-3 py-2.5 text-muted-foreground tabular-nums">{scene.scene_number}</td>
+                    <td className="px-3 py-2.5">
+                      <Link href={`${basePath}/scene/${scene.short_id}`} className="font-medium text-foreground hover:text-primary transition-colors">
+                        {scene.title}
+                      </Link>
+                    </td>
+                    <td className="px-3 py-2.5 hidden md:table-cell text-muted-foreground text-xs line-clamp-1 max-w-xs">{scene.description}</td>
+                    <td className="px-3 py-2.5 text-center text-muted-foreground tabular-nums">{scene.duration_seconds}s</td>
+                    <td className="px-3 py-2.5 text-center">
+                      <span className={cn('text-[10px] font-bold uppercase', arc?.text)}>{arc?.label}</span>
+                    </td>
+                    <td className="px-3 py-2.5 text-center">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <span className={cn('h-1.5 w-1.5 rounded-full', STATUS_DOT[scene.status])} />
+                        <span className="text-xs text-muted-foreground">{STATUS_LABELS[scene.status]}</span>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Timeline view */}
+      {sortedScenes.length > 0 && viewMode === 'timeline' && (
+        <div className="space-y-4">
+          {/* Timeline bar */}
+          <div className="rounded-lg border border-border bg-card p-4">
+            <div className="flex h-10 rounded-md overflow-hidden">
+              {sortedScenes.map((scene) => {
+                const pct = totalDuration > 0 ? ((scene.duration_seconds ?? 0) / totalDuration) * 100 : 0;
+                const arc = ARC_COLORS[scene.arc_phase ?? 'build'];
+                return (
+                  <Link
+                    key={scene.id}
+                    href={`${basePath}/scene/${scene.short_id}`}
+                    className={cn('flex items-center justify-center text-[10px] font-bold text-white hover:opacity-80 transition-opacity', arc?.bg)}
+                    style={{ width: `${Math.max(pct, 3)}%` }}
+                    title={`${scene.title} (${scene.duration_seconds}s)`}
+                  >
+                    {pct > 5 && scene.scene_number}
+                  </Link>
+                );
+              })}
+            </div>
+            <div className="flex justify-between mt-1.5 text-[10px] text-muted-foreground">
+              <span>0s</span>
+              <span>{totalDuration}s</span>
+            </div>
+          </div>
+
+          {/* Scene cards below */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {sortedScenes.map((scene) => (
-              <SceneCard
-                key={scene.id}
-                scene={scene}
-                basePath={basePath}
-              />
+              <SceneCard key={scene.id} scene={scene} basePath={basePath} />
             ))}
           </div>
-        ) : viewMode === 'list' ? (
-          <ListView scenes={sortedScenes} basePath={basePath} />
-        ) : (
-          <TimelineView scenes={sortedScenes} basePath={basePath} />
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* Create Scene Modal */}
+      {video && project && (
+        <SceneCreateModal
+          open={showCreateModal}
+          onOpenChange={setShowCreateModal}
+          videoId={video.id}
+          projectId={project.id}
+          nextSceneNumber={nextSceneNumber}
+        />
+      )}
     </div>
   );
 }

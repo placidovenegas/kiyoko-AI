@@ -2,12 +2,6 @@
 
 import { useState, useCallback } from 'react';
 import { cn } from '@/lib/utils/cn';
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupTextarea,
-} from '@/components/ui/input-group';
 import { CopyButton } from '@/components/ui/CopyButton';
 import {
   Sparkles,
@@ -18,7 +12,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
-import { Tooltip } from '@heroui/react';
+import { TextArea, Tooltip } from '@heroui/react';
 
 interface PromptEditorProps {
   label: string;
@@ -151,15 +145,18 @@ export function PromptEditor({
       {/* Content */}
       {isEditing ? (
         <div className="space-y-2">
-          <InputGroup className="h-auto">
-            <InputGroupTextarea
-              value={editValue}
-              onChange={(e) => setEditValue(e.target.value)}
-              rows={4}
-              aria-label={`Editar ${label}`}
-              className="font-mono text-xs leading-relaxed text-muted-foreground"
-            />
-          </InputGroup>
+          <TextArea
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            minRows={4}
+            aria-label={`Editar ${label}`}
+            className="font-mono text-xs leading-relaxed text-muted-foreground"
+            classNames={{
+              base: 'w-full',
+              inputWrapper: 'rounded-lg border border-border bg-transparent shadow-none',
+              input: 'px-0 text-xs leading-relaxed text-muted-foreground',
+            }}
+          />
           <div className="flex items-center justify-end gap-1.5">
             <button
               type="button"

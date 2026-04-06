@@ -16,7 +16,7 @@ import {
   FileText,
   Volume2,
 } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs } from '@heroui/react';
 import type { Scene, NarrativeArc } from '@/types';
 import { estimateTextDuration } from '@/lib/constants/scene-options';
 import { VoiceSelector } from '@/components/narration/VoiceSelector';
@@ -250,21 +250,21 @@ export default function ScriptNarrationPage() {
       </div>
 
       {/* Narration Mode Tabs */}
-      <Tabs value={narrationMode} onValueChange={(v) => setNarrationMode(v as NarrationMode)}>
-        <TabsList>
-          <TabsTrigger value="per_scene" className="gap-1.5">
+      <Tabs selectedKey={narrationMode} onSelectionChange={(key) => setNarrationMode(String(key) as NarrationMode)}>
+        <Tabs.List>
+          <Tabs.Tab id="per_scene" className="gap-1.5">
             <FileText className="h-4 w-4" /> Por escena
-          </TabsTrigger>
-          <TabsTrigger value="continuous" className="gap-1.5">
+          </Tabs.Tab>
+          <Tabs.Tab id="continuous" className="gap-1.5">
             <Volume2 className="h-4 w-4" /> Continua
-          </TabsTrigger>
-          <TabsTrigger value="none" className="gap-1.5">
+          </Tabs.Tab>
+          <Tabs.Tab id="none" className="gap-1.5">
             Sin narracion
-          </TabsTrigger>
-        </TabsList>
+          </Tabs.Tab>
+        </Tabs.List>
 
         {/* Per-scene narration */}
-        <TabsContent value="per_scene" className="mt-4 space-y-4">
+        <Tabs.Panel id="per_scene" className="mt-4 space-y-4">
           {/* Config: Voice + Style + Speed */}
           <div className="rounded-xl border border-border bg-card p-4 space-y-4">
             {/* Voice */}
@@ -373,10 +373,10 @@ export default function ScriptNarrationPage() {
               </span>
             </div>
           )}
-        </TabsContent>
+        </Tabs.Panel>
 
         {/* Continuous narration */}
-        <TabsContent value="continuous" className="mt-4">
+        <Tabs.Panel id="continuous" className="mt-4">
           <div className="rounded-xl border border-border bg-card p-4">
             <div className="mb-3 flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Guion completo</span>
@@ -435,10 +435,10 @@ export default function ScriptNarrationPage() {
               <Download className="h-4 w-4" /> Descargar MP3
             </button>
           </div>
-        </TabsContent>
+        </Tabs.Panel>
 
         {/* No narration */}
-        <TabsContent value="none" className="mt-4">
+        <Tabs.Panel id="none" className="mt-4">
           <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16">
             <Volume2 className="mb-3 h-10 w-10 text-muted-foreground/30" />
             <h3 className="text-lg font-semibold text-foreground">Sin narracion</h3>
@@ -446,7 +446,7 @@ export default function ScriptNarrationPage() {
               Este proyecto no usa narracion. Las escenas se reproduciran con su audio original (ambiente, musica, dialogos).
             </p>
           </div>
-        </TabsContent>
+        </Tabs.Panel>
       </Tabs>
     </div>
   );

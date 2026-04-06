@@ -1,6 +1,6 @@
 'use client';
 
-import { Slider } from '@/components/ui/slider';
+import { Slider } from '@heroui/react';
 import { cn } from '@/lib/utils/cn';
 
 interface DurationInputProps {
@@ -34,11 +34,14 @@ export function DurationInput({
       </div>
       <Slider
         value={[value]}
-        onValueChange={([v]) => onChange(v)}
-        min={min}
-        max={max}
+        onChange={(nextValue) => {
+          const resolvedValue = Array.isArray(nextValue) ? nextValue[0] : nextValue;
+          onChange(resolvedValue);
+        }}
+        minValue={min}
+        maxValue={max}
         step={step}
-        disabled={disabled}
+        isDisabled={disabled}
         aria-label={`Duracion de la escena: ${value} segundos`}
         className="w-full"
       />

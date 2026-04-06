@@ -1,10 +1,19 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getUserModel } from '@/lib/ai/get-user-model';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { logUsage } from '@/lib/ai/sdk-router';
 import type { Json } from '@/types/database.types';
+import {
+  apiBadRequest,
+  apiError,
+  apiJson,
+  apiUnauthorized,
+  createApiRequestContext,
+  logServerEvent,
+  parseApiJson,
+} from '@/lib/observability/server';
 
 const characterAnalysisSchema = z.object({
   age_range: z.string(),
@@ -15,10 +24,13 @@ const characterAnalysisSchema = z.object({
   accessories: z.array(z.string()),
   expression: z.string(),
   pose: z.string(),
-  skin_tone: z.string().optional(),
+  skin_tone: z.string().nullable(),
   distinctive_features: z.array(z.string()),
   prompt_description: z.string().describe(
     'English prompt description optimized for consistent image generation of this person in different angles'
+  ),
+  reference_sheet_prompt: z.string().describe(
+    'Full English turnaround/reference sheet prompt based on the uploaded real-person image'
   ),
 });
 
@@ -31,7 +43,7 @@ const backgroundAnalysisSchema = z.object({
   atmosphere: z.string(),
   depth: z.string(),
   objects: z.array(z.string()),
-  architectural_style: z.string().optional(),
+  architectural_style: z.string().nullable(),
   prompt_description: z.string().describe(
     'English prompt description optimized for recreating this space consistently'
   ),
@@ -44,38 +56,61 @@ interface AnalyzeImageBody {
   imageUrl: string;
   entityType: 'character' | 'background';
   entityId: string;
+  persistReferenceSheetPrompt?: boolean;
 }
 
 export async function POST(req: NextRequest) {
+  const requestContext = createApiRequestContext(req);
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    return apiUnauthorized(requestContext, 'Not authenticated');
   }
 
-  const body: AnalyzeImageBody = await req.json();
-  const { imageUrl, entityType, entityId } = body;
+  const { data: body, response } = await parseApiJson<AnalyzeImageBody>(req, requestContext);
+  if (response || !body) {
+    return response;
+  }
+
+  const { imageUrl, entityType, entityId, persistReferenceSheetPrompt = false } = body;
 
   if (!imageUrl || !entityType || !entityId) {
-    return NextResponse.json(
-      { error: 'Missing imageUrl, entityType, entityId' },
-      { status: 400 }
-    );
+    return apiBadRequest(requestContext, 'Missing imageUrl, entityType, entityId');
   }
 
   const isCharacter = entityType === 'character';
   const schema = isCharacter ? characterAnalysisSchema : backgroundAnalysisSchema;
 
   const systemPrompt = isCharacter
-    ? `You are an expert visual analyst for AI image generation. Analyze this character reference image and extract detailed visual attributes. The prompt_description should be in ENGLISH and optimized for generating this character consistently across multiple images with different angles and poses. Format: "A [body_type] [age] [gender] with [hair], wearing [clothing], [accessories], [expression]..."`
-    : `You are an expert visual analyst for AI image generation. Analyze this location/space reference image and extract detailed environmental attributes. The prompt_description should be in ENGLISH and optimized for recreating this space consistently. Format: "[location_type] with [lighting], [materials], [atmosphere], [key objects]..."`;
+    ? `You are an expert visual analyst and prompt engineer for AI image generation.
+
+Analyze this real-person character reference image and extract detailed visual attributes.
+
+Rules:
+- prompt_description must be in ENGLISH and optimized for generating this character consistently across multiple images with different angles and poses.
+- reference_sheet_prompt must be in ENGLISH and must be a production-ready turnaround/reference sheet prompt.
+- The reference_sheet_prompt must describe a professional 2x3 character sheet on a solid bright green chroma key background.
+- Include front view, side view, back view, 3/4 view, close-up facial expression panel, and portrait/full-body support panel.
+- Keep detected hairstyle, face, body type, clothing, accessories, and expression faithful to the uploaded person.
+- Use polished 3D animated feature-film wording similar to a Pixar-style reference sheet.
+- If skin tone is not clearly visible return null.
+- Every field in the schema must be present.`
+    : `You are an expert visual analyst for AI image generation. Analyze this location/space reference image and extract detailed environmental attributes. The prompt_description should be in ENGLISH and optimized for recreating this space consistently. Format: "[location_type] with [lighting], [materials], [atmosphere], [key objects]..." If the architectural style is not clear return null. Every field in the schema must be present.`;
 
   try {
     // Use OpenAI or Gemini for vision (they support image URLs)
     const { model, providerId } = await getUserModel(user.id, 'openai');
     const startTime = Date.now();
+
+    logServerEvent('analyze-image', requestContext, 'Analyzing reference image', {
+      userId: user.id,
+      entityType,
+      entityId,
+      providerId,
+      imageUrl,
+    });
 
     const { object, usage } = await generateObject({
       model,
@@ -102,11 +137,33 @@ export async function POST(req: NextRequest) {
 
     if (isCharacter) {
       const charAnalysis = object as CharacterAnalysis;
+      const { data: characterData } = await supabase
+        .from('characters')
+        .select('metadata')
+        .eq('id', entityId)
+        .single();
+
+      const currentMetadata = (characterData?.metadata ?? {}) as Record<string, unknown>;
+
+      const nextMetadata: Record<string, unknown> = {
+        ...currentMetadata,
+      };
+
+      if (persistReferenceSheetPrompt) {
+        nextMetadata.ai_reference_sheet_prompt = charAnalysis.reference_sheet_prompt;
+        nextMetadata.ai_reference_sheet_source_image_url = imageUrl;
+        nextMetadata.ai_reference_sheet_updated_at = new Date().toISOString();
+      }
+
       await supabase
         .from('characters')
         .update({
-          ai_visual_analysis: analysisJson,
+          ai_visual_analysis: {
+            ...(analysisJson as Record<string, unknown>),
+            source_image_url: imageUrl,
+          } as Json,
           ai_prompt_description: charAnalysis.prompt_description,
+          metadata: nextMetadata as Json,
         })
         .eq('id', entityId);
     } else {
@@ -133,10 +190,14 @@ export async function POST(req: NextRequest) {
       success: true,
     });
 
-    return NextResponse.json({ analysis: object });
+    return apiJson(requestContext, { analysis: object });
   } catch (err: unknown) {
-    const message =
-      err instanceof Error ? err.message : 'Analysis failed';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return apiError(requestContext, 'analyze-image', err, {
+      message: 'No se pudo analizar la imagen de referencia',
+      extra: {
+        entityType: body.entityType,
+        entityId: body.entityId,
+      },
+    });
   }
 }

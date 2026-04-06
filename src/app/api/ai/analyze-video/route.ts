@@ -1,10 +1,20 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { generateText, Output } from 'ai';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUserModel } from '@/lib/ai/get-user-model';
 import { SYSTEM_ANALYZER } from '@/lib/ai/prompts/system-analyzer';
 import { analysisOutputSchema } from '@/lib/ai/schemas/analysis-output';
+import {
+  apiBadRequest,
+  apiError,
+  apiJson,
+  apiUnauthorized,
+  createApiRequestContext,
+  logServerEvent,
+  logServerWarning,
+  parseApiJson,
+} from '@/lib/observability/server';
 
 interface AnalyzeVideoBody {
   projectId: string;
@@ -12,32 +22,28 @@ interface AnalyzeVideoBody {
 }
 
 export async function POST(request: NextRequest) {
+  const requestContext = createApiRequestContext(request);
   try {
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return apiUnauthorized(requestContext);
     }
 
-    const body: AnalyzeVideoBody = await request.json();
+    const { data: body, response } = await parseApiJson<AnalyzeVideoBody>(request, requestContext);
+    if (response || !body) {
+      return response;
+    }
+
     const { projectId, videoId } = body;
 
     if (!projectId) {
-      return NextResponse.json(
-        { error: 'Missing required field: projectId' },
-        { status: 400 }
-      );
+      return apiBadRequest(requestContext, 'Missing required field: projectId');
     }
 
     if (!videoId) {
-      return NextResponse.json(
-        { error: 'Missing required field: videoId' },
-        { status: 400 }
-      );
+      return apiBadRequest(requestContext, 'Missing required field: videoId');
     }
 
     // Fetch project
@@ -49,10 +55,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (projectError || !project) {
-      return NextResponse.json(
-        { error: 'Project not found' },
-        { status: 404 }
-      );
+      return apiJson(requestContext, { error: 'Project not found', requestId: requestContext.requestId }, { status: 404 });
     }
 
     const projectData = project as Record<string, unknown>;
@@ -140,6 +143,18 @@ export async function POST(request: NextRequest) {
 
     const { model, providerId } = await getUserModel(user.id);
 
+    logServerEvent('analyze-video', requestContext, 'Starting video analysis', {
+      userId: user.id,
+      projectId,
+      videoId,
+      sceneCount: scenes.length,
+      characterCount: characters.length,
+      backgroundCount: backgrounds.length,
+      arcCount: arcs.length,
+      timelineCount: timeline.length,
+      providerId,
+    });
+
     const userPrompt = `Analyze this storyboard project scene by scene and provide a detailed diagnostic.
 
 ${fullContext}
@@ -195,13 +210,23 @@ Be constructive and specific. Evaluate each scene's prompt quality, the narrativ
         });
 
       if (insertError) {
-        console.error('[analyze-video] Failed to insert video_analysis:', insertError);
+        logServerWarning('analyze-video', requestContext, 'Failed to insert video_analysis row', {
+          userId: user.id,
+          projectId,
+          videoId,
+          errorMessage: insertError.message,
+        });
       }
     } catch (saveError) {
-      console.error('[analyze-video] Error saving analysis to DB:', saveError);
+      logServerWarning('analyze-video', requestContext, 'Error saving analysis to DB', {
+        userId: user.id,
+        projectId,
+        videoId,
+        errorMessage: saveError instanceof Error ? saveError.message : String(saveError),
+      });
     }
 
-    return NextResponse.json({
+    return apiJson(requestContext, {
       success: true,
       data: diagnostic,
       provider: providerId,
@@ -210,16 +235,12 @@ Be constructive and specific. Evaluate each scene's prompt quality, the narrativ
     const message = error instanceof Error ? error.message : 'Unknown error';
 
     if (message.startsWith('NO_PROVIDER_AVAILABLE')) {
-      return NextResponse.json(
-        { error: message },
-        { status: 429 }
-      );
+      return apiJson(requestContext, { error: message, requestId: requestContext.requestId }, { status: 429 });
     }
 
-    console.error('[analyze-video]', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return apiError(requestContext, 'analyze-video', error, {
+      message: 'Internal server error',
+      extra: { projectId: body?.projectId ?? null, videoId: body?.videoId ?? null },
+    });
   }
 }

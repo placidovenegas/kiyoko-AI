@@ -1,20 +1,19 @@
 'use client';
 
-import Link from 'next/link';
 import { ProjectCard, type Project } from './ProjectCard';
-import { Film, Sparkles, Plus } from 'lucide-react';
+import { Film, Plus } from 'lucide-react';
 import { Button } from '@heroui/react';
+import { useUIStore } from '@/stores/useUIStore';
 
 export function ProjectGrid({ projects }: { projects: Project[] }) {
+  const openProjectCreatePanel = useUIStore((state) => state.openProjectCreatePanel);
+
   if (projects.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-6 rounded-2xl border-2 border-dashed border-border py-20 text-center">
         <div className="relative">
           <div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-primary/10">
             <Film className="h-10 w-10 text-primary" />
-          </div>
-          <div className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-primary shadow-lg">
-            <Sparkles className="h-4 w-4 text-white" />
           </div>
         </div>
 
@@ -23,16 +22,13 @@ export function ProjectGrid({ projects }: { projects: Project[] }) {
             Crea tu primer proyecto
           </h3>
           <p className="max-w-md text-sm leading-relaxed text-muted-foreground">
-            Empieza a diseñar tu storyboard con ayuda de IA. Describe tu idea y
-            Kiyoko se encargará de generar escenas, personajes y fondos.
+            Define el brief inicial, el cliente y la direccion visual para arrancar tu proyecto con una base clara.
           </p>
         </div>
 
-        <Link href="/new">
-          <Button size="lg" startContent={<Plus className="h-4 w-4" />} className="rounded-md">
-            Nuevo Proyecto
-          </Button>
-        </Link>
+        <Button size="lg" startContent={<Plus className="h-4 w-4" />} className="rounded-md" onPress={openProjectCreatePanel}>
+          Nuevo Proyecto
+        </Button>
       </div>
     );
   }

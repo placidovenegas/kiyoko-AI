@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
-import { Button } from '@/components/ui/button';
+import { Button } from '@heroui/react';
+import { queryKeys } from '@/lib/query/keys';
 import {
   Loader2, Bell, Save, Check,
 } from 'lucide-react';
@@ -41,12 +42,9 @@ const notificationLabels: Record<keyof NotificationPreferences, { label: string;
 
 export default function NotificationsPage() {
   const supabase = createClient();
-  const queryClient = useQueryClient();
-  const [prefs, setPrefs] = useState<NotificationPreferences>(defaultPreferences);
-  const [saved, setSaved] = useState(false);
 
   const { data: profile, isLoading } = useQuery({
-    queryKey: ['profile'],
+    queryKey: queryKeys.auth.profile(),
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
@@ -60,18 +58,34 @@ export default function NotificationsPage() {
     },
   });
 
-  // Load preferences from profile
-  useEffect(() => {
-    if (profile?.preferences) {
-      const stored = profile.preferences as Record<string, unknown>;
-      const notifications = (stored.notifications ?? {}) as Partial<NotificationPreferences>;
-      setPrefs({ ...defaultPreferences, ...notifications });
-    }
-  }, [profile]);
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return null;
+  }
+
+  return <NotificationsSettings key={`${profile.id}:${JSON.stringify(profile.preferences ?? {})}`} profile={profile} />;
+}
+
+function NotificationsSettings({ profile }: { profile: Profile }) {
+  const supabase = createClient();
+  const queryClient = useQueryClient();
+  const stored = (profile.preferences ?? {}) as Record<string, unknown>;
+  const notifications = (stored.notifications ?? {}) as Partial<NotificationPreferences>;
+  const [prefs, setPrefs] = useState<NotificationPreferences>({
+    ...defaultPreferences,
+    ...notifications,
+  });
+  const [saved, setSaved] = useState(false);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!profile) return;
       const existingPrefs = (profile.preferences ?? {}) as Record<string, unknown>;
       const { error } = await supabase
         .from('profiles')
@@ -82,7 +96,7 @@ export default function NotificationsPage() {
       if (error) throw error;
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['profile'] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.auth.profile() });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     },
@@ -93,19 +107,10 @@ export default function NotificationsPage() {
     setSaved(false);
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex h-full items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
   const groups = ['Email', 'Push'] as const;
 
   return (
     <div className="flex h-full flex-col overflow-y-auto bg-background p-6">
-      {/* Header */}
       <div className="mb-8 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Bell className="h-5 w-5 text-primary" />

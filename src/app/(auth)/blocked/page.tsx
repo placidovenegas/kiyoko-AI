@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { Button } from '@/components/ui/button';
+import { Button } from '@heroui/react';
 import { ShieldX, LogOut } from 'lucide-react';
 import { AuthCard } from '@/components/auth';
 

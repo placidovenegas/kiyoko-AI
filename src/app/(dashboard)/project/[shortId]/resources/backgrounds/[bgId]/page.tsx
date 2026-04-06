@@ -1,12 +1,15 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, type ChangeEvent } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
+import { Button } from '@heroui/react';
 import { useProject } from '@/contexts/ProjectContext';
 import { queryKeys } from '@/lib/query/keys';
+import { useUIStore } from '@/stores/useUIStore';
+import { toast } from 'sonner';
 import type { Background, BackgroundUpdate } from '@/types';
 
 interface SceneWithBackground {
@@ -27,8 +30,10 @@ export default function BackgroundDetailPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { project } = useProject();
+  const openFilePreview = useUIStore((state) => state.openFilePreview);
   const bgId = params.bgId as string;
   const shortId = params.shortId as string;
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const supabase = createClient();
 
@@ -88,9 +93,64 @@ export default function BackgroundDetailPage() {
     },
   });
 
+  const uploadReferenceMutation = useMutation({
+    mutationFn: async (file: File) => {
+      if (!project) throw new Error('Proyecto no disponible');
+      const ext = file.name.split('.').pop() ?? 'jpg';
+      const path = `projects/${project.id}/backgrounds/${bgId}/${crypto.randomUUID()}.${ext}`;
+      const payload = new FormData();
+      payload.append('bucket', 'project-assets');
+      payload.append('path', path);
+      payload.append('file', file);
+
+      const response = await fetch('/api/storage/object', { method: 'POST', body: payload });
+      const body = (await response.json().catch(() => null)) as { file?: { url: string; path?: string }; error?: string } | null;
+      if (!response.ok || !body?.file?.url) {
+        throw new Error(body?.error ?? 'No se pudo subir la imagen');
+      }
+
+      const { error } = await supabase
+        .from('backgrounds')
+        .update({ reference_image_url: body.file.url, reference_image_path: body.file.path ?? path })
+        .eq('id', bgId);
+      if (error) throw error;
+      return body.file.url;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['background', bgId] });
+      if (project) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.backgrounds.byProject(project.id) });
+      }
+      toast.success('Referencia del fondo actualizada');
+    },
+    onError: (error) => {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : 'No se pudo subir la imagen');
+    },
+  });
+
   const saveField = useCallback((field: string) => {
     updateMutation.mutate({ [field]: editValue } as BackgroundUpdate);
   }, [editValue, updateMutation]);
+
+  function handleOpenPreview() {
+    if (!background?.reference_image_url) return;
+    openFilePreview([
+      {
+        id: `background-reference-${bgId}`,
+        url: background.reference_image_url,
+        name: background.name,
+        type: 'image/*',
+      },
+    ], 0);
+  }
+
+  function handleReferenceUpload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    uploadReferenceMutation.mutate(file);
+    event.target.value = '';
+  }
 
   // ---------- Loading / Error ----------
 
@@ -145,15 +205,16 @@ export default function BackgroundDetailPage() {
         <div className="lg:col-span-2 space-y-4">
           {/* Reference image */}
           <div className="rounded-xl border border-border bg-card overflow-hidden">
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleReferenceUpload} />
             {background.reference_image_url ? (
-              <div className="relative aspect-video">
+              <button type="button" onClick={handleOpenPreview} className="relative block aspect-video w-full overflow-hidden">
                 <Image
                   src={background.reference_image_url}
                   alt={background.name}
                   fill
                   className="object-cover"
                 />
-              </div>
+              </button>
             ) : (
               <div className="aspect-video flex items-center justify-center bg-secondary">
                 <svg className="w-12 h-12 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -161,6 +222,12 @@ export default function BackgroundDetailPage() {
                 </svg>
               </div>
             )}
+            <div className="flex items-center justify-between border-t border-border px-4 py-3">
+              <p className="text-xs text-muted-foreground">Referencia visual principal del fondo</p>
+              <Button size="sm" variant="outline" onPress={() => fileInputRef.current?.click()} isDisabled={uploadReferenceMutation.isPending}>
+                {uploadReferenceMutation.isPending ? 'Subiendo...' : 'Subir imagen'}
+              </Button>
+            </div>
           </div>
 
           {/* Available angles */}

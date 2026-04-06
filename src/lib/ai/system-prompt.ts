@@ -362,7 +362,6 @@ export function buildSystemPrompt(params: BuildSystemPromptParams): string {
 function getAvailableActions(level: ContextLevel): string[] {
   const base = ['navigate', 'explain'];
   if (level === 'dashboard') return [...base, 'create_project'];
-  if (level === 'organization') return [...base, 'create_project', 'update_project'];
   if (level === 'project') return [
     ...base,
     'create_video', 'update_project',

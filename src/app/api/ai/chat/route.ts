@@ -4,7 +4,6 @@ import { getAllAvailableModels, markProviderFailed, createModelWithKey, TEXT_CHA
 import type { ProviderId, ResolvedModel } from '@/lib/ai/sdk-router';
 import { decrypt } from '@/lib/utils/crypto';
 import {
-  buildSystemPrompt,
   SYSTEM_DASHBOARD,
   type ProjectContext,
   type VideoContext,
@@ -17,6 +16,17 @@ import { detectIntent } from '@/lib/ai/detect-intent';
 import { selectAgent } from '@/lib/ai/select-agent';
 import { buildProjectAssistantPrompt } from '@/lib/ai/agents/project-assistant';
 import type { KiyokoActiveAgent } from '@/stores/ai-store';
+import {
+  apiBadRequest,
+  apiError,
+  apiJson,
+  apiResponse,
+  apiUnauthorized,
+  createApiRequestContext,
+  logServerEvent,
+  logServerWarning,
+  parseApiJson,
+} from '@/lib/observability/server';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -49,14 +59,18 @@ interface ChatRequestBody {
 // ---------------------------------------------------------------------------
 
 export async function POST(request: Request) {
+  const requestContext = createApiRequestContext(request);
   try {
     // 1. Auth
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { 'Content-Type': 'application/json' },
-      });
+      return apiUnauthorized(requestContext);
+    }
+
+    const { data: body, response } = await parseApiJson<ChatRequestBody>(request, requestContext);
+    if (response || !body) {
+      return response;
     }
 
     const {
@@ -66,15 +80,12 @@ export async function POST(request: Request) {
       videoId,
       sceneId,
       aiMode = 'auto',
-      images,
       preferredProvider,
       contextClientHint,
-    } = (await request.json()) as ChatRequestBody;
+    } = body;
 
     if (!messages?.length) {
-      return new Response(JSON.stringify({ error: 'Missing messages' }), {
-        status: 400, headers: { 'Content-Type': 'application/json' },
-      });
+      return apiBadRequest(requestContext, 'Missing messages');
     }
 
     // Determinar nivel de contexto
@@ -116,7 +127,6 @@ export async function POST(request: Request) {
         // Cargar datos según el nivel de contexto
         let video: VideoContext | undefined;
         let rawVideoData: Record<string, unknown> | null = null;
-        let scene: SceneContext | undefined;
         let scenes: SceneContext[] = [];
         let characters: CharacterContext[] = [];
         let backgrounds: BackgroundContext[] = [];
@@ -221,12 +231,14 @@ export async function POST(request: Request) {
             if (sceneData) {
               const prompts = (sceneData.scene_prompts as Array<{ prompt_type: string; prompt_text: string; version: number; is_current: boolean }> ?? [])
                 .filter((p) => p.is_current);
-              scene = {
+              const _scene = {
                 ...sceneData,
                 all_prompts: prompts,
                 prompt_image: prompts.find((p) => p.prompt_type === 'image') ?? null,
                 prompt_video: prompts.find((p) => p.prompt_type === 'video') ?? null,
               } as unknown as SceneContext;
+
+              void _scene;
             }
           }
         }
@@ -449,18 +461,12 @@ No inventes análisis visual detallado sin visión.
     if (aiMode !== 'auto' && aiMode) {
       availableModels = availableModels.filter((m) => m.providerId === aiMode);
       if (!availableModels.length) {
-        return new Response(
-          JSON.stringify({ error: `Proveedor "${aiMode}" no disponible.` }),
-          { status: 503, headers: { 'Content-Type': 'application/json' } },
-        );
+        return apiJson(requestContext, { error: `Proveedor "${aiMode}" no disponible.`, requestId: requestContext.requestId }, { status: 503 });
       }
     }
 
     if (!availableModels.length) {
-      return new Response(
-        JSON.stringify({ error: 'No hay proveedores de IA disponibles.' }),
-        { status: 503, headers: { 'Content-Type': 'application/json' } },
-      );
+      return apiJson(requestContext, { error: 'No hay proveedores de IA disponibles.', requestId: requestContext.requestId }, { status: 503 });
     }
 
     if (contextClientHint?.trim()) {
@@ -471,15 +477,32 @@ ${contextClientHint.trim()}
 `;
     }
 
-    console.log(`[chat] level=${level} agent=${activeAgent} temp=${agentTemperature} prompt_len=${systemPrompt.length} providers=[${availableModels.map((m) => m.providerId).join(', ')}]`);
-    console.log(`[chat] prompt_start: ${systemPrompt.slice(0, 150)}...`);
+    logServerEvent('chat/POST', requestContext, 'Prepared chat request', {
+      userId: user.id,
+      level,
+      activeAgent,
+      providerChain: availableModels.map((m) => m.providerId),
+      promptLength: systemPrompt.length,
+      hasImages,
+      aiMode,
+      preferredProvider: preferredProvider ?? null,
+      projectId: projectId ?? null,
+      videoId: videoId ?? null,
+      sceneId: sceneId ?? null,
+      messageCount: messages.length,
+    });
 
     // 5. Stream con fallback
     let lastError: Error | null = null;
 
     for (const { model, providerId } of availableModels) {
       try {
-        console.log(`[chat] Trying: ${providerId}`);
+        logServerEvent('chat/POST', requestContext, 'Trying provider', {
+          userId: user.id,
+          providerId,
+          level,
+          activeAgent,
+        });
 
         const result = streamText({
           model,
@@ -503,7 +526,13 @@ ${contextClientHint.trim()}
                 success: true,
                 was_fallback: false,
               } as never).maybeSingle();
-            } catch { /* nunca romper el stream */ }
+            } catch (usageError) {
+              logServerWarning('chat/POST', requestContext, 'Failed to persist AI usage log', {
+                userId: user.id,
+                providerId,
+                errorMessage: usageError instanceof Error ? usageError.message : String(usageError),
+              });
+            }
           },
         });
 
@@ -527,7 +556,12 @@ ${contextClientHint.trim()}
           throw new Error(`Provider ${providerId} returned empty response`);
         }
 
-        console.log(`[chat] ${providerId} responding (level=${level})`);
+        logServerEvent('chat/POST', requestContext, 'Provider started streaming', {
+          userId: user.id,
+          providerId,
+          level,
+          activeAgent,
+        });
 
         // Emitir Vercel AI Data Stream Protocol
         const encoder = new TextEncoder();
@@ -547,7 +581,11 @@ ${contextClientHint.trim()}
                 if (value) emit(`0:${JSON.stringify(value)}`);
               }
             } catch (streamErr) {
-              console.warn(`[chat] Mid-stream error from ${providerId}:`, streamErr);
+              logServerWarning('chat/POST', requestContext, 'Mid-stream provider error', {
+                userId: user.id,
+                providerId,
+                errorMessage: streamErr instanceof Error ? streamErr.message : String(streamErr),
+              });
               emit(`3:${JSON.stringify(streamErr instanceof Error ? streamErr.message : 'Stream error')}`);
             }
 
@@ -556,7 +594,7 @@ ${contextClientHint.trim()}
           },
         });
 
-        return new Response(dataStream, {
+        return apiResponse(requestContext, new Response(dataStream, {
           headers: {
             'Content-Type': 'text/plain; charset=utf-8',
             'X-Vercel-AI-Data-Stream': 'v1',
@@ -566,24 +604,28 @@ ${contextClientHint.trim()}
             'X-Active-Agent': activeAgent,
             'X-Context-Level': level,
           },
-        });
+        }));
       } catch (error) {
         const errMsg = error instanceof Error ? error.message : String(error ?? 'Unknown error');
         lastError = new Error(errMsg);
-        console.warn(`[chat] ${providerId} FAILED: ${errMsg.slice(0, 200)}`);
+        logServerWarning('chat/POST', requestContext, 'Provider failed before stream start', {
+          userId: user.id,
+          providerId,
+          level,
+          activeAgent,
+          errorMessage: errMsg.slice(0, 500),
+        });
         markProviderFailed(providerId as ProviderId, errMsg);
       }
     }
 
     const finalError = lastError?.message || 'Todos los proveedores fallaron. Intenta de nuevo.';
-    return new Response(JSON.stringify({ error: finalError }), {
-      status: 503, headers: { 'Content-Type': 'application/json' },
+    return apiJson(requestContext, { error: finalError, requestId: requestContext.requestId }, {
+      status: 503,
     });
   } catch (error) {
-    console.error('[chat]', error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Internal server error' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } },
-    );
+    return apiError(requestContext, 'chat/POST', error, {
+      message: error instanceof Error ? error.message : 'Internal server error',
+    });
   }
 }

@@ -1,12 +1,22 @@
 export const queryKeys = {
+  auth: {
+    all: ['auth'] as const,
+    profile: () => ['auth', 'profile'] as const,
+  },
+
+  dashboard: {
+    overview: (userId: string) => ['dashboard', 'overview', userId] as const,
+  },
+
   projects: {
     all: ['projects'] as const,
-    byOrg: (orgId: string) => ['projects', 'org', orgId] as const,
+    workspace: () => ['projects'] as const,
     detail: (shortId: string) => ['projects', shortId] as const,
   },
 
   videos: {
     byProject: (projectId: string) => ['videos', 'project', projectId] as const,
+    workspace: () => ['videos', 'workspace'] as const,
     detail: (shortId: string) => ['video', shortId] as const,
     analysis: (videoId: string) => ['video-analysis', videoId] as const,
     narration: (videoId: string) => ['video-narration', videoId] as const,
@@ -30,6 +40,12 @@ export const queryKeys = {
   tasks: {
     byProject: (projectId: string) => ['tasks', 'project', projectId] as const,
     byVideo: (videoId: string) => ['tasks', 'video', videoId] as const,
+    detail: (taskId: string) => ['tasks', 'detail', taskId] as const,
+    dashboard: (userId: string) => ['tasks', 'dashboard', userId] as const,
+  },
+
+  notifications: {
+    inbox: (userId: string) => ['notifications', 'inbox', userId] as const,
   },
 
   publications: {
@@ -67,11 +83,6 @@ export const queryKeys = {
   projectShares: {
     byProject: (projectId: string) => ['project-shares', 'project', projectId] as const,
     sharedWithMe: ['project-shares', 'shared-with-me'] as const,
-  },
-
-  organizations: {
-    detail: (orgId: string) => ['organization', orgId] as const,
-    members: (orgId: string) => ['organization-members', orgId] as const,
   },
 
   timeEntries: {

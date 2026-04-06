@@ -14,6 +14,16 @@ export async function fetchProjects(supabase: Client, ownerId: string) {
   return data;
 }
 
+export async function fetchWorkspaceProjects(supabase: Client) {
+  const { data, error } = await supabase
+    .from('projects')
+    .select('*')
+    .order('updated_at', { ascending: false });
+
+  if (error) throw error;
+  return data;
+}
+
 export async function fetchProjectByShortId(supabase: Client, shortId: string) {
   const { data, error } = await supabase
     .from('projects')

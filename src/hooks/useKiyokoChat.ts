@@ -5,6 +5,7 @@ import type { AiActionPlan, AiActionResult, ActionPlan } from '@/types/ai-action
 import { parseAiMessage } from '@/lib/ai/parse-ai-message';
 import type { ContextLevel } from '@/types/ai-context';
 import { useAIStore } from '@/stores/ai-store';
+import { useUIStore } from '@/stores/useUIStore';
 import type { KiyokoActiveAgent } from '@/stores/ai-store';
 import { toast } from 'sonner';
 import { randomThinkDurationMs } from '@/types/chat-v8';
@@ -438,10 +439,8 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
     }, thinkMs);
 
     try {
-      // Read user's preferred provider from localStorage (set by ChatInput)
-      const preferredProvider = typeof window !== 'undefined'
-        ? localStorage.getItem('kiyoko-preferred-provider')
-        : null;
+      // Read user's preferred provider from Zustand store
+      const preferredProvider = useUIStore.getState().preferredAiProvider;
 
       const res = await fetch('/api/ai/chat', {
         method: 'POST',

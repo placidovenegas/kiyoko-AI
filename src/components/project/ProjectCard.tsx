@@ -154,7 +154,6 @@ export function ProjectCard({ project }: { project: Project }) {
           color_palette: project.color_palette,
           status: 'draft' as const,
           owner_id: user.id,
-          organization_id: project.organization_id,
         })
         .select()
         .single();

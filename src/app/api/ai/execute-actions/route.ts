@@ -1,7 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { executeActionPlan } from '@/lib/ai/action-executor';
 import type { AiActionPlan } from '@/types/ai-actions';
+import {
+  apiBadRequest,
+  apiError,
+  apiJson,
+  apiUnauthorized,
+  createApiRequestContext,
+  logServerEvent,
+  parseApiJson,
+} from '@/lib/observability/server';
 
 interface ExecuteActionsBody {
   plan: AiActionPlan;
@@ -10,6 +19,7 @@ interface ExecuteActionsBody {
 }
 
 export async function POST(req: NextRequest) {
+  const requestContext = createApiRequestContext(req);
   const supabase = await createClient();
   const {
     data: { user },
@@ -17,23 +27,21 @@ export async function POST(req: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return apiUnauthorized(requestContext);
   }
 
-  let body: ExecuteActionsBody;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  const { data: body, response } = await parseApiJson<ExecuteActionsBody>(req, requestContext);
+  if (response || !body) {
+    return response;
   }
 
   const { plan, projectId, conversationId } = body;
 
   if (!plan?.actions?.length) {
-    return NextResponse.json({ error: 'Missing plan.actions' }, { status: 400 });
+    return apiBadRequest(requestContext, 'Missing plan.actions');
   }
   if (!projectId) {
-    return NextResponse.json({ error: 'Missing projectId' }, { status: 400 });
+    return apiBadRequest(requestContext, 'Missing projectId');
   }
 
   // Verify the user has access to this project
@@ -44,10 +52,17 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (!project) {
-    return NextResponse.json({ error: 'Project not found or no access' }, { status: 403 });
+    return apiJson(requestContext, { error: 'Project not found or no access', requestId: requestContext.requestId }, { status: 403 });
   }
 
   try {
+    logServerEvent('execute-actions', requestContext, 'Executing AI action plan', {
+      userId: user.id,
+      projectId,
+      conversationId: conversationId ?? null,
+      actionCount: plan.actions.length,
+    });
+
     const { results, batchId } = await executeActionPlan(
       plan.actions,
       projectId,
@@ -86,17 +101,21 @@ export async function POST(req: NextRequest) {
       },
     } as never).maybeSingle();
 
-    return NextResponse.json({
+    return apiJson(requestContext, {
       batchId,
       results,
       successCount,
       failedCount: failedResults.length,
     });
   } catch (err) {
-    console.error('[execute-actions]', err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Execution failed' },
-      { status: 500 },
-    );
+    return apiError(requestContext, 'execute-actions', err, {
+      message: err instanceof Error ? err.message : 'Execution failed',
+      extra: {
+        userId: user.id,
+        projectId,
+        conversationId: conversationId ?? null,
+        actionCount: plan.actions.length,
+      },
+    });
   }
 }

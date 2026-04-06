@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import { useProject } from '@/contexts/ProjectContext';
 import { queryKeys } from '@/lib/query/keys';
-import { Button } from '@/components/ui/button';
+import { Button } from '@heroui/react';
 import {
   Loader2, Plus, Instagram, Youtube, Twitter, Globe, Users, Hash, Trash2, X,
 } from 'lucide-react';
@@ -163,7 +163,7 @@ export default function SocialProfilesPage() {
               size="sm"
               startContent={<Plus className="h-3.5 w-3.5" />}
               onClick={() => createProfile.mutate()}
-              isDisabled={!formName.trim() || createProfile.isPending}
+              disabled={!formName.trim() || createProfile.isPending}
               className="rounded-md"
             >
               {createProfile.isPending ? 'Creando...' : 'Crear perfil'}

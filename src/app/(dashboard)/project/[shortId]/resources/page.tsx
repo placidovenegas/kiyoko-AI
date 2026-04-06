@@ -1,374 +1,215 @@
 'use client';
 
-import { useState } from 'react';
-import { useProject } from '@/contexts/ProjectContext';
+import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
+import { useProject } from '@/contexts/ProjectContext';
 import { createClient } from '@/lib/supabase/client';
 import { queryKeys } from '@/lib/query/keys';
-import Link from 'next/link';
-import { useParams } from 'next/navigation';
 import {
-  Users,
-  MapPin,
-  Palette,
-  FileText,
-  Plus,
-  Sparkles,
-  Pencil,
+  BrushCleaning,
   ChevronRight,
+  FileCode,
+  FolderKanban,
+  Image as ImageIcon,
+  Layers3,
+  Mountain,
+  Sparkles,
+  Users,
 } from 'lucide-react';
-import type { Character, Background, StylePreset, PromptTemplate } from '@/types';
 
-type TabKey = 'characters' | 'backgrounds' | 'styles' | 'templates';
-
-interface TabConfig {
-  key: TabKey;
-  label: string;
-  icon: typeof Users;
-  href: string;
+function Surface({ children }: { children: React.ReactNode }) {
+  return <section className="rounded-2xl border border-border bg-card p-5 shadow-sm lg:p-6">{children}</section>;
 }
 
-export default function ResourcesPage() {
-  const { project, loading: projectLoading } = useProject();
-  const params = useParams();
-  const shortId = params.shortId as string;
-  const [activeTab, setActiveTab] = useState<TabKey>('characters');
+function StatCard({ label, value, description }: { label: string; value: number; description: string }) {
+  return (
+    <div className="rounded-2xl border border-border bg-background/70 p-4">
+      <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
+      <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{value}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+    </div>
+  );
+}
 
-  // ── Queries ──
-  const { data: characters = [], isLoading: charsLoading } = useQuery({
-    queryKey: queryKeys.characters.byProject(project?.id ?? ''),
-    queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from('characters')
-        .select('*')
-        .eq('project_id', project!.id)
-        .order('sort_order');
-      if (error) throw error;
-      return (data ?? []) as Character[];
-    },
-    enabled: !!project?.id,
-  });
+function SectionCard({
+  href,
+  icon: Icon,
+  title,
+  description,
+  count,
+  summary,
+}: {
+  href: string;
+  icon: typeof Users;
+  title: string;
+  description: string;
+  count: number;
+  summary: string;
+}) {
+  return (
+    <Link href={href} className="group rounded-2xl border border-border bg-card p-5 shadow-sm transition-colors hover:border-primary/20 hover:bg-accent-soft-hover lg:p-6">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border bg-background text-primary">
+            <Icon className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight text-foreground">{title}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+          </div>
+        </div>
+        <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+      </div>
+      <div className="mt-5">
+        <p className="text-3xl font-semibold tracking-tight text-foreground">{count}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{summary}</p>
+      </div>
+    </Link>
+  );
+}
 
-  const { data: backgrounds = [], isLoading: bgsLoading } = useQuery({
-    queryKey: queryKeys.backgrounds.byProject(project?.id ?? ''),
-    queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from('backgrounds')
-        .select('*')
-        .eq('project_id', project!.id)
-        .order('sort_order');
-      if (error) throw error;
-      return (data ?? []) as Background[];
-    },
-    enabled: !!project?.id,
-  });
+export default function ProjectResourcesPage() {
+  const { project, characters, backgrounds, stylePresets, loading } = useProject();
+  const supabase = createClient();
 
-  const { data: stylePresets = [], isLoading: stylesLoading } = useQuery({
-    queryKey: queryKeys.stylePresets.byProject(project?.id ?? ''),
+  const { data: templates = [] } = useQuery({
+    queryKey: queryKeys.promptTemplates.byProject(project?.id ?? ''),
     queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from('style_presets')
-        .select('*')
-        .eq('project_id', project!.id)
-        .order('sort_order');
-      if (error) throw error;
-      return (data ?? []) as StylePreset[];
-    },
-    enabled: !!project?.id,
-  });
-
-  const { data: templates = [], isLoading: templatesLoading } = useQuery({
-    queryKey: ['prompt-templates', project?.id],
-    queryFn: async () => {
-      const supabase = createClient();
       const { data, error } = await supabase
         .from('prompt_templates')
         .select('*')
         .eq('project_id', project!.id)
         .order('sort_order');
       if (error) throw error;
-      return (data ?? []) as PromptTemplate[];
+      return data ?? [];
     },
-    enabled: !!project?.id,
+    enabled: Boolean(project?.id),
+    staleTime: 30_000,
   });
 
-  const tabs: TabConfig[] = [
-    { key: 'characters', label: `Personajes (${characters.length})`, icon: Users, href: `/project/${shortId}/resources/characters` },
-    { key: 'backgrounds', label: `Fondos (${backgrounds.length})`, icon: MapPin, href: `/project/${shortId}/resources/backgrounds` },
-    { key: 'styles', label: `Estilos (${stylePresets.length})`, icon: Palette, href: `/project/${shortId}/resources/styles` },
-    { key: 'templates', label: `Plantillas (${templates.length})`, icon: FileText, href: `/project/${shortId}/resources/templates` },
-  ];
-
-  const loading = projectLoading || charsLoading || bgsLoading || stylesLoading || templatesLoading;
-
-  // ── Loading skeleton ──
   if (loading) {
     return (
-      <div className="space-y-6 p-6">
-        <div className="h-8 w-48 animate-pulse rounded-lg bg-card" />
-        <div className="flex gap-2">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-9 w-32 animate-pulse rounded-lg bg-card" />
-          ))}
-        </div>
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-48 animate-pulse rounded-xl bg-card" />
+      <div className="space-y-6 p-6 lg:p-8">
+        <div className="h-40 animate-pulse rounded-2xl border border-border bg-card" />
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="h-28 animate-pulse rounded-2xl border border-border bg-card" />
           ))}
         </div>
       </div>
     );
   }
 
+  if (!project) {
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center px-6 text-center">
+        <FolderKanban className="h-12 w-12 text-muted-foreground/40" />
+        <h1 className="mt-4 text-2xl font-semibold tracking-tight text-foreground">Recursos no disponibles</h1>
+        <p className="mt-2 max-w-md text-sm text-muted-foreground">No se pudo cargar la biblioteca del proyecto.</p>
+      </div>
+    );
+  }
+
+  const characterSummary = characters.length > 0
+    ? `${characters.slice(0, 3).map((character) => character.name).join(' · ')}${characters.length > 3 ? '...' : ''}`
+    : 'Todavia no hay personajes base';
+  const backgroundSummary = backgrounds.length > 0
+    ? `${backgrounds.filter((background) => background.reference_image_url).length} con referencia visual`
+    : 'Todavia no hay fondos base';
+  const styleSummary = stylePresets.length > 0
+    ? `${stylePresets.filter((preset) => preset.is_default).length} marcados como default`
+    : 'No hay presets configurados';
+  const templateSummary = templates.length > 0
+    ? `${templates.filter((template) => template.is_default).length} plantillas por defecto`
+    : 'No hay plantillas creadas';
+
   return (
-    <div className="h-full overflow-y-auto space-y-6 p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold text-foreground">Recursos</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Personajes, fondos, estilos y plantillas del proyecto</p>
+    <div className="space-y-6 px-3 py-4 lg:space-y-8 lg:px-5 lg:py-5">
+      <Surface>
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground/70">Biblioteca creativa</p>
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-foreground">Todos los recursos base del proyecto en un mismo lugar</h1>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">Aquí centralizas personajes, fondos, presets de estilo y plantillas para que escenas, prompts y automatizaciones mantengan consistencia.</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Link href={`/project/${project.short_id}/resources/characters`} className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90">
+              Gestionar personajes
+            </Link>
+            <Link href={`/project/${project.short_id}/resources/backgrounds`} className="inline-flex h-11 items-center justify-center rounded-xl border border-border bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-accent-soft-hover">
+              Gestionar fondos
+            </Link>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => {/* TODO: AI generate */}}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground transition hover:bg-card"
-          >
-            <Sparkles className="h-4 w-4 text-primary" /> Generar con IA
-          </button>
-          <Link
-            href={tabs.find((t) => t.key === activeTab)?.href ?? '#'}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white transition hover:bg-primary/90"
-          >
-            <Plus className="h-4 w-4" /> Ver todos
-          </Link>
-        </div>
+      </Surface>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Personajes" value={characters.length} description="Entidades visuales listas para escenas" />
+        <StatCard label="Fondos" value={backgrounds.length} description="Locaciones y atmosferas reutilizables" />
+        <StatCard label="Estilos" value={stylePresets.length} description="Presets visuales y direccion artistica" />
+        <StatCard label="Plantillas" value={templates.length} description="Prompts base para acelerar produccion" />
       </div>
 
-      {/* ── Tabs ── */}
-      <div className="flex gap-1 rounded-lg border border-border bg-card p-1">
-        {tabs.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.key;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                isActive
-                  ? 'bg-primary text-white'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
-              }`}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {tab.label}
-            </button>
-          );
-        })}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <SectionCard
+          href={`/project/${project.short_id}/resources/characters`}
+          icon={Users}
+          title="Personajes"
+          description="Gestiona fichas, referencias y consistencia visual de elenco."
+          count={characters.length}
+          summary={characterSummary}
+        />
+        <SectionCard
+          href={`/project/${project.short_id}/resources/backgrounds`}
+          icon={Mountain}
+          title="Fondos"
+          description="Organiza locaciones, tiempos del dia y referencias de ambiente."
+          count={backgrounds.length}
+          summary={backgroundSummary}
+        />
+        <SectionCard
+          href={`/project/${project.short_id}/resources/styles`}
+          icon={BrushCleaning}
+          title="Estilos visuales"
+          description="Define presets para mantener el mismo lenguaje grafico en todo el proyecto."
+          count={stylePresets.length}
+          summary={styleSummary}
+        />
+        <SectionCard
+          href={`/project/${project.short_id}/resources/templates`}
+          icon={FileCode}
+          title="Plantillas de prompts"
+          description="Reutiliza estructuras de prompt para escenas, personajes y fondos."
+          count={templates.length}
+          summary={templateSummary}
+        />
       </div>
 
-      {/* ── Characters tab ── */}
-      {activeTab === 'characters' && (
-        <>
-          {characters.length === 0 ? (
-            <EmptyResourceState
-              icon={Users}
-              title="No hay personajes"
-              description="Crea personajes manualmente o genera con IA"
-              href={`/project/${shortId}/resources/characters`}
-            />
-          ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {characters.map((char) => (
-                <Link
-                  key={char.id}
-                  href={`/project/${shortId}/resources/characters/${char.id}`}
-                  className="group rounded-xl border border-border bg-card p-4 transition hover:border-primary/30"
-                >
-                  <div className="mb-3 flex items-center gap-3">
-                    {char.reference_image_url ? (
-                      <img src={char.reference_image_url} alt={char.name} className="h-12 w-12 rounded-full object-cover" />
-                    ) : (
-                      <div
-                        className="flex h-12 w-12 items-center justify-center rounded-full text-sm font-bold text-white"
-                        style={{ backgroundColor: char.color_accent || '#6B7280' }}
-                      >
-                        {char.initials || char.name.slice(0, 2).toUpperCase()}
-                      </div>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <h3 className="truncate text-sm font-semibold text-foreground">{char.name}</h3>
-                      {char.role && <p className="truncate text-xs text-muted-foreground">{char.role}</p>}
-                    </div>
-                    <Pencil className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
-                  </div>
-                  {char.description && (
-                    <p className="line-clamp-2 text-xs text-muted-foreground">{char.description}</p>
-                  )}
-                </Link>
-              ))}
-            </div>
-          )}
-        </>
-      )}
-
-      {/* ── Backgrounds tab ── */}
-      {activeTab === 'backgrounds' && (
-        <>
-          {backgrounds.length === 0 ? (
-            <EmptyResourceState
-              icon={MapPin}
-              title="No hay fondos"
-              description="Crea fondos manualmente o genera con IA"
-              href={`/project/${shortId}/resources/backgrounds`}
-            />
-          ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {backgrounds.map((bg) => (
-                <Link
-                  key={bg.id}
-                  href={`/project/${shortId}/resources/backgrounds/${bg.id}`}
-                  className="group overflow-hidden rounded-xl border border-border bg-card transition hover:border-primary/30"
-                >
-                  {bg.reference_image_url ? (
-                    <div className="aspect-video overflow-hidden">
-                      <img src={bg.reference_image_url} alt={bg.name} className="h-full w-full object-cover transition group-hover:scale-105" />
-                    </div>
-                  ) : (
-                    <div className="flex aspect-video items-center justify-center bg-background">
-                      <MapPin className="h-8 w-8 text-muted-foreground/20" />
-                    </div>
-                  )}
-                  <div className="p-3">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-semibold text-foreground">{bg.name}</h3>
-                      <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">{bg.code}</span>
-                    </div>
-                    {bg.description && (
-                      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{bg.description}</p>
-                    )}
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </>
-      )}
-
-      {/* ── Styles tab ── */}
-      {activeTab === 'styles' && (
-        <>
-          {stylePresets.length === 0 ? (
-            <EmptyResourceState
-              icon={Palette}
-              title="No hay estilos"
-              description="Define presets de estilo visual para tus escenas"
-              href={`/project/${shortId}/resources/styles`}
-            />
-          ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {stylePresets.map((preset) => (
-                <Link
-                  key={preset.id}
-                  href={`/project/${shortId}/resources/styles`}
-                  className="group rounded-xl border border-border bg-card p-4 transition hover:border-primary/30"
-                >
-                  <div className="mb-2 flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-foreground">{preset.name}</h3>
-                    {preset.is_default && (
-                      <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">Default</span>
-                    )}
-                  </div>
-                  {preset.description && (
-                    <p className="mb-2 line-clamp-2 text-xs text-muted-foreground">{preset.description}</p>
-                  )}
-                  {preset.style_type && (
-                    <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">{preset.style_type}</span>
-                  )}
-                  {preset.prompt_prefix && (
-                    <div className="mt-2 rounded bg-background px-2 py-1">
-                      <p className="line-clamp-2 font-mono text-[10px] text-muted-foreground">{preset.prompt_prefix}</p>
-                    </div>
-                  )}
-                </Link>
-              ))}
-            </div>
-          )}
-        </>
-      )}
-
-      {/* ── Templates tab ── */}
-      {activeTab === 'templates' && (
-        <>
-          {templates.length === 0 ? (
-            <EmptyResourceState
-              icon={FileText}
-              title="No hay plantillas"
-              description="Crea plantillas de prompt reutilizables"
-              href={`/project/${shortId}/resources/templates`}
-            />
-          ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {templates.map((tpl) => (
-                <Link
-                  key={tpl.id}
-                  href={`/project/${shortId}/resources/templates`}
-                  className="group rounded-xl border border-border bg-card p-4 transition hover:border-primary/30"
-                >
-                  <div className="mb-2 flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-foreground">{tpl.name}</h3>
-                    <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">{tpl.template_type}</span>
-                  </div>
-                  {tpl.description && (
-                    <p className="mb-2 line-clamp-2 text-xs text-muted-foreground">{tpl.description}</p>
-                  )}
-                  <div className="rounded bg-background px-2 py-1">
-                    <p className="line-clamp-3 font-mono text-[10px] text-muted-foreground">{tpl.template_text}</p>
-                  </div>
-                  {tpl.variables && tpl.variables.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {tpl.variables.map((v) => (
-                        <span key={v} className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
-                          {`{${v}}`}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </Link>
-              ))}
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
-// ── Shared empty state component ──
-function EmptyResourceState({
-  icon: Icon,
-  title,
-  description,
-  href,
-}: {
-  icon: typeof Users;
-  title: string;
-  description: string;
-  href: string;
-}) {
-  return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card py-16">
-      <Icon className="mb-3 h-10 w-10 text-muted-foreground/30" />
-      <h3 className="mb-1 text-lg font-semibold text-foreground">{title}</h3>
-      <p className="mb-4 text-sm text-muted-foreground">{description}</p>
-      <Link
-        href={href}
-        className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-primary/90"
-      >
-        <ChevronRight className="h-4 w-4" /> Ver seccion
-      </Link>
+      <Surface>
+        <div className="flex items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border bg-background text-primary">
+            <Sparkles className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight text-foreground">Cobertura creativa actual</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Cuanto mas completa este esta biblioteca, mas consistente sera la ayuda de Kiyoko al generar escenas y prompts.</p>
+          </div>
+        </div>
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          <div className="rounded-2xl border border-border bg-background/70 p-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground"><Users className="h-4 w-4 text-primary" /> Cobertura de personajes</div>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">{characters.length > 0 ? 'Ya tienes base suficiente para mantener continuidad visual entre escenas.' : 'Empieza por definir los personajes clave para evitar prompts inconsistentes.'}</p>
+          </div>
+          <div className="rounded-2xl border border-border bg-background/70 p-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground"><ImageIcon className="h-4 w-4 text-primary" /> Cobertura de atmosferas</div>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">{backgrounds.length > 0 ? 'Los fondos ya pueden alimentar moodboards, escenas y referencias de composicion.' : 'Agrega locaciones base para que la direccion visual tenga contexto solido.'}</p>
+          </div>
+          <div className="rounded-2xl border border-border bg-background/70 p-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground"><Layers3 className="h-4 w-4 text-primary" /> Estandarizacion</div>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">{stylePresets.length > 0 || templates.length > 0 ? 'Ya existe una capa reusable para estandarizar generacion y revision.' : 'Define presets o plantillas para que la produccion no dependa de prompts improvisados.'}</p>
+          </div>
+        </div>
+      </Surface>
     </div>
   );
 }

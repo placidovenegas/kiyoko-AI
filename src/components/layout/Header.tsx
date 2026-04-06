@@ -1,60 +1,121 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useMemo, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import { useDashboard } from '@/providers/DashboardBootstrap';
 import {
-  Sun,
-  Moon,
-  User,
-  Key,
-  LogOut,
-  Shield,
+  ChevronLeft,
   Search,
-  MessageCircle,
+  Plus,
+  Settings2,
+  FolderKanban,
+  Film,
+  LayoutGrid,
+  Bot,
 } from 'lucide-react';
-import { Tooltip } from '@heroui/react';
-import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuLabel,
-} from '@/components/ui/dropdown-menu';
+import { Tooltip as HeroTooltip } from '@heroui/react';
+
+// HeroUI v3 Tooltip types don't expose content/placement in convenience API
+const Tooltip = HeroTooltip as React.FC<{ content?: string; placement?: string; children: React.ReactNode }>;
+import { Button } from '@heroui/react';
 import { cn } from '@/lib/utils/cn';
-import { createClient } from '@/lib/supabase/client';
 import { FeedbackDialog } from '@/components/shared/FeedbackDialog';
 import { NotificationBell } from '@/components/layout/NotificationBell';
+import { useAIStore } from '@/stores/ai-store';
+import { useUIStore } from '@/stores/useUIStore';
 
-/* ------------------------------------------------------------------ */
-/*  Types                                                              */
-/* ------------------------------------------------------------------ */
-
-interface UserProfile {
-  full_name: string | null;
-  email: string;
-  avatar_url: string | null;
-  role: string | null;
+function shouldShowBackButton(pathname: string): boolean {
+  const cleanPath = pathname.replace(/\/+$/, '') || '/';
+  return cleanPath !== '/' && cleanPath !== '/dashboard' && cleanPath !== '/project';
 }
 
-/* ------------------------------------------------------------------ */
-/*  Constants                                                          */
-/* ------------------------------------------------------------------ */
-
-const THEME_STORAGE_KEY = 'kiyoko-theme';
-const ROLE_STYLES: Record<string, string> = {
-  admin: 'bg-purple-500/15 text-purple-600', editor: 'bg-emerald-500/15 text-emerald-600', viewer: 'bg-blue-500/15 text-blue-600',
+type HeaderRouteContext = {
+  scope: 'dashboard' | 'project' | 'video';
+  label: string;
+  icon: typeof LayoutGrid;
+  showSearch: boolean;
+  showFeedback: boolean;
+  showGlobalTaskAction: boolean;
+  showProjectSettings: boolean;
+  showVideoSettings: boolean;
+  showAiAction: boolean;
 };
-const ROLE_LABELS: Record<string, string> = { admin: 'Admin', editor: 'Editor', viewer: 'Viewer' };
 
-/* ------------------------------------------------------------------ */
-/*  Helpers                                                            */
-/* ------------------------------------------------------------------ */
+function deriveHeaderRouteContext(pathname: string): HeaderRouteContext {
+  const cleanPath = pathname.replace(/\/+$/, '') || '/';
+  const segments = cleanPath.split('/').filter(Boolean);
 
-function getInitials(name: string | null, email: string): string {
-  if (name) return name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
-  return email?.[0]?.toUpperCase() ?? '?';
+  if (segments[0] === 'project' && segments[1] && segments[2] === 'video' && segments[3]) {
+    const section = segments[4] ?? 'overview';
+    const labelMap: Record<string, string> = {
+      overview: 'Video',
+      scenes: 'Escenas',
+      scene: 'Escena',
+      timeline: 'Timeline',
+      narration: 'Narracion',
+      analysis: 'Analisis',
+      export: 'Exportacion',
+      share: 'Compartir',
+    };
+
+    return {
+      scope: 'video',
+      label: labelMap[section] ?? 'Video',
+      icon: Film,
+      showSearch: true,
+      showFeedback: false,
+      showGlobalTaskAction: false,
+      showProjectSettings: false,
+      showVideoSettings: true,
+      showAiAction: true,
+    };
+  }
+
+  if (segments[0] === 'project' && segments[1]) {
+    const section = segments[2] ?? 'overview';
+    const labelMap: Record<string, string> = {
+      overview: 'Proyecto',
+      tasks: 'Tareas',
+      videos: 'Videos',
+      resources: 'Recursos',
+      publications: 'Publicaciones',
+      activity: 'Actividad',
+      chat: 'IA',
+    };
+
+    return {
+      scope: 'project',
+      label: labelMap[section] ?? 'Proyecto',
+      icon: FolderKanban,
+      showSearch: true,
+      showFeedback: false,
+      showGlobalTaskAction: false,
+      showProjectSettings: true,
+      showVideoSettings: false,
+      showAiAction: true,
+    };
+  }
+
+  const dashboardLabelMap: Record<string, string> = {
+    dashboard: 'Dashboard',
+    tasks: 'Tareas',
+    settings: 'Ajustes',
+    admin: 'Admin',
+    share: 'Compartido',
+  };
+
+  return {
+    scope: 'dashboard',
+    label: dashboardLabelMap[segments[0] ?? 'dashboard'] ?? 'Workspace',
+    icon: LayoutGrid,
+    showSearch: true,
+    showFeedback: true,
+    showGlobalTaskAction: true,
+    showProjectSettings: false,
+    showVideoSettings: false,
+    showAiAction: true,
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -68,188 +129,184 @@ interface HeaderProps {
 
 export function Header({ onToggleChat, chatOpen }: HeaderProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const t = useTranslations();
 
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem(THEME_STORAGE_KEY);
-      if (stored === 'light' || stored === 'dark') return stored;
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    }
-    return 'dark';
-  });
+  useDashboard();
+  const openTaskCreatePanel = useUIStore((s) => s.openTaskCreatePanel);
+  const openProjectSettingsModal = useUIStore((s) => s.openProjectSettingsModal);
+  const openVideoSettingsModal = useUIStore((s) => s.openVideoSettingsModal);
+  const pageHeaderContext = useUIStore((s) => s.pageHeaderContext);
+  const openChat = useAIStore((s) => s.openChat);
+  const setActiveAgent = useAIStore((s) => s.setActiveAgent);
 
   // Feedback
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
-  /* ---- Fetch profile ---- */
-  useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return;
-      supabase.from('profiles').select('full_name, email, avatar_url, role').eq('id', user.id).single()
-        .then(({ data }) => {
-          if (data) setProfile({ full_name: data.full_name, email: data.email ?? user.email ?? '', avatar_url: data.avatar_url, role: data.role });
-        });
-    });
-  }, []);
-
-  /* ---- Handlers ---- */
-  function handleToggleTheme() {
-    const next = theme === 'dark' ? 'light' : 'dark';
-    setTheme(next);
-    localStorage.setItem(THEME_STORAGE_KEY, next);
-    // shadcn dark mode uses class 'dark' on <html>
-    document.documentElement.classList.toggle('dark', next === 'dark');
-    document.documentElement.setAttribute('data-theme', next);
-  }
-
-  async function handleSignOut() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push('/login');
-  }
-
   /* ---- Derived ---- */
-  const displayName = profile?.full_name || profile?.email || '';
-  const initials = getInitials(profile?.full_name ?? null, profile?.email ?? '');
-  const isAdmin = profile?.role === 'admin';
+  const routeContext = useMemo(() => deriveHeaderRouteContext(pathname), [pathname]);
+  const showBackButton = useMemo(() => pageHeaderContext?.backHref === null ? false : shouldShowBackButton(pathname), [pageHeaderContext?.backHref, pathname]);
+
+  const chromeButtonClassName = 'flex items-center justify-center size-8 rounded-md border border-foreground/8 bg-background text-foreground/45 hover:bg-foreground/4 hover:text-foreground/75 transition-all duration-150';
+  const chromeTextButtonClassName = 'shrink-0 rounded-md border border-foreground/8 bg-background px-2.5 py-1 text-[12px] text-foreground/45 hover:bg-foreground/4 hover:text-foreground/75 transition-all duration-150';
+
+  function handleOpenAiContext() {
+    setActiveAgent(routeContext.scope === 'video' ? 'editor' : 'project');
+    openChat('sidebar');
+  }
+
+  function handleGoBack() {
+    if (pageHeaderContext?.backHref) {
+      router.push(pageHeaderContext.backHref);
+      return;
+    }
+
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back();
+      return;
+    }
+
+    router.push('/dashboard');
+  }
 
   return (
     <div className="flex items-center h-full px-3 w-full">
-      {/* Spacer left */}
-      <div className="flex-1" />
+      <div className="flex flex-1 items-center gap-2">
+        {showBackButton ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            isIconOnly
+            onPress={handleGoBack}
+            className={cn(chromeButtonClassName, 'shrink-0')}
+            aria-label="Volver"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </Button>
+        ) : null}
+
+        <div className="hidden min-w-0 items-center gap-2 md:flex">
+          <span className="inline-flex h-8 items-center gap-2 rounded-full border border-border bg-background px-3 text-xs font-medium text-muted-foreground">
+            <routeContext.icon className="h-3.5 w-3.5 text-primary" />
+            {routeContext.label}
+          </span>
+        </div>
+      </div>
 
       {/* Search — center of navbar, always visible */}
-      <Button
-        type="button"
-        variant="ghost"
-        onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }))}
-        className={cn(
-          'flex items-center gap-2 h-8 w-64 px-3 rounded-lg',
-          'bg-foreground/4 border border-foreground/8',
-          'text-sm text-foreground/40 hover:text-foreground/70 hover:bg-foreground/6 hover:border-foreground/15',
-          'transition-all duration-150',
-        )}
-      >
-        <Search size={14} className="shrink-0" />
-        <span className="flex-1 text-left text-[13px]">Buscar...</span>
-        <kbd className="shrink-0 text-[10px] font-medium text-foreground/25 bg-foreground/6 border border-foreground/10 rounded px-1 py-0.5">
-          ⌘K
-        </kbd>
-      </Button>
+      {routeContext.showSearch ? (
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }))}
+          className={cn(
+            'flex items-center gap-2 h-8 px-3 rounded-md',
+            routeContext.scope === 'dashboard' ? 'w-64' : 'w-52 lg:w-60',
+            'bg-background border border-foreground/8',
+            'text-sm text-foreground/40 hover:text-foreground/70 hover:bg-foreground/6 hover:border-foreground/15',
+            'transition-all duration-150',
+          )}
+        >
+          <Search size={14} className="shrink-0" />
+          <span className="flex-1 text-left text-[13px]">{t('common.search')}</span>
+          <kbd className="shrink-0 text-[10px] font-medium text-foreground/25 bg-foreground/6 border border-foreground/10 rounded px-1 py-0.5">
+            ⌘K
+          </kbd>
+        </Button>
+      ) : null}
 
       {/* Spacer right */}
       <div className="flex-1" />
 
       {/* Feedback */}
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        onClick={() => setFeedbackOpen(true)}
-        className="shrink-0 mr-1.5 px-2.5 py-1 rounded-md border border-foreground/8 text-[12px] text-foreground/40 hover:text-foreground/70 hover:bg-foreground/4"
-      >
-        Feedback
-      </Button>
+      {routeContext.showFeedback ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => setFeedbackOpen(true)}
+          className={cn(chromeTextButtonClassName, 'mr-1.5')}
+        >
+          {t('nav.feedback')}
+        </Button>
+      ) : null}
+
+      {routeContext.showGlobalTaskAction ? (
+        <>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onPress={() => openTaskCreatePanel({ source: 'header' })}
+            isIconOnly
+            className={cn(chromeButtonClassName, 'shrink-0 mr-1.5 lg:hidden')}
+            aria-label="Nueva tarea"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </Button>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onPress={() => openTaskCreatePanel({ source: 'header' })}
+            className={cn(chromeTextButtonClassName, 'mr-1.5 hidden lg:inline-flex')}
+          >
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            Nueva tarea
+          </Button>
+        </>
+      ) : null}
 
       {/* RIGHT: icons */}
       <div className="flex items-center gap-1 shrink-0">
-        {/* Theme */}
-        <Tooltip content={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'} placement="bottom">
-          <button
-            type="button"
-            onClick={handleToggleTheme}
-            className="flex items-center justify-center size-8 rounded-md border border-foreground/6 text-foreground/40 hover:text-foreground/70 hover:bg-foreground/4 transition-all duration-150"
-            aria-label={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
-          >
-            {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
-          </button>
-        </Tooltip>
+        {routeContext.showProjectSettings ? (
+          <Tooltip content="Ajustes del proyecto" placement="bottom">
+            <button
+              type="button"
+              onClick={() => openProjectSettingsModal('general')}
+              className={chromeButtonClassName}
+              aria-label="Ajustes del proyecto"
+            >
+              <Settings2 size={14} />
+            </button>
+          </Tooltip>
+        ) : null}
+
+        {routeContext.showVideoSettings ? (
+          <Tooltip content="Ajustes del video" placement="bottom">
+            <button
+              type="button"
+              onClick={() => openVideoSettingsModal('general')}
+              className={chromeButtonClassName}
+              aria-label="Ajustes del video"
+            >
+              <Settings2 size={14} />
+            </button>
+          </Tooltip>
+        ) : null}
 
         {/* Notifications */}
         <NotificationBell />
 
         {/* Chat */}
-        {onToggleChat && (
-          <Tooltip content="Chat IA" placement="bottom">
+        {onToggleChat && routeContext.showAiAction && (
+          <Tooltip content={routeContext.scope === 'dashboard' ? 'Kiyoko IA' : 'Asistente contextual'} placement="bottom">
             <button
               type="button"
-              onClick={onToggleChat}
+              onClick={routeContext.scope === 'dashboard' ? onToggleChat : handleOpenAiContext}
               className={cn(
                 'flex items-center justify-center size-8 rounded-md border transition-all duration-150',
                 chatOpen
-                  ? 'border-primary/30 text-primary bg-primary/10'
-                  : 'border-foreground/6 text-foreground/40 hover:text-foreground/70 hover:bg-foreground/4',
+                  ? 'border-primary/30 text-primary bg-primary/10 shadow-[0_0_0_1px_rgba(0,111,238,0.12)]'
+                  : 'border-foreground/8 bg-background text-foreground/45 hover:text-foreground/75 hover:bg-foreground/4',
               )}
+              aria-label="Chat IA"
             >
-              <MessageCircle size={14} />
+              <Bot size={14} />
             </button>
           </Tooltip>
-        )}
-
-        {/* User */}
-        {profile && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-8 rounded-md border border-foreground/6 hover:bg-foreground/4 ml-0.5"
-              >
-                {profile.avatar_url ? (
-                  <img src={profile.avatar_url} alt={displayName} className="size-5 rounded-full object-cover" />
-                ) : (
-                  <div className="flex items-center justify-center size-5 rounded-full bg-foreground/10 text-foreground/50 text-[9px] font-semibold">
-                    {initials}
-                  </div>
-                )}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel className="cursor-default">
-                <div className="flex items-center gap-2.5">
-                  {profile.avatar_url ? (
-                    <img src={profile.avatar_url} alt={displayName} className="size-9 rounded-full object-cover shrink-0" />
-                  ) : (
-                    <div className="flex items-center justify-center size-9 rounded-full bg-primary text-primary-foreground text-xs font-semibold shrink-0">
-                      {initials}
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-foreground truncate">{profile.full_name || 'Usuario'}</p>
-                    <p className="text-xs text-foreground/40 truncate">{profile.email}</p>
-                  </div>
-                  {profile.role && (
-                    <span className={cn('shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wider', ROLE_STYLES[profile.role] ?? 'bg-foreground/10 text-foreground/40')}>
-                      {ROLE_LABELS[profile.role] ?? profile.role}
-                    </span>
-                  )}
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => router.push('/settings')}>
-                <User size={16} className="text-foreground/40" />
-                Perfil
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push('/settings/api-keys')}>
-                <Key size={16} className="text-foreground/40" />
-                API Keys
-              </DropdownMenuItem>
-              {isAdmin && (
-                <DropdownMenuItem onClick={() => router.push('/admin/users')}>
-                  <Shield size={16} className="text-foreground/40" />
-                  Panel Admin
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={handleSignOut}>
-                <LogOut size={16} />
-                Cerrar sesion
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         )}
       </div>
 

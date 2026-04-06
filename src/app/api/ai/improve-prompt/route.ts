@@ -1,9 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { generateText } from 'ai';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { getUserModel } from '@/lib/ai/get-user-model';
 import { SYSTEM_SCENE_IMPROVER } from '@/lib/ai/prompts/system-scene-improver';
+import {
+  apiBadRequest,
+  apiError,
+  apiJson,
+  apiUnauthorized,
+  createApiRequestContext,
+  logServerWarning,
+  parseApiJson,
+} from '@/lib/observability/server';
 
 interface SceneContext {
   title?: string;
@@ -32,26 +41,26 @@ const improvePromptResponseSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  const requestContext = createApiRequestContext(request);
+
   try {
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return apiUnauthorized(requestContext);
     }
 
-    const body: ImprovePromptBody = await request.json();
+    const { data: body, response } = await parseApiJson<ImprovePromptBody>(request, requestContext);
+    if (response || !body) {
+      return response;
+    }
+
     const { prompt, instruction, sceneContext } = body;
 
     // If prompt is empty and no sceneContext, we can't do anything
     if (!prompt && !sceneContext) {
-      return NextResponse.json(
-        { error: 'Either prompt or sceneContext is required' },
-        { status: 400 }
-      );
+      return apiBadRequest(requestContext, 'Either prompt or sceneContext is required');
     }
 
     const { model, providerId } = await getUserModel(user.id);
@@ -119,33 +128,30 @@ Return a JSON object with "improved_prompt" (the improved prompt) and "improveme
       improved = improvePromptResponseSchema.parse(parsed);
     } catch {
       // Fallback: treat the entire response as the improved prompt
-      console.error('[improve-prompt] Failed to parse AI response, using raw text');
+      logServerWarning('improve-prompt', requestContext, 'Failed to parse AI response, using raw text', {
+        userId: user.id,
+        providerId,
+      });
       improved = {
         improved_prompt: text.trim(),
         improvements: [{ type: 'improve', text: 'AI-enhanced prompt (raw response)' }],
       };
     }
 
-    return NextResponse.json({
+    return apiJson(requestContext, {
       success: true,
       improved_prompt: improved.improved_prompt,
       improvements: improved.improvements,
       provider: providerId,
+      requestId: requestContext.requestId,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
 
     if (message.startsWith('NO_PROVIDER_AVAILABLE')) {
-      return NextResponse.json(
-        { error: message },
-        { status: 429 }
-      );
+      return apiJson(requestContext, { error: message, requestId: requestContext.requestId }, { status: 429 });
     }
 
-    console.error('[improve-prompt]', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return apiError(requestContext, 'improve-prompt', error);
   }
 }

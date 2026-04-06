@@ -1,9 +1,9 @@
-import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getAllProviderStatuses, PROVIDER_META, type ProviderId } from '@/lib/ai/sdk-router';
-import { decrypt } from '@/lib/utils/crypto';
+import { apiJson, createApiRequestContext, logServerWarning } from '@/lib/observability/server';
 
-export async function GET() {
+export async function GET(request: Request) {
+  const requestContext = createApiRequestContext(request);
   const statuses = getAllProviderStatuses();
 
   // Try to load user API keys to mark providers as available even without env keys
@@ -19,7 +19,11 @@ export async function GET() {
         .eq('is_active', true);
       userProviderIds = new Set((userKeys ?? []).map((k) => k.provider as string));
     }
-  } catch { /* ignore — degrade gracefully */ }
+  } catch (error) {
+    logServerWarning('providers/status', requestContext, 'Failed to resolve user provider keys', {
+      error,
+    });
+  }
 
   // Build response with full provider info
   const providers = statuses.map((s) => {
@@ -56,7 +60,7 @@ export async function GET() {
   // Determine active provider (first available)
   const activeTextProvider = providers.find((p) => p.status === 'available')?.id ?? null;
 
-  return NextResponse.json({
+  return apiJson(requestContext, {
     success: true,
     providers,
     activeTextProvider,
