@@ -65,7 +65,7 @@ function MarkdownText({ text }: { text: string }) {
 
 /* ── Typing animation ──────────────────────────────────── */
 
-function TypingMessage({ content, actions, onFinished }: { content: string; actions?: ActionButton[]; onFinished: () => void }) {
+function TypingMessage({ content, actions, onFinished, onAction }: { content: string; actions?: ActionButton[]; onFinished: () => void; onAction?: (id: string) => void }) {
   const [displayed, setDisplayed] = useState('');
   const [done, setDone] = useState(false);
 
@@ -100,7 +100,7 @@ function TypingMessage({ content, actions, onFinished }: { content: string; acti
                 a.variant === 'danger' ? 'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20' :
                 'border border-border text-muted-foreground hover:bg-accent hover:text-foreground',
               )}
-              onClick={() => toast.success(`Accion: ${a.action}`)}
+              onClick={() => onAction?.(a.action)}
             >
               {a.label}
             </button>
@@ -314,6 +314,94 @@ export function SceneEditorModal({ open, onOpenChange, scene, allScenes, onUpdat
     }, 800);
   }
 
+  function handleActionButton(actionId: string) {
+    setIsProcessing(true);
+    const responses: Record<string, { content: string; actions?: ActionButton[] }> = {
+      apply_improvements: {
+        content: `**Mejoras aplicadas a "${scene.title}":**\n\n📷 **Camara actualizada:** Cambiado a close_up con dolly_in para mayor impacto visual.\n\n🖼️ **Prompt imagen mejorado:** Anadido "volumetric golden hour light, shallow depth of field with creamy bokeh, subsurface skin scattering, detailed fabric micro-texture".\n\n🎥 **Prompt video mejorado:** Anadido desglose segundo a segundo con notas de audio y transiciones.\n\n✅ Los cambios ya estan guardados. Puedes copiar los nuevos prompts desde el panel derecho.`,
+        actions: [{ label: 'Copiar prompt imagen', variant: 'primary', action: 'copy_image' }, { label: 'Copiar prompt video', variant: 'ghost', action: 'copy_video' }],
+      },
+      improve_image_only: {
+        content: `**Prompt de imagen mejorado:**\n\nHe anadido:\n• Iluminacion volumetrica con rayos definidos\n• Profundidad de campo con bokeh cremoso\n• Texturas detalladas en piel y tela\n• Composicion cinematografica mejorada\n• Calidad "8K, photorealistic Pixar rendering"`,
+        actions: [{ label: 'Copiar nuevo prompt', variant: 'primary', action: 'copy_image' }],
+      },
+      improve_video_only: {
+        content: `**Prompt de video mejorado:**\n\nHe anadido:\n• Desglose segundo a segundo (0:00-0:02, 0:02-0:04...)\n• Movimientos de camara fluidos y especificos\n• Notas de audio por segmento\n• Transiciones naturales\n• Detalles ambientales (particulas, reflejos, viento)`,
+        actions: [{ label: 'Copiar nuevo prompt', variant: 'primary', action: 'copy_video' }],
+      },
+      create_extension: {
+        content: `**Extension creada para "${scene.title}":**\n\n📹 **Clip de 6 segundos** que continua desde el ultimo frame.\n\n0:00-0:02 — Transicion suave desde el final de la escena actual. Misma iluminacion, mismos personajes.\n0:02-0:04 — Desarrollo de la accion con cambio gradual de angulo.\n0:04-0:06 — Cierre que conecta con la siguiente escena.\n\n📷 Camara: tracking lateral suave\n🎵 Audio: continuacion del ambiente anterior\n\n✅ Extension guardada como clip adicional.`,
+        actions: [{ label: 'Copiar prompt extension', variant: 'primary', action: 'copy_extension' }, { label: 'Crear otra extension', variant: 'ghost', action: 'create_extension' }],
+      },
+      edit_extension: {
+        content: `**Parametros de la extension:**\n\n¿Que quieres ajustar?\n\n• **Duracion:** Actualmente 6s. ¿Mas corta o mas larga?\n• **Camara:** ¿Mantener o cambiar angulo/movimiento?\n• **Accion:** ¿Que debe pasar exactamente en la extension?\n• **Audio:** ¿Musica, dialogo, SFX?\n\nDescribe los cambios que quieres.`,
+      },
+      camera_1: {
+        content: `**Camara actualizada a Cinematografica:**\n\n📷 **Angulo:** low_angle (contrapicado)\n🎬 **Movimiento:** crane (grua ascendente)\n\nEsto da poder y grandeza al sujeto. Ideal para momentos de revelacion o impacto emocional.\n\n✅ Prompts actualizados con el nuevo angulo.`,
+        actions: [{ label: 'Copiar prompts actualizados', variant: 'primary', action: 'copy_all' }],
+      },
+      camera_2: {
+        content: `**Camara actualizada a Intima:**\n\n📷 **Angulo:** close_up (primer plano)\n🎬 **Movimiento:** static (camara fija)\n\nConecta emocionalmente con el espectador. Perfecta para reacciones, detalles y momentos personales.\n\n✅ Prompts actualizados.`,
+        actions: [{ label: 'Copiar prompts actualizados', variant: 'primary', action: 'copy_all' }],
+      },
+      camera_3: {
+        content: `**Camara actualizada a Dinamica:**\n\n📷 **Angulo:** medium (plano medio)\n🎬 **Movimiento:** tracking (seguimiento lateral)\n\nEnergia y movimiento. Ideal para transiciones y escenas de accion.\n\n✅ Prompts actualizados.`,
+        actions: [{ label: 'Copiar prompts actualizados', variant: 'primary', action: 'copy_all' }],
+      },
+      regenerate_prompts: {
+        content: `**Prompts regenerados para "${scene.title}":**\n\n🖼️ **Nuevo prompt imagen:**\nHighly detailed Pixar-style 3D animated scene, cinematic 16:9, 8K. ${scene.description || scene.title}. Professional warm studio lighting with volumetric rays, shallow depth of field with creamy bokeh, rich warm color palette, Pixar-DreamWorks quality, subsurface skin scattering, detailed fabric textures, ambient golden particles. 8K ultra detailed.\n\n🎥 **Nuevo prompt video:**\n${scene.duration_seconds}-second Pixar-quality 3D animation. Start from uploaded image. Single continuous camera. Smooth natural motion with micro-expressions and breathing. ${scene.description || scene.title}. Cinematic color grading, ambient sounds matching the scene.\n\n✅ Nuevos prompts guardados.`,
+        actions: [{ label: 'Copiar imagen', variant: 'primary', action: 'copy_image' }, { label: 'Copiar video', variant: 'ghost', action: 'copy_video' }, { label: 'Copiar ambos', variant: 'ghost', action: 'copy_all' }],
+      },
+      regen_image: {
+        content: `**Nuevo prompt de imagen generado.**\n\nIncluye:\n• Descripcion detallada Pixar-style 8K\n• Iluminacion volumetrica\n• Composicion cinematografica\n• Texturas y materiales realistas\n\n✅ Guardado como version nueva.`,
+        actions: [{ label: 'Copiar prompt', variant: 'primary', action: 'copy_image' }],
+      },
+      regen_video: {
+        content: `**Nuevo prompt de video generado.**\n\nIncluye:\n• Desglose ${scene.duration_seconds}s segundo a segundo\n• Movimiento de camara especifico\n• Notas de audio por segmento\n• Transiciones naturales\n\n✅ Guardado como version nueva.`,
+        actions: [{ label: 'Copiar prompt', variant: 'primary', action: 'copy_video' }],
+      },
+      delete_scene: {
+        content: `**Escena #${scene.scene_number} "${scene.title}" eliminada.**\n\n⚠️ Las escenas adyacentes han sido ajustadas automaticamente.\n\nPuedes cerrar este modal para ver los cambios en el storyboard.`,
+        actions: [{ label: 'Cerrar', variant: 'ghost', action: 'close' }],
+      },
+      cancel: { content: `Cancelado. La escena se mantiene sin cambios.` },
+      copy_image: { content: `✅ Prompt de imagen copiado al portapapeles.` },
+      copy_video: { content: `✅ Prompt de video copiado al portapapeles.` },
+      copy_all: { content: `✅ Ambos prompts copiados al portapapeles.` },
+      copy_extension: { content: `✅ Prompt de extension copiado al portapapeles.` },
+      close: { content: '' },
+    };
+
+    // Handle copy actions immediately
+    if (actionId.startsWith('copy_')) {
+      if (actionId === 'copy_image' && imagePrompt) navigator.clipboard.writeText(imagePrompt);
+      if (actionId === 'copy_video' && videoPrompt) navigator.clipboard.writeText(videoPrompt);
+      if (actionId === 'copy_all') navigator.clipboard.writeText([imagePrompt, videoPrompt].filter(Boolean).join('\n\n---\n\n'));
+      toast.success('Copiado al portapapeles');
+      setIsProcessing(false);
+      return;
+    }
+    if (actionId === 'close') { onOpenChange(false); setIsProcessing(false); return; }
+    if (actionId === 'cancel') {
+      setMessages(prev => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: responses.cancel.content }]);
+      setIsProcessing(false);
+      return;
+    }
+
+    const resp = responses[actionId] ?? { content: `Procesando "${actionId}"... Los cambios se aplicaran en breve.` };
+
+    setTimeout(() => {
+      setMessages(prev => [...prev, {
+        id: `a-${Date.now()}`,
+        role: 'assistant',
+        content: resp.content,
+        actions: resp.actions,
+        isTyping: true,
+      }]);
+      setIsProcessing(false);
+    }, 400);
+  }
+
   function copyPrompt(text: string, label: string) {
     navigator.clipboard.writeText(text);
     setCopiedPrompt(label);
@@ -405,6 +493,7 @@ export function SceneEditorModal({ open, onOpenChange, scene, allScenes, onUpdat
                       <TypingMessage
                         content={msg.content}
                         actions={msg.actions}
+                        onAction={handleActionButton}
                         onFinished={() => {
                           setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, isTyping: false } : m));
                         }}
@@ -424,7 +513,7 @@ export function SceneEditorModal({ open, onOpenChange, scene, allScenes, onUpdat
                                   a.variant === 'danger' ? 'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20' :
                                   'border border-border text-muted-foreground hover:bg-accent hover:text-foreground',
                                 )}
-                                onClick={() => toast.success(`Accion: ${a.action}`)}
+                                onClick={() => handleActionButton(a.action)}
                               >
                                 {a.label}
                               </button>
