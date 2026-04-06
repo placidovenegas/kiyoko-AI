@@ -5,13 +5,15 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   AlertTriangle,
+  BarChart3,
   CheckSquare,
-  Clock,
   FolderOpen,
+  Layers,
   Plus,
   Sparkles,
   Star,
   TrendingUp,
+  Users,
   Zap,
 } from 'lucide-react';
 import type { Project } from '@/types';
@@ -21,12 +23,11 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { useFavorites } from '@/hooks/useFavorites';
 import { createClient } from '@/lib/supabase/client';
 import { ProjectGrid } from '@/components/project/ProjectGrid';
-import { AiAssistBar, type AiAssistAction } from '@/components/ai/AiAssistBar';
+import { type AiAssistAction } from '@/components/ai/AiAssistBar';
 import { AiResultDrawer, type AiResultPayload } from '@/components/ai/AiResultDrawer';
 import { queryKeys } from '@/lib/query/keys';
 import { fetchWorkspaceProjects } from '@/lib/queries/projects';
 import { useUIStore } from '@/stores/useUIStore';
-import { ActivityItem } from '@/components/shared/ActivityItem';
 import { TaskPreviewCard } from '@/components/shared/TaskPreviewCard';
 import { FilterPills } from '@/components/shared/FilterPills';
 import { EmptyState } from '@/components/shared/EmptyState';
@@ -135,7 +136,7 @@ export function DashboardHomeView() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 space-y-6">
+    <div className="mx-auto max-w-7xl px-4 py-6 space-y-6" style={{ background: 'radial-gradient(ellipse at top left, rgba(5,139,150,0.06) 0%, transparent 50%), radial-gradient(ellipse at bottom right, rgba(254,106,60,0.04) 0%, transparent 50%)' }}>
       {/* ── Header ──────────────────────────────────────── */}
       <div className="flex items-end justify-between">
         <div>
@@ -192,7 +193,8 @@ export function DashboardHomeView() {
               <select
                 value={sort}
                 onChange={(e) => setSort(e.target.value as 'recent' | 'name_asc')}
-                className="h-8 rounded-lg border border-border bg-background px-2 text-xs text-foreground outline-none focus:border-primary/30"
+                className="h-8 appearance-none rounded-lg border border-border bg-card px-3 pr-7 text-xs text-foreground outline-none cursor-pointer hover:border-primary/30 focus:border-primary/30 focus:ring-1 focus:ring-primary/10 transition-colors"
+                style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`, backgroundPosition: 'right 8px center', backgroundRepeat: 'no-repeat' }}
               >
                 <option value="recent">Recientes</option>
                 <option value="name_asc">A-Z</option>
@@ -247,6 +249,37 @@ export function DashboardHomeView() {
             </div>
           </div>
 
+          {/* Workspace overview — visual analysis */}
+          {overview && (
+            <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Resumen del workspace</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-lg bg-primary/5 border border-primary/10 p-3 text-center">
+                  <p className="text-xl font-bold text-primary tabular-nums">{projects.length}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Proyectos</p>
+                </div>
+                <div className="rounded-lg bg-amber-500/5 border border-amber-500/10 p-3 text-center">
+                  <p className="text-xl font-bold text-amber-500 tabular-nums">{overview.pendingTasksCount}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Tareas</p>
+                </div>
+                <div className="rounded-lg bg-sky-500/5 border border-sky-500/10 p-3 text-center">
+                  <p className="text-xl font-bold text-sky-500 tabular-nums">{fmtTokens(overview.tokensThisMonth)}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Tokens</p>
+                </div>
+                <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/10 p-3 text-center">
+                  <p className="text-xl font-bold text-emerald-500 tabular-nums">{overview.recentActivity.length}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Eventos</p>
+                </div>
+              </div>
+              {overview.overdueTasksCount > 0 && (
+                <div className="flex items-center gap-2 rounded-lg bg-danger-500/5 border border-danger-500/10 px-3 py-2">
+                  <AlertTriangle className="size-3.5 text-danger-500 shrink-0" />
+                  <p className="text-xs text-danger-500">{overview.overdueTasksCount} tarea{overview.overdueTasksCount > 1 ? 's' : ''} vencida{overview.overdueTasksCount > 1 ? 's' : ''}</p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Focus tasks */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -263,22 +296,6 @@ export function DashboardHomeView() {
                   const proj = projects.find((p) => p.id === t.projectId);
                   return <TaskPreviewCard key={t.id} title={t.title} projectName={proj?.title} priority={t.priority} dueDate={t.dueDate} href={`/project/${proj?.short_id ?? ''}/tasks`} />;
                 })}
-              </div>
-            )}
-          </div>
-
-          {/* Activity */}
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Actividad reciente</p>
-            {overviewQ.isLoading ? (
-              <div className="h-24 animate-pulse rounded-xl border border-border bg-card" />
-            ) : (overview?.recentActivity ?? []).length === 0 ? (
-              <EmptyState icon={Clock} title="Sin actividad reciente" compact />
-            ) : (
-              <div className="space-y-1.5">
-                {(overview?.recentActivity ?? []).slice(0, 5).map((e) => (
-                  <ActivityItem key={e.id} action={e.action} entityType={e.entity_type} timestamp={e.created_at ?? ''} />
-                ))}
               </div>
             )}
           </div>
