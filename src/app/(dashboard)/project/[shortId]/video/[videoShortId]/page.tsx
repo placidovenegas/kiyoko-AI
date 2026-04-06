@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import { useVideo } from '@/contexts/VideoContext';
 import { useProject } from '@/contexts/ProjectContext';
@@ -23,6 +23,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import { useState } from 'react';
 import type { NarrativeArc, Scene, ScenePrompt, SceneMedia } from '@/types';
 
 /* ------------------------------------------------------------------ */
@@ -141,6 +142,8 @@ function StoryboardCard({
   videoPrompt,
   thumbnail,
   camera,
+  onGeneratePrompts,
+  isGenerating,
 }: {
   scene: Scene;
   basePath: string;
@@ -148,6 +151,8 @@ function StoryboardCard({
   videoPrompt: ScenePrompt | undefined;
   thumbnail: SceneMedia | undefined;
   camera: SceneCamera | undefined;
+  onGeneratePrompts: () => void;
+  isGenerating: boolean;
 }) {
   const sceneLink = scene.short_id
     ? `${basePath}/scene/${scene.short_id}`
@@ -241,8 +246,8 @@ function StoryboardCard({
               <p className="text-xs text-muted-foreground/40 italic px-3 py-1.5">Sin prompt</p>
             )}
           </div>
-          {imagePrompt && (
-            <div className="flex items-center gap-1 shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
+            {imagePrompt && (
               <button
                 type="button"
                 onClick={() => copyToClipboard(imagePrompt.prompt_text, 'Prompt de imagen')}
@@ -251,16 +256,17 @@ function StoryboardCard({
               >
                 <Copy className="h-3 w-3" />
               </button>
-              <button
-                type="button"
-                onClick={() => toast.info('Generacion IA proximamente')}
-                className="rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-                title="Generar con IA"
-              >
-                <Sparkles className="h-3 w-3" />
-              </button>
-            </div>
-          )}
+            )}
+            <button
+              type="button"
+              disabled={isGenerating}
+              onClick={onGeneratePrompts}
+              className="rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50"
+              title="Generar con IA"
+            >
+              {isGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+            </button>
+          </div>
         </div>
 
         {/* Video prompt */}
@@ -278,8 +284,8 @@ function StoryboardCard({
               <p className="text-xs text-muted-foreground/40 italic px-3 py-1.5">Sin prompt</p>
             )}
           </div>
-          {videoPrompt && (
-            <div className="flex items-center gap-1 shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
+            {videoPrompt && (
               <button
                 type="button"
                 onClick={() => copyToClipboard(videoPrompt.prompt_text, 'Prompt de video')}
@@ -288,16 +294,17 @@ function StoryboardCard({
               >
                 <Copy className="h-3 w-3" />
               </button>
-              <button
-                type="button"
-                onClick={() => toast.info('Generacion IA proximamente')}
-                className="rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-                title="Generar con IA"
-              >
-                <Sparkles className="h-3 w-3" />
-              </button>
-            </div>
-          )}
+            )}
+            <button
+              type="button"
+              disabled={isGenerating}
+              onClick={onGeneratePrompts}
+              className="rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50"
+              title="Generar con IA"
+            >
+              {isGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -313,10 +320,11 @@ function StoryboardCard({
 
         <button
           type="button"
-          onClick={() => toast.info('Generacion de prompts proximamente')}
-          className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors flex items-center gap-1.5"
+          disabled={isGenerating}
+          onClick={onGeneratePrompts}
+          className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors flex items-center gap-1.5 disabled:opacity-50"
         >
-          <Sparkles className="h-3 w-3" />
+          {isGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
           Generar prompts
         </button>
 
@@ -400,6 +408,40 @@ export default function VideoOverviewPage() {
   const { project } = useProject();
   const { video, loading, scenes, scenesLoading } = useVideo();
   const openVideoSettingsModal = useUIStore((s) => s.openVideoSettingsModal);
+  const queryClient = useQueryClient();
+
+  const [generatingSceneId, setGeneratingSceneId] = useState<string | null>(null);
+  const [generatingAll, setGeneratingAll] = useState(false);
+
+  async function handleGeneratePrompts(sceneId: string) {
+    setGeneratingSceneId(sceneId);
+    try {
+      const res = await fetch('/api/ai/generate-scene-prompts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sceneId }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success('Prompts generados');
+      queryClient.invalidateQueries({ queryKey: ['scene-prompts', video?.id] });
+    } catch {
+      toast.error('Error al generar prompts');
+    } finally {
+      setGeneratingSceneId(null);
+    }
+  }
+
+  async function handleGenerateAll() {
+    setGeneratingAll(true);
+    try {
+      for (const scene of scenes) {
+        await handleGeneratePrompts(scene.id);
+      }
+      toast.success('Todos los prompts generados');
+    } finally {
+      setGeneratingAll(false);
+    }
+  }
 
   // Fetch narrative arcs
   const { data: arcs = [] } = useQuery({
@@ -630,6 +672,8 @@ export default function VideoOverviewPage() {
                   videoPrompt={videoPrompt}
                   thumbnail={thumbnail}
                   camera={camera}
+                  onGeneratePrompts={() => handleGeneratePrompts(scene.id)}
+                  isGenerating={generatingSceneId === scene.id}
                 />
               );
             })}
@@ -645,10 +689,13 @@ export default function VideoOverviewPage() {
             <>
               <button
                 type="button"
-                onClick={() => toast.info('Generacion masiva de prompts proximamente')}
-                className="group flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm transition-all hover:border-primary/30"
+                disabled={generatingAll || generatingSceneId !== null}
+                onClick={handleGenerateAll}
+                className="group flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm transition-all hover:border-primary/30 disabled:opacity-50"
               >
-                <Sparkles className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                {generatingAll
+                  ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  : <Sparkles className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />}
                 <span className="text-foreground">Generar todos los prompts</span>
               </button>
               <button

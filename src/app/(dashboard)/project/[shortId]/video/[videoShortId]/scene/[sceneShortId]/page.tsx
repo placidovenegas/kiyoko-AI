@@ -171,6 +171,28 @@ export default function SceneDetailPage() {
 
   const [imageVersionIndex, setImageVersionIndex] = useState(0);
 
+  // ---- Generate prompts mutation ----
+
+  const generatePrompts = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/ai/generate-scene-prompts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sceneId: data?.scene.id }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error ?? 'Error generating prompts');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast.success('Prompts generados');
+      queryClient.invalidateQueries({ queryKey: queryKeys.scenes.detail(sceneShortId) });
+    },
+    onError: (err: Error) => toast.error(err.message || 'Error al generar prompts'),
+  });
+
   // ---- Data queries ----
 
   const { data, isLoading, error } = useQuery({
@@ -505,8 +527,18 @@ export default function SceneDetailPage() {
                 </div>
               )}
               <div className="flex items-center gap-2 mt-3">
-                <button type="button" className={btnPrimary} onClick={() => toast('Generacion IA proximamente')}>
-                  <span className="flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5" />Generar con IA</span>
+                <button
+                  type="button"
+                  className={btnPrimary}
+                  disabled={generatePrompts.isPending}
+                  onClick={() => generatePrompts.mutate()}
+                >
+                  <span className="flex items-center gap-1.5">
+                    {generatePrompts.isPending
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      : <Sparkles className="h-3.5 w-3.5" />}
+                    Generar con IA
+                  </span>
                 </button>
                 <button
                   type="button"
@@ -571,8 +603,18 @@ export default function SceneDetailPage() {
                 </div>
               )}
               <div className="flex items-center gap-2 mt-3">
-                <button type="button" className={btnPrimary} onClick={() => toast('Generacion IA proximamente')}>
-                  <span className="flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5" />Generar con IA</span>
+                <button
+                  type="button"
+                  className={btnPrimary}
+                  disabled={generatePrompts.isPending}
+                  onClick={() => generatePrompts.mutate()}
+                >
+                  <span className="flex items-center gap-1.5">
+                    {generatePrompts.isPending
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      : <Sparkles className="h-3.5 w-3.5" />}
+                    Generar con IA
+                  </span>
                 </button>
                 <button
                   type="button"
