@@ -13,10 +13,18 @@ import type { Scene } from '@/types';
 
 /* ── Types ─────────────────────────────────────────────── */
 
+interface ActionButton {
+  label: string;
+  variant: 'primary' | 'ghost' | 'danger';
+  action: string;
+}
+
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  actions?: ActionButton[];
+  isTyping?: boolean;
 }
 
 interface Props {
@@ -27,6 +35,80 @@ interface Props {
   onUpdate?: () => void;
   imagePrompt?: string | null;
   videoPrompt?: string | null;
+}
+
+/* ── Simple markdown renderer ──────────────────────────── */
+
+function MarkdownText({ text }: { text: string }) {
+  const lines = text.split('\n');
+  return (
+    <div className="space-y-1.5">
+      {lines.map((line, i) => {
+        if (!line.trim()) return <div key={i} className="h-1" />;
+        // Bold: **text**
+        const parts = line.split(/(\*\*.*?\*\*)/g).map((part, j) => {
+          if (part.startsWith('**') && part.endsWith('**'))
+            return <strong key={j} className="font-semibold text-foreground">{part.slice(2, -2)}</strong>;
+          return <span key={j}>{part}</span>;
+        });
+        // Bullet points
+        if (line.startsWith('• ') || line.startsWith('- '))
+          return <p key={i} className="pl-3 text-sm text-muted-foreground leading-relaxed flex gap-1.5"><span className="text-primary shrink-0">•</span><span>{parts.slice(0)}</span></p>;
+        // Headers with emoji
+        if (line.match(/^[📷🎬🖼️🎥📋📝🎵⚠️✨]/))
+          return <p key={i} className="text-sm text-foreground leading-relaxed mt-2">{parts}</p>;
+        return <p key={i} className="text-sm text-muted-foreground leading-relaxed">{parts}</p>;
+      })}
+    </div>
+  );
+}
+
+/* ── Typing animation ──────────────────────────────────── */
+
+function TypingMessage({ content, actions, onFinished }: { content: string; actions?: ActionButton[]; onFinished: () => void }) {
+  const [displayed, setDisplayed] = useState('');
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    let i = 0;
+    const words = content.split(' ');
+    const interval = setInterval(() => {
+      i++;
+      setDisplayed(words.slice(0, i).join(' '));
+      if (i >= words.length) {
+        clearInterval(interval);
+        setDone(true);
+        onFinished();
+      }
+    }, 30);
+    return () => clearInterval(interval);
+  }, [content, onFinished]);
+
+  return (
+    <div>
+      <MarkdownText text={displayed} />
+      {!done && <span className="inline-block w-1.5 h-4 bg-primary/60 animate-pulse ml-0.5 align-middle" />}
+      {done && actions && actions.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-border/50">
+          {actions.map(a => (
+            <button
+              key={a.label}
+              type="button"
+              className={cn(
+                'rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
+                a.variant === 'primary' ? 'bg-primary text-primary-foreground hover:bg-primary/90' :
+                a.variant === 'danger' ? 'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20' :
+                'border border-border text-muted-foreground hover:bg-accent hover:text-foreground',
+              )}
+              onClick={() => toast.success(`Accion: ${a.action}`)}
+            >
+              {a.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 /* ── Action buttons ────────────────────────────────────── */
@@ -199,9 +281,20 @@ export function SceneEditorModal({ open, onOpenChange, scene, allScenes, onUpdat
         case 'regenerate': response = `Regenerando prompts para "${scene.title}"...\n\nLos nuevos prompts incluiran:\n• Mas detalle en texturas y materiales\n• Iluminacion volumetrica especifica\n• Segundo a segundo en el prompt de video\n• Audio notes detallados\n\n¿Quieres que los genere ahora?`; break;
         default: response = 'Procesando tu solicitud...';
       }
-      setMessages(prev => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: response }]);
+      const actions: ActionButton[] = action.id === 'delete'
+        ? [{ label: 'Confirmar eliminacion', variant: 'danger', action: 'delete_scene' }, { label: 'Cancelar', variant: 'ghost', action: 'cancel' }]
+        : action.id === 'extend'
+        ? [{ label: 'Crear extension', variant: 'primary', action: 'create_extension' }, { label: 'Cambiar parametros', variant: 'ghost', action: 'edit_extension' }]
+        : action.id === 'improve'
+        ? [{ label: 'Aplicar mejoras', variant: 'primary', action: 'apply_improvements' }, { label: 'Solo prompt imagen', variant: 'ghost', action: 'improve_image_only' }, { label: 'Solo prompt video', variant: 'ghost', action: 'improve_video_only' }]
+        : action.id === 'edit-camera'
+        ? [{ label: 'Opcion 1: Cinematografica', variant: 'primary', action: 'camera_1' }, { label: 'Opcion 2: Intima', variant: 'ghost', action: 'camera_2' }, { label: 'Opcion 3: Dinamica', variant: 'ghost', action: 'camera_3' }]
+        : action.id === 'regenerate'
+        ? [{ label: 'Generar ahora', variant: 'primary', action: 'regenerate_prompts' }, { label: 'Solo imagen', variant: 'ghost', action: 'regen_image' }, { label: 'Solo video', variant: 'ghost', action: 'regen_video' }]
+        : [];
+      setMessages(prev => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: response, actions, isTyping: true }]);
       setIsProcessing(false);
-    }, 600);
+    }, 300);
   }
 
   function handleSend() {
@@ -303,12 +396,45 @@ export function SceneEditorModal({ open, onOpenChange, scene, allScenes, onUpdat
                     </div>
                   )}
                   <div className={cn(
-                    'rounded-xl px-3.5 py-2.5 text-sm max-w-[85%] whitespace-pre-line',
+                    'rounded-xl px-3.5 py-2.5 max-w-[90%]',
                     msg.role === 'user'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-background border border-border text-foreground',
+                      ? 'bg-primary text-primary-foreground text-sm'
+                      : 'bg-background border border-border',
                   )}>
-                    {msg.content}
+                    {msg.role === 'assistant' && msg.isTyping ? (
+                      <TypingMessage
+                        content={msg.content}
+                        actions={msg.actions}
+                        onFinished={() => {
+                          setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, isTyping: false } : m));
+                        }}
+                      />
+                    ) : msg.role === 'assistant' ? (
+                      <div>
+                        <MarkdownText text={msg.content} />
+                        {msg.actions && msg.actions.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-border/50">
+                            {msg.actions.map(a => (
+                              <button
+                                key={a.label}
+                                type="button"
+                                className={cn(
+                                  'rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
+                                  a.variant === 'primary' ? 'bg-primary text-primary-foreground hover:bg-primary/90' :
+                                  a.variant === 'danger' ? 'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20' :
+                                  'border border-border text-muted-foreground hover:bg-accent hover:text-foreground',
+                                )}
+                                onClick={() => toast.success(`Accion: ${a.action}`)}
+                              >
+                                {a.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      msg.content
+                    )}
                   </div>
                 </div>
               ))}
