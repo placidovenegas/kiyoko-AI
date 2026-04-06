@@ -3,10 +3,7 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { formatDistanceToNow } from 'date-fns/formatDistanceToNow';
-import { es } from 'date-fns/locale/es';
 import {
-  Activity,
   AlertTriangle,
   ArrowDownWideNarrow,
   CheckSquare,
@@ -19,7 +16,7 @@ import {
   TrendingUp,
   Zap,
 } from 'lucide-react';
-import type { ActivityLog, Project } from '@/types';
+import type { Project } from '@/types';
 import { useDashboard } from '@/providers/DashboardBootstrap';
 import { useDashboardOverview } from '@/hooks/useDashboardOverview';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -27,12 +24,16 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { createClient } from '@/lib/supabase/client';
 import { ProjectGrid } from '@/components/project/ProjectGrid';
 import { Button } from '@heroui/react';
-import { cn } from '@/lib/utils/cn';
 import { AiAssistBar, type AiAssistAction } from '@/components/ai/AiAssistBar';
 import { AiResultDrawer, type AiResultPayload } from '@/components/ai/AiResultDrawer';
 import { queryKeys } from '@/lib/query/keys';
 import { fetchWorkspaceProjects } from '@/lib/queries/projects';
 import { useUIStore } from '@/stores/useUIStore';
+import { MetricCard } from '@/components/shared/MetricCard';
+import { ActivityItem } from '@/components/shared/ActivityItem';
+import { TaskPreviewCard } from '@/components/shared/TaskPreviewCard';
+import { FilterPills } from '@/components/shared/FilterPills';
+import { EmptyState } from '@/components/shared/EmptyState';
 
 type StatusFilter = 'all' | 'in_progress' | 'completed' | 'archived' | 'favorites';
 type SortOption = 'recent' | 'name_asc';
@@ -82,115 +83,6 @@ function formatUsd(value: number): string {
     currency: 'USD',
     maximumFractionDigits: 2,
   }).format(value);
-}
-
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-  tone,
-  helper,
-}: {
-  icon: React.ElementType;
-  label: string;
-  value: string | number;
-  tone: string;
-  helper: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
-          <p className="mt-3 text-3xl font-semibold tracking-tight text-foreground">{value}</p>
-          <p className="mt-2 text-xs leading-5 text-muted-foreground">{helper}</p>
-        </div>
-        <div className={cn('flex size-11 items-center justify-center rounded-2xl', tone)}>
-          <Icon className="size-5" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ActivityFeed({ items }: { items: ActivityLog[] }) {
-  if (items.length === 0) {
-    return (
-      <div className="flex flex-col items-center rounded-2xl border border-dashed border-border py-10 text-center">
-        <Clock className="size-8 text-muted-foreground/40" />
-        <p className="mt-3 text-sm text-muted-foreground">No hay actividad reciente</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-2">
-      {items.map((entry) => (
-        <div key={entry.id} className="flex items-start gap-3 rounded-2xl border border-border bg-card px-3 py-3">
-          <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <Activity className="size-4" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm text-foreground">
-              <span className="font-medium">{entry.action}</span>
-              {' '}
-              <span className="text-muted-foreground">{entry.entity_type}</span>
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {entry.created_at
-                ? formatDistanceToNow(new Date(entry.created_at), { addSuffix: true, locale: es })
-                : ''}
-            </p>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function FocusTasks({
-  tasks,
-  projects,
-}: {
-  tasks: Array<{ id: string; title: string; dueDate: string | null; projectId: string; priority: string; }>;
-  projects: Project[];
-}) {
-  if (tasks.length === 0) {
-    return (
-      <div className="flex flex-col items-center rounded-2xl border border-dashed border-border py-10 text-center">
-        <CheckSquare className="size-8 text-muted-foreground/40" />
-        <p className="mt-3 text-sm text-muted-foreground">No hay tareas activas en foco</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-2">
-      {tasks.map((task) => {
-        const project = projects.find((candidate) => candidate.id === task.projectId);
-
-        return (
-          <div key={task.id} className="rounded-2xl border border-border bg-card px-3 py-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-foreground">{task.title}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{project?.title ?? 'Proyecto sin nombre'}</p>
-              </div>
-              <span className="rounded-full bg-secondary px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                {task.priority}
-              </span>
-            </div>
-            <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-              <span>{task.dueDate ? new Date(task.dueDate).toLocaleDateString('es-ES') : 'Sin fecha'}</span>
-              <Link href={`/project/${project?.short_id ?? ''}/tasks`} className="font-medium text-primary">
-                Abrir
-              </Link>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
 }
 
 function buildAiResult(actionId: string, overview: NonNullable<ReturnType<typeof useDashboardOverview>['data']>): AiResultPayload {
@@ -310,11 +202,11 @@ export function DashboardHomeView() {
   }, [projects, isFavorite]);
 
   const filters = [
-    { label: 'Todos', value: 'all' as const, count: counts.all },
-    { label: 'En progreso', value: 'in_progress' as const, count: counts.inProgress },
-    { label: 'Completados', value: 'completed' as const, count: counts.completed },
-    { label: 'Archivados', value: 'archived' as const, count: counts.archived },
-    { label: 'Favoritos', value: 'favorites' as const, count: counts.favorites, icon: Star },
+    { id: 'all', label: 'Todos', count: counts.all },
+    { id: 'in_progress', label: 'En progreso', count: counts.inProgress },
+    { id: 'completed', label: 'Completados', count: counts.completed },
+    { id: 'archived', label: 'Archivados', count: counts.archived },
+    { id: 'favorites', label: 'Favoritos', count: counts.favorites, icon: Star },
   ];
 
   const filteredProjects = useMemo(() => {
@@ -385,10 +277,10 @@ export function DashboardHomeView() {
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <StatCard icon={FolderOpen} label="Proyectos" value={projects.length} tone="bg-primary/10 text-primary" helper="Base activa del workspace en el contexto actual." />
-          <StatCard icon={CheckSquare} label="Tareas activas" value={overview?.pendingTasksCount ?? 0} tone="bg-amber-500/10 text-amber-500" helper={`${overview?.overdueTasksCount ?? 0} vencidas o fuera de foco.`} />
-          <StatCard icon={Zap} label="Tokens mes" value={formatTokens(overview?.tokensThisMonth ?? 0)} tone="bg-sky-500/10 text-sky-500" helper={`Coste estimado ${formatUsd(overview?.monthlyCostUsd ?? 0)}.`} />
-          <StatCard icon={TrendingUp} label="En progreso" value={counts.inProgress} tone="bg-emerald-500/10 text-emerald-500" helper="Proyectos que realmente están moviendo trabajo ahora." />
+          <MetricCard icon={FolderOpen} label="PROYECTOS" value={projects.length} helper="Base activa del workspace" tone="primary" />
+          <MetricCard icon={CheckSquare} label="TAREAS ACTIVAS" value={overview?.pendingTasksCount ?? 0} helper={`${overview?.overdueTasksCount ?? 0} vencidas o fuera de foco.`} tone="warning" />
+          <MetricCard icon={Zap} label="TOKENS MES" value={formatTokens(overview?.tokensThisMonth ?? 0)} helper={`Coste estimado ${formatUsd(overview?.monthlyCostUsd ?? 0)}.`} tone="info" />
+          <MetricCard icon={TrendingUp} label="EN PROGRESO" value={counts.inProgress} helper="Proyectos que realmente están moviendo trabajo ahora." tone="success" />
         </div>
       )}
 
@@ -411,7 +303,7 @@ export function DashboardHomeView() {
                     placeholder="Buscar proyecto..."
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
-                    className="h-10 w-full rounded-xl border border-border bg-background pl-9 pr-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 sm:w-64"
+                    className="mt-2 w-full rounded-2xl border border-border bg-background px-4 py-3 pl-9 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/30 focus:ring-2 focus:ring-primary/10 sm:w-64"
                   />
                 </div>
 
@@ -420,7 +312,7 @@ export function DashboardHomeView() {
                   <select
                     value={sort}
                     onChange={(event) => setSort(event.target.value as SortOption)}
-                    className="h-10 appearance-none rounded-xl border border-border bg-background pl-9 pr-9 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    className="mt-2 w-full appearance-none rounded-2xl border border-border bg-background px-4 py-3 pl-9 pr-9 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/30 focus:ring-2 focus:ring-primary/10"
                   >
                     {SORT_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>{option.label}</option>
@@ -430,27 +322,12 @@ export function DashboardHomeView() {
               </div>
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-2">
-              {filters.map((filter) => (
-                <button
-                  key={filter.value}
-                  type="button"
-                  onClick={() => setActiveFilter(filter.value)}
-                  className={cn(
-                    'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition',
-                    activeFilter === filter.value
-                      ? 'bg-primary text-white'
-                      : 'bg-secondary text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  {filter.icon ? <filter.icon className="size-3.5" /> : null}
-                  <span>{filter.label}</span>
-                  <span className={cn('rounded-full px-1.5 py-0.5 text-[10px] font-semibold', activeFilter === filter.value ? 'bg-white/20 text-white' : 'bg-background text-muted-foreground')}>
-                    {filter.count}
-                  </span>
-                </button>
-              ))}
-            </div>
+            <FilterPills
+              filters={filters}
+              active={activeFilter}
+              onChange={(id) => setActiveFilter(id as StatusFilter)}
+              className="mt-4"
+            />
           </div>
 
           {projectsQuery.isLoading ? (
@@ -484,8 +361,24 @@ export function DashboardHomeView() {
             </div>
             {overviewQuery.isLoading ? (
               <div className="h-40 animate-pulse rounded-2xl border border-border bg-card" />
+            ) : (overview?.focusTasks ?? []).length === 0 ? (
+              <EmptyState icon={CheckSquare} title="No hay tareas activas en foco" compact />
             ) : (
-              <FocusTasks tasks={overview?.focusTasks ?? []} projects={projects} />
+              <div className="space-y-2">
+                {(overview?.focusTasks ?? []).map((task) => {
+                  const project = projects.find((candidate) => candidate.id === task.projectId);
+                  return (
+                    <TaskPreviewCard
+                      key={task.id}
+                      title={task.title}
+                      projectName={project?.title}
+                      priority={task.priority}
+                      dueDate={task.dueDate}
+                      href={`/project/${project?.short_id ?? ''}/tasks`}
+                    />
+                  );
+                })}
+              </div>
             )}
           </section>
 
@@ -496,8 +389,19 @@ export function DashboardHomeView() {
             </div>
             {overviewQuery.isLoading ? (
               <div className="h-48 animate-pulse rounded-2xl border border-border bg-card" />
+            ) : (overview?.recentActivity ?? []).length === 0 ? (
+              <EmptyState icon={Clock} title="No hay actividad reciente" compact />
             ) : (
-              <ActivityFeed items={overview?.recentActivity ?? []} />
+              <div className="space-y-2">
+                {(overview?.recentActivity ?? []).map((entry) => (
+                  <ActivityItem
+                    key={entry.id}
+                    action={entry.action}
+                    entityType={entry.entity_type}
+                    timestamp={entry.created_at ?? ''}
+                  />
+                ))}
+              </div>
             )}
           </section>
         </aside>
