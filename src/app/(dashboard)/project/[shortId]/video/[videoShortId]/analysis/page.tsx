@@ -8,7 +8,7 @@ import { fetchVideoAnalysis } from '@/lib/queries/videos';
 import { ScoreGauge } from '@/components/analysis/ScoreGauge';
 import { AnalysisCard } from '@/components/analysis/AnalysisCard';
 import { Button } from '@heroui/react';
-import { RefreshCw, Loader2, BarChart3 } from 'lucide-react';
+import { RefreshCw, Loader2, BarChart3, TrendingUp, AlertTriangle, Lightbulb } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns/formatDistanceToNow';
 import { es } from 'date-fns/locale/es';
 import { toast } from 'sonner';
@@ -63,7 +63,7 @@ export default function VideoAnalysisPage() {
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
         <p className="text-sm text-muted-foreground">Cargando analisis...</p>
       </div>
     );
@@ -72,23 +72,24 @@ export default function VideoAnalysisPage() {
   // --- Empty state ---
   if (!analysis) {
     return (
-      <div className="flex flex-col items-center justify-center gap-6 py-24">
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-secondary">
-          <BarChart3 className="h-8 w-8 text-muted-foreground" />
+      <div className="flex flex-col items-center justify-center gap-6 py-24 px-6">
+        <div className="flex size-16 items-center justify-center rounded-2xl bg-secondary">
+          <BarChart3 className="size-8 text-muted-foreground" />
         </div>
-        <div className="text-center">
-          <h2 className="text-lg font-semibold text-foreground">Sin analisis disponible</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Ejecuta un analisis con IA para obtener puntuacion, fortalezas, debilidades y sugerencias.
+        <div className="text-center max-w-sm">
+          <h2 className="text-lg font-semibold tracking-tight text-foreground">Sin analisis disponible</h2>
+          <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+            Ejecuta un analisis con IA para obtener puntuacion, fortalezas, debilidades y sugerencias de mejora.
           </p>
         </div>
         <Button
-          variant="primary"
+          variant="solid"
+          color="primary"
           size="lg"
           onClick={handleReAnalyze}
-          className="rounded-md"
+          className="rounded-xl"
         >
-          <BarChart3 className="h-4 w-4 mr-2" />Analizar video
+          <BarChart3 className="size-4 mr-2" />Analizar video
         </Button>
       </div>
     );
@@ -100,110 +101,144 @@ export default function VideoAnalysisPage() {
     : null;
 
   return (
-    <div className="h-full overflow-y-auto space-y-8 p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold text-foreground">Analisis del video</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {updatedAt && <>Ultima version: {updatedAt}</>}
-            {analysis.analysis_model && (
-              <>
-                {updatedAt && <span className="mx-2">|</span>}
-                Modelo: {analysis.analysis_model}
-              </>
-            )}
-          </p>
+    <div className="h-full overflow-y-auto p-6 lg:p-8">
+      <div className="max-w-3xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Analisis</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {updatedAt && <>Ultima version: {updatedAt}</>}
+              {analysis.analysis_model && (
+                <>
+                  {updatedAt && <span className="mx-2">|</span>}
+                  Modelo: {analysis.analysis_model}
+                </>
+              )}
+            </p>
+          </div>
+          <Button
+            variant="bordered"
+            size="md"
+            isLoading={isFetching}
+            onClick={() => {
+              handleReAnalyze();
+              void refetch();
+            }}
+            className="rounded-xl"
+          >
+            <RefreshCw className="size-3.5 mr-2" />Re-analizar
+          </Button>
         </div>
-        <Button
-          variant="secondary"
-          size="md"
-          isLoading={isFetching}
-          onClick={() => {
-            handleReAnalyze();
-            void refetch();
-          }}
-          className="rounded-md"
-        >
-          <RefreshCw className="h-3.5 w-3.5 mr-2" />Re-analizar
-        </Button>
-      </div>
 
-      {/* Score + Summary */}
-      <div className="flex flex-col items-center gap-6 rounded-xl border border-border bg-card p-6 sm:flex-row sm:items-start">
-        <ScoreGauge score={analysis.overall_score ?? 0} size={140} className="shrink-0" />
-        <div className="flex-1 text-center sm:text-left">
-          <h2 className="text-lg font-semibold text-foreground">Resumen</h2>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            {analysis.summary ?? 'No hay resumen disponible.'}
-          </p>
+        {/* Score + Summary */}
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+          <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
+            <ScoreGauge score={analysis.overall_score ?? 0} size={140} className="shrink-0" />
+            <div className="flex-1 text-center sm:text-left">
+              <h2 className="text-lg font-semibold tracking-tight text-foreground">Resumen</h2>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                {analysis.summary ?? 'No hay resumen disponible.'}
+              </p>
+              {/* Quick stats */}
+              <div className="mt-4 flex flex-wrap gap-3">
+                {strengths.length > 0 && (
+                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-400">
+                    <TrendingUp className="size-3" />
+                    {strengths.length} fortaleza{strengths.length !== 1 ? 's' : ''}
+                  </span>
+                )}
+                {weaknesses.length > 0 && (
+                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-400">
+                    <AlertTriangle className="size-3" />
+                    {weaknesses.length} debilidad{weaknesses.length !== 1 ? 'es' : ''}
+                  </span>
+                )}
+                {suggestions.length > 0 && (
+                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-blue-500/10 px-2.5 py-1 text-xs font-medium text-blue-400">
+                    <Lightbulb className="size-3" />
+                    {suggestions.length} sugerencia{suggestions.length !== 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
+
+        {/* Strengths */}
+        {strengths.length > 0 && (
+          <section>
+            <div className="flex items-center gap-2 mb-3">
+              <TrendingUp className="size-4 text-emerald-400" />
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Fortalezas ({strengths.length})
+              </h3>
+            </div>
+            <div className="space-y-2">
+              {strengths.map((s, i) => (
+                <AnalysisCard
+                  key={i}
+                  type="strength"
+                  title={s.title}
+                  detail={s.detail}
+                  affectedScenes={s.affected_scenes}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Weaknesses */}
+        {weaknesses.length > 0 && (
+          <section>
+            <div className="flex items-center gap-2 mb-3">
+              <AlertTriangle className="size-4 text-amber-400" />
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Debilidades ({weaknesses.length})
+              </h3>
+            </div>
+            <div className="space-y-2">
+              {weaknesses.map((w, i) => (
+                <AnalysisCard
+                  key={i}
+                  type="weakness"
+                  title={w.title}
+                  detail={w.detail}
+                  affectedScenes={w.affected_scenes}
+                  severity={w.severity}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Suggestions */}
+        {suggestions.length > 0 && (
+          <section>
+            <div className="flex items-center gap-2 mb-3">
+              <Lightbulb className="size-4 text-blue-400" />
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Sugerencias ({suggestions.length})
+              </h3>
+            </div>
+            <div className="space-y-2">
+              {suggestions.map((s, i) => (
+                <AnalysisCard
+                  key={i}
+                  type="suggestion"
+                  title={s.title}
+                  detail={s.detail}
+                  affectedScenes={s.affected_scenes}
+                  suggestionType={s.type}
+                  priority={s.priority}
+                  autoApplicable={s.auto_applicable}
+                  onApply={() => handleApplySuggestion(i)}
+                />
+              ))}
+            </div>
+          </section>
+        )}
       </div>
-
-      {/* Strengths */}
-      {strengths.length > 0 && (
-        <section>
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            Fortalezas ({strengths.length})
-          </h3>
-          <div className="space-y-2">
-            {strengths.map((s, i) => (
-              <AnalysisCard
-                key={i}
-                type="strength"
-                title={s.title}
-                detail={s.detail}
-                affectedScenes={s.affected_scenes}
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Weaknesses */}
-      {weaknesses.length > 0 && (
-        <section>
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            Debilidades ({weaknesses.length})
-          </h3>
-          <div className="space-y-2">
-            {weaknesses.map((w, i) => (
-              <AnalysisCard
-                key={i}
-                type="weakness"
-                title={w.title}
-                detail={w.detail}
-                affectedScenes={w.affected_scenes}
-                severity={w.severity}
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Suggestions */}
-      {suggestions.length > 0 && (
-        <section>
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            Sugerencias ({suggestions.length})
-          </h3>
-          <div className="space-y-2">
-            {suggestions.map((s, i) => (
-              <AnalysisCard
-                key={i}
-                type="suggestion"
-                title={s.title}
-                detail={s.detail}
-                affectedScenes={s.affected_scenes}
-                suggestionType={s.type}
-                priority={s.priority}
-                autoApplicable={s.auto_applicable}
-                onApply={() => handleApplySuggestion(i)}
-              />
-            ))}
-          </div>
-        </section>
-      )}
     </div>
   );
 }

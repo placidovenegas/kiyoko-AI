@@ -9,7 +9,7 @@ import { queryKeys } from '@/lib/query/keys';
 import Link from 'next/link';
 import { cn } from '@/lib/utils/cn';
 import {
-  Plus, MapPin, Film, Loader2, Clock, Camera,
+  Plus, MapPin, Film, Clock, Camera,
   MoreHorizontal, Eye, Pencil, Copy, Trash2, Sparkles, Image,
 } from 'lucide-react';
 import {
@@ -24,9 +24,27 @@ const LOCATION_LABELS: Record<string, string> = {
   interior: 'Interior', exterior: 'Exterior', mixto: 'Mixto',
 };
 const TIME_LABELS: Record<string, string> = {
-  amanecer: 'Amanecer', dia: 'Día', atardecer: 'Atardecer', noche: 'Noche',
-  morning: 'Mañana', day: 'Día', afternoon: 'Tarde', evening: 'Atardecer', night: 'Noche',
+  amanecer: 'Amanecer', dia: 'Dia', atardecer: 'Atardecer', noche: 'Noche',
+  morning: 'Manana', day: 'Dia', afternoon: 'Tarde', evening: 'Atardecer', night: 'Noche',
 };
+
+function MetricCard({ label, value, detail, tone = 'default' }: {
+  label: string; value: string; detail: string; tone?: 'default' | 'primary' | 'success';
+}) {
+  const toneClassName = tone === 'primary'
+    ? 'text-primary'
+    : tone === 'success'
+      ? 'text-emerald-300'
+      : 'text-foreground';
+
+  return (
+    <div className="rounded-2xl border border-border bg-background p-4">
+      <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
+      <p className={cn('mt-2 text-2xl font-semibold tracking-tight', toneClassName)}>{value}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
+    </div>
+  );
+}
 
 function BackgroundCard({ background, sceneCount, href, onDelete }: {
   background: Background; sceneCount: number; href: string; onDelete: () => void;
@@ -34,17 +52,17 @@ function BackgroundCard({ background, sceneCount, href, onDelete }: {
   const router = useRouter();
 
   return (
-    <div className="group relative rounded-xl border border-border bg-card overflow-hidden hover:border-primary/30 hover:shadow-md transition-all">
+    <div className="group relative overflow-hidden rounded-2xl border border-border bg-card transition-all hover:border-primary/30 hover:shadow-md">
       {/* Thumbnail */}
       <Link href={href} className="block">
         {background.reference_image_url ? (
-          <div className="relative h-36 w-full overflow-hidden bg-muted">
+          <div className="relative h-40 w-full overflow-hidden bg-muted">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={background.reference_image_url} alt={background.name} className="h-full w-full object-cover transition group-hover:scale-105" />
-            <div className="absolute inset-0 bg-linear-to-t from-card/80 to-transparent" />
+            <img src={background.reference_image_url} alt={background.name} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+            <div className="absolute inset-0 bg-gradient-to-t from-card/80 to-transparent" />
           </div>
         ) : (
-          <div className="flex h-36 w-full items-center justify-center bg-muted">
+          <div className="flex h-40 w-full items-center justify-center bg-muted/50">
             <Image className="h-10 w-10 text-muted-foreground/20" />
           </div>
         )}
@@ -52,19 +70,17 @@ function BackgroundCard({ background, sceneCount, href, onDelete }: {
 
       {/* Content */}
       <div className="p-4">
-        <div className="flex items-start justify-between gap-2 mb-2">
+        <div className="mb-2 flex items-start justify-between gap-2">
           <Link href={href} className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 mb-0.5">
-              <h3 className="text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">{background.name}</h3>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="truncate text-sm font-semibold text-foreground transition-colors group-hover:text-primary">{background.name}</h3>
+            <div className="mt-1 flex items-center gap-2 flex-wrap">
               {background.location_type && (
-                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
+                <span className="inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
                   {LOCATION_LABELS[background.location_type] ?? background.location_type}
                 </span>
               )}
               {background.time_of_day && (
-                <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                   <Clock className="h-2.5 w-2.5" />
                   {TIME_LABELS[background.time_of_day] ?? background.time_of_day}
                 </span>
@@ -74,7 +90,7 @@ function BackgroundCard({ background, sceneCount, href, onDelete }: {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button type="button" className="flex items-center justify-center size-7 rounded-md text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-foreground transition-all cursor-pointer">
+              <button type="button" className="flex size-7 items-center justify-center rounded-lg text-muted-foreground opacity-0 transition-all hover:bg-accent hover:text-foreground group-hover:opacity-100 cursor-pointer">
                 <MoreHorizontal className="h-4 w-4" />
               </button>
             </DropdownMenuTrigger>
@@ -83,19 +99,19 @@ function BackgroundCard({ background, sceneCount, href, onDelete }: {
               <DropdownMenuItem onClick={() => router.push(href)}><Pencil className="mr-2 h-3.5 w-3.5" /> Editar</DropdownMenuItem>
               <DropdownMenuItem><Copy className="mr-2 h-3.5 w-3.5" /> Duplicar</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-red-400 focus:text-red-400" onClick={onDelete}><Trash2 className="mr-2 h-3.5 w-3.5" /> Eliminar</DropdownMenuItem>
+              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={onDelete}><Trash2 className="mr-2 h-3.5 w-3.5" /> Eliminar</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
 
         {background.description && (
-          <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-3">{background.description}</p>
+          <p className="mb-3 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{background.description}</p>
         )}
 
         <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
           <span className="flex items-center gap-1"><Film className="h-3 w-3" />{sceneCount} escenas</span>
           {background.available_angles && background.available_angles.length > 0 && (
-            <span className="flex items-center gap-1"><Camera className="h-3 w-3" />{background.available_angles.length} ángulos</span>
+            <span className="flex items-center gap-1"><Camera className="h-3 w-3" />{background.available_angles.length} angulos</span>
           )}
         </div>
       </div>
@@ -146,68 +162,89 @@ export default function BackgroundsPage() {
     onError: () => toast.error('Error al eliminar'),
   });
 
+  const backgroundsWithReference = backgrounds.filter((bg) => Boolean(bg.reference_image_url)).length;
+  const backgroundsUsedInScenes = Object.values(sceneCounts).filter((count) => count > 0).length;
+
   if (isLoading) {
     return (
-      <div className="p-6">
-        <div className="h-8 w-48 bg-muted rounded animate-pulse mb-6" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="rounded-xl border border-border overflow-hidden">
-              <div className="h-36 bg-muted animate-pulse" />
-              <div className="p-4 space-y-2"><div className="h-4 w-24 bg-muted rounded animate-pulse" /><div className="h-3 w-full bg-muted rounded animate-pulse" /></div>
-            </div>
-          ))}
-        </div>
+      <div className="mx-auto max-w-7xl p-6">
+        <div className="h-10 w-56 animate-pulse rounded-xl bg-muted" />
+        <div className="mt-6 h-96 animate-pulse rounded-3xl border border-border bg-card" />
       </div>
     );
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Fondos</h1>
-          <p className="text-sm text-muted-foreground mt-1">{backgrounds.length} localización{backgrounds.length !== 1 ? 'es' : ''} en el proyecto</p>
-        </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center gap-1.5 px-4 h-9 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors cursor-pointer"
-        >
-          <Plus className="h-4 w-4" /> Nuevo fondo
-        </button>
-      </div>
-
-      {backgrounds.length === 0 && (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20">
-          <MapPin className="h-12 w-12 text-muted-foreground/30 mb-4" />
-          <h2 className="text-lg font-semibold text-foreground mb-1">Sin fondos</h2>
-          <p className="text-sm text-muted-foreground max-w-sm text-center mb-6">
-            Crea fondos y localizaciones. Podrás reutilizarlos en distintas escenas.
-          </p>
-          <div className="flex gap-3">
-            <button onClick={() => setShowCreateModal(true)} className="flex items-center gap-1.5 px-4 h-9 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors cursor-pointer">
-              <Plus className="h-4 w-4" /> Crear fondo
-            </button>
-            <button className="flex items-center gap-1.5 px-4 h-9 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-accent transition-colors cursor-pointer">
-              <Sparkles className="h-4 w-4 text-primary" /> Generar con IA
-            </button>
+    <div className="mx-auto max-w-7xl p-6">
+      {/* Header section */}
+      <section className="rounded-3xl border border-border bg-card p-6 shadow-sm">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Fondos</h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+              Gestiona localizaciones, ambientes y fondos reutilizables. Cada fondo puede tener imagen de referencia, angulos y descripcion para prompts.
+            </p>
           </div>
-        </div>
-      )}
 
-      {backgrounds.length > 0 && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {backgrounds.map((bg) => (
-            <BackgroundCard
-              key={bg.id}
-              background={bg}
-              sceneCount={sceneCounts[bg.id] ?? 0}
-              href={`/project/${shortId}/resources/backgrounds/${bg.id}`}
-              onDelete={() => deleteMutation.mutate(bg.id)}
-            />
-          ))}
+          <button
+            type="button"
+            onClick={() => setShowCreateModal(true)}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            <Plus className="h-4 w-4" />
+            Nuevo fondo
+          </button>
         </div>
-      )}
+
+        {/* Metric cards */}
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          <MetricCard label="Total fondos" value={String(backgrounds.length)} detail="Localizaciones en el proyecto" />
+          <MetricCard label="Con referencia" value={String(backgroundsWithReference)} detail={`${Math.max(backgrounds.length - backgroundsWithReference, 0)} sin imagen principal`} tone="primary" />
+          <MetricCard label="Usados en escenas" value={String(backgroundsUsedInScenes)} detail={`${backgrounds.length - backgroundsUsedInScenes} sin usar todavia`} tone="success" />
+        </div>
+      </section>
+
+      {/* Content section */}
+      <section className="mt-6 overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
+        {backgrounds.length === 0 ? (
+          <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
+            <MapPin className="h-12 w-12 text-muted-foreground/30" />
+            <h2 className="mt-4 text-lg font-semibold text-foreground">Sin fondos</h2>
+            <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
+              Crea fondos y localizaciones. Podras reutilizarlos en distintas escenas para mantener consistencia visual.
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowCreateModal(true)}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                <Plus className="h-4 w-4" /> Crear fondo
+              </button>
+              <button
+                type="button"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-border bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+              >
+                <Sparkles className="h-4 w-4 text-primary" /> Generar con IA
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="p-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {backgrounds.map((bg) => (
+                <BackgroundCard
+                  key={bg.id}
+                  background={bg}
+                  sceneCount={sceneCounts[bg.id] ?? 0}
+                  href={`/project/${shortId}/resources/backgrounds/${bg.id}`}
+                  onDelete={() => deleteMutation.mutate(bg.id)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
 
       {project && (
         <BackgroundCreateModal

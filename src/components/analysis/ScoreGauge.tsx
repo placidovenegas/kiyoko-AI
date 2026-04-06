@@ -24,7 +24,8 @@ export function ScoreGauge({ score, size = 120, className }: ScoreGaugeProps) {
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="#1E1E22"
+          stroke="currentColor"
+          className="text-secondary"
           strokeWidth={8}
         />
         {/* Progress circle */}

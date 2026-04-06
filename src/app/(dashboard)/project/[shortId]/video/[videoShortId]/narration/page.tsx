@@ -10,12 +10,12 @@ import { Button } from '@heroui/react';
 import { cn } from '@/lib/utils/cn';
 import {
   Mic, Play, Pause, Download, RefreshCw, Sparkles,
-  Loader2, Volume2, Save, ChevronDown,
+  Loader2, Volume2, Save, AudioLines, FileAudio,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { VideoNarration } from '@/types';
 
-// ─── Helpers ───────────────────────────────────────────────
+// --- Helpers ---
 function formatTime(ms: number): string {
   const totalSec = Math.floor(ms / 1000);
   const m = Math.floor(totalSec / 60);
@@ -23,25 +23,27 @@ function formatTime(ms: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-// ─── Status Badge ──────────────────────────────────────────
+// --- Status Badge ---
 function StatusBadge({ status }: { status: string | null }) {
-  const map: Record<string, { label: string; color: string }> = {
-    ready: { label: 'ready', color: 'text-green-400' },
-    generating: { label: 'generando...', color: 'text-yellow-400' },
-    draft: { label: 'borrador', color: 'text-muted-foreground' },
-    error: { label: 'error', color: 'text-red-400' },
+  const map: Record<string, { label: string; dotColor: string }> = {
+    ready: { label: 'Listo', dotColor: 'bg-emerald-400' },
+    generating: { label: 'Generando...', dotColor: 'bg-yellow-400 animate-pulse' },
+    draft: { label: 'Borrador', dotColor: 'bg-zinc-400' },
+    error: { label: 'Error', dotColor: 'bg-red-400' },
   };
   const info = map[status ?? 'draft'] ?? map.draft;
   return (
-    <span className={cn('text-xs font-medium', info.color)}>
-      Estado: {info.label} {status === 'ready' && '\u2705'}
+    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+      <span className={cn('size-1.5 rounded-full', info.dotColor)} />
+      {info.label}
     </span>
   );
 }
 
-// ─── Audio Player ──────────────────────────────────────────
+// --- Audio Player ---
 function AudioPlayer({ src }: { src: string }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const progressRef = useRef<HTMLDivElement | null>(null);
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -77,52 +79,75 @@ function AudioPlayer({ src }: { src: string }) {
     setPlaying(!playing);
   }, [playing]);
 
-  const seek = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleProgressClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const audio = audioRef.current;
-    if (!audio || !duration) return;
-    const pct = Number(e.target.value) / 100;
+    const bar = progressRef.current;
+    if (!audio || !bar || !duration) return;
+    const rect = bar.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     audio.currentTime = (pct * duration) / 1000;
   }, [duration]);
 
   const pct = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
-    <div className="flex items-center gap-3">
-      <button
-        onClick={toggle}
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary transition hover:bg-primary/30"
-      >
-        {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-      </button>
-      <input
-        type="range"
-        min={0}
-        max={100}
-        value={pct}
-        onChange={seek}
-        className="h-1 flex-1 cursor-pointer appearance-none rounded-full bg-secondary accent-primary"
-      />
-      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-        {formatTime(currentTime)}/{formatTime(duration)}
-      </span>
+    <div className="space-y-3">
+      <div className="flex items-center gap-4">
+        <button
+          onClick={toggle}
+          className={cn(
+            'flex size-10 shrink-0 items-center justify-center rounded-xl transition',
+            playing
+              ? 'bg-primary text-white'
+              : 'bg-primary/10 text-primary hover:bg-primary/20',
+          )}
+        >
+          {playing ? <Pause className="size-4" /> : <Play className="size-4 ml-0.5" />}
+        </button>
+
+        <div className="flex-1 space-y-1">
+          <div
+            ref={progressRef}
+            onClick={handleProgressClick}
+            className="group relative h-2 cursor-pointer rounded-full bg-secondary overflow-hidden"
+          >
+            <div
+              className="absolute inset-y-0 left-0 rounded-full bg-primary transition-all duration-100"
+              style={{ width: `${pct}%` }}
+            />
+            <div
+              className="absolute top-1/2 -translate-y-1/2 size-3 rounded-full bg-primary opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+              style={{ left: `calc(${pct}% - 6px)` }}
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] tabular-nums text-muted-foreground">
+              {formatTime(currentTime)}
+            </span>
+            <span className="text-[10px] tabular-nums text-muted-foreground">
+              {formatTime(duration)}
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
-// ─── Main Page ─────────────────────────────────────────────
+// --- Main Page ---
 export default function NarrationPage() {
   const { video } = useVideo();
   const supabase = createClient();
   const queryClient = useQueryClient();
 
-  // ── Fetch current narration ──
+  // Fetch current narration
   const { data: narration, isLoading } = useQuery({
     queryKey: queryKeys.videos.narration(video?.id ?? ''),
     queryFn: () => fetchVideoNarration(supabase, video!.id),
     enabled: !!video?.id,
   });
 
-  // ── Fetch version count ──
+  // Fetch version count
   const { data: versionCount = 0 } = useQuery({
     queryKey: [...queryKeys.videos.narration(video?.id ?? ''), 'count'],
     queryFn: async () => {
@@ -136,7 +161,7 @@ export default function NarrationPage() {
     enabled: !!video?.id,
   });
 
-  // ── Local state ──
+  // Local state
   const [narrationText, setNarrationText] = useState('');
   const [speed, setSpeed] = useState(1.0);
   const [dirty, setDirty] = useState(false);
@@ -150,13 +175,12 @@ export default function NarrationPage() {
     }
   }, [narration]);
 
-  // ── Save mutation ──
+  // Save mutation
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!video?.id) throw new Error('No video');
 
       if (narration) {
-        // Update existing
         const { error } = await supabase
           .from('video_narrations')
           .update({
@@ -167,7 +191,6 @@ export default function NarrationPage() {
           .eq('id', narration.id);
         if (error) throw error;
       } else {
-        // Insert new
         const { error } = await supabase
           .from('video_narrations')
           .insert({
@@ -189,7 +212,7 @@ export default function NarrationPage() {
     onError: () => toast.error('Error al guardar'),
   });
 
-  // ── Generate text with AI ──
+  // Generate text with AI
   const generateTextMutation = useMutation({
     mutationFn: async () => {
       if (!video?.id) throw new Error('No video');
@@ -214,7 +237,7 @@ export default function NarrationPage() {
     onError: () => toast.error('Error al generar texto'),
   });
 
-  // ── Generate audio TTS ──
+  // Generate audio TTS
   const generateAudioMutation = useMutation({
     mutationFn: async () => {
       if (!video?.id || !narrationText) throw new Error('No text');
@@ -244,7 +267,6 @@ export default function NarrationPage() {
         .from('project-assets')
         .getPublicUrl(path);
 
-      // Update narration record
       if (narration) {
         const { error } = await supabase
           .from('video_narrations')
@@ -265,7 +287,7 @@ export default function NarrationPage() {
     onError: () => toast.error('Error al generar audio'),
   });
 
-  // ── Download helper ──
+  // Download helper
   const handleDownload = useCallback(() => {
     if (!narration?.audio_url) return;
     const a = document.createElement('a');
@@ -274,36 +296,45 @@ export default function NarrationPage() {
     a.click();
   }, [narration?.audio_url, video?.short_id]);
 
-  // ── Loading skeleton ──
+  // Loading skeleton
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto bg-background p-6">
-      {/* ── Header ── */}
+    <div className="flex h-full flex-col overflow-y-auto bg-background p-6 lg:p-8">
+      {/* Header */}
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-foreground">
-          Narracion del video
-        </h1>
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+            Narracion
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Genera y edita el texto y audio de narracion para tu video.
+          </p>
+        </div>
         {versionCount > 0 && (
-          <span className="rounded-md bg-card px-3 py-1 text-xs font-medium text-muted-foreground border border-border">
-            v{narration?.version ?? 1} de {versionCount} versiones
+          <span className="rounded-xl bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground border border-border">
+            v{narration?.version ?? 1} de {versionCount}
           </span>
         )}
       </div>
 
-      <div className="space-y-5">
-        {/* ── Voice Card ── */}
-        <div className="rounded-xl border border-border bg-card p-5">
-          <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
-            <Volume2 className="h-4 w-4 text-primary" /> Voz
-          </h2>
-          <div className="space-y-3">
+      <div className="space-y-6 max-w-3xl">
+        {/* Voice Card */}
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center justify-center size-8 rounded-lg bg-primary/10 text-primary">
+              <Volume2 className="size-4" />
+            </div>
+            <h2 className="text-lg font-semibold tracking-tight text-foreground">Voz</h2>
+          </div>
+
+          <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <span className="text-sm font-medium text-foreground">
@@ -315,14 +346,19 @@ export default function NarrationPage() {
                   </span>
                 )}
               </div>
-              <Button variant="ghost" size="sm" className="rounded-md">
-                <RefreshCw className="h-3.5 w-3.5 mr-2" />Cambiar voz
+              <Button variant="ghost" size="sm" className="rounded-xl">
+                <RefreshCw className="size-3.5 mr-2" />Cambiar voz
               </Button>
             </div>
 
             {/* Speed control */}
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-muted-foreground">Velocidad:</span>
+            <div className="rounded-xl bg-background border border-border p-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Velocidad</span>
+                <span className="text-sm font-medium text-foreground tabular-nums">
+                  {speed.toFixed(2)}x
+                </span>
+              </div>
               <input
                 type="range"
                 min={0.7}
@@ -333,18 +369,19 @@ export default function NarrationPage() {
                   setSpeed(Number(e.target.value));
                   setDirty(true);
                 }}
-                className="h-1 flex-1 cursor-pointer appearance-none rounded-full bg-secondary accent-primary"
+                className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-secondary accent-primary"
               />
-              <span className="w-10 text-right text-xs font-medium text-foreground">
-                {speed.toFixed(2)}x
-              </span>
+              <div className="flex items-center justify-between mt-1">
+                <span className="text-[10px] text-muted-foreground/60">0.7x</span>
+                <span className="text-[10px] text-muted-foreground/60">1.3x</span>
+              </div>
             </div>
 
             {/* Style */}
             {narration?.style && (
               <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">Estilo:</span>
-                <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Estilo:</span>
+                <span className="rounded-lg bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
                   {narration.style}
                 </span>
               </div>
@@ -352,93 +389,128 @@ export default function NarrationPage() {
           </div>
         </div>
 
-        {/* ── Narration Text Card ── */}
-        <div className="rounded-xl border border-border bg-card p-5">
+        {/* Narration Text Card */}
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-foreground">
-              Texto de la narracion
-            </h2>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center justify-center size-8 rounded-lg bg-primary/10 text-primary">
+                <FileAudio className="size-4" />
+              </div>
+              <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                Texto de la narracion
+              </h2>
+            </div>
             <Button
-              variant="secondary"
+              variant="solid"
+              color="primary"
               size="sm"
               isLoading={generateTextMutation.isPending}
               onClick={() => generateTextMutation.mutate()}
-              className="rounded-md"
+              className="rounded-xl"
             >
-              <Sparkles className="h-3.5 w-3.5 mr-2" />Generar con IA
+              <Sparkles className="size-3.5 mr-2" />Generar con IA
             </Button>
           </div>
-          <textarea
-            value={narrationText}
-            onChange={(e) => {
-              setNarrationText(e.target.value);
-              setDirty(true);
-            }}
-            placeholder="Escribe el texto de narracion del video..."
-            rows={8}
-            className={cn(
-              'w-full resize-y rounded-lg border bg-background px-4 py-3',
-              'text-sm leading-relaxed text-foreground placeholder:text-muted-foreground',
-              'focus:border-primary focus:outline-none transition',
-              dirty ? 'border-primary/50' : 'border-border',
-            )}
-          />
-          {narrationText && (
-            <div className="mt-2 flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">
-                {narrationText.split(/\s+/).filter(Boolean).length} palabras
-              </span>
-              {dirty && (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  isLoading={saveMutation.isPending}
-                  onClick={() => saveMutation.mutate()}
-                  className="rounded-md"
-                >
-                  <Save className="h-3.5 w-3.5 mr-2" />Guardar
-                </Button>
-              )}
+
+          {!narrationText && !narration ? (
+            /* Empty state */
+            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-12">
+              <div className="flex size-12 items-center justify-center rounded-2xl bg-secondary mb-3">
+                <FileAudio className="size-6 text-muted-foreground" />
+              </div>
+              <p className="text-sm font-medium text-foreground">Sin texto de narracion</p>
+              <p className="mt-1 text-xs text-muted-foreground text-center max-w-xs">
+                Escribe el texto manualmente o usa el boton "Generar con IA" para crear una narracion automatica.
+              </p>
             </div>
+          ) : (
+            <>
+              <textarea
+                value={narrationText}
+                onChange={(e) => {
+                  setNarrationText(e.target.value);
+                  setDirty(true);
+                }}
+                placeholder="Escribe el texto de narracion del video..."
+                rows={8}
+                className={cn(
+                  'w-full resize-y rounded-xl border bg-background px-4 py-3',
+                  'text-sm leading-relaxed text-foreground placeholder:text-muted-foreground',
+                  'focus:border-primary focus:outline-none transition',
+                  dirty ? 'border-primary/50' : 'border-border',
+                )}
+              />
+              {narrationText && (
+                <div className="mt-3 flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">
+                    {narrationText.split(/\s+/).filter(Boolean).length} palabras
+                  </span>
+                  {dirty && (
+                    <Button
+                      variant="solid"
+                      color="primary"
+                      size="sm"
+                      isLoading={saveMutation.isPending}
+                      onClick={() => saveMutation.mutate()}
+                      className="rounded-xl"
+                    >
+                      <Save className="size-3.5 mr-2" />Guardar
+                    </Button>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </div>
 
-        {/* ── Audio Card ── */}
-        <div className="rounded-xl border border-border bg-card p-5">
-          <h2 className="mb-4 text-sm font-semibold text-foreground">Audio</h2>
+        {/* Audio Card */}
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center justify-center size-8 rounded-lg bg-primary/10 text-primary">
+              <AudioLines className="size-4" />
+            </div>
+            <h2 className="text-lg font-semibold tracking-tight text-foreground">Audio</h2>
+            {narration?.status && <StatusBadge status={narration.status} />}
+          </div>
 
           {narration?.audio_url ? (
-            <div className="space-y-3">
+            <div className="rounded-xl bg-background border border-border p-4">
               <AudioPlayer src={narration.audio_url} />
-              <StatusBadge status={narration.status} />
             </div>
           ) : (
-            <div className="flex items-center justify-center rounded-lg border border-dashed border-border py-8">
-              <span className="text-sm text-muted-foreground">
-                {narrationText ? 'Genera el audio con el boton de abajo' : 'Primero escribe o genera el texto de narracion'}
-              </span>
+            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-10">
+              <div className="flex size-12 items-center justify-center rounded-2xl bg-secondary mb-3">
+                <AudioLines className="size-6 text-muted-foreground" />
+              </div>
+              <p className="text-sm font-medium text-foreground">Sin audio generado</p>
+              <p className="mt-1 text-xs text-muted-foreground text-center max-w-xs">
+                {narrationText
+                  ? 'Genera el audio con el boton de abajo para escuchar la narracion.'
+                  : 'Primero escribe o genera el texto de narracion.'}
+              </p>
             </div>
           )}
 
           <div className="mt-4 flex items-center gap-3">
             <Button
-              variant="primary"
+              variant="solid"
+              color="primary"
               size="md"
               isLoading={generateAudioMutation.isPending}
-              disabled={!narrationText}
+              isDisabled={!narrationText}
               onClick={() => generateAudioMutation.mutate()}
-              className="rounded-md"
+              className="rounded-xl"
             >
-              <Mic className="h-4 w-4 mr-2" />Generar audio TTS
+              <Mic className="size-4 mr-2" />Generar audio TTS
             </Button>
             {narration?.audio_url && (
               <Button
-                variant="outline"
+                variant="bordered"
                 size="md"
                 onClick={handleDownload}
-                className="rounded-md"
+                className="rounded-xl"
               >
-                <Download className="h-4 w-4 mr-2" />Descargar MP3
+                <Download className="size-4 mr-2" />Descargar MP3
               </Button>
             )}
           </div>

@@ -17,13 +17,9 @@ import {
   Users,
 } from 'lucide-react';
 
-function Surface({ children }: { children: React.ReactNode }) {
-  return <section className="rounded-2xl border border-border bg-card p-5 shadow-sm lg:p-6">{children}</section>;
-}
-
 function StatCard({ label, value, description }: { label: string; value: number; description: string }) {
   return (
-    <div className="rounded-2xl border border-border bg-background/70 p-4">
+    <div className="rounded-2xl border border-border bg-background p-5">
       <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
       <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{value}</p>
       <p className="mt-1 text-xs text-muted-foreground">{description}</p>
@@ -47,7 +43,7 @@ function SectionCard({
   summary: string;
 }) {
   return (
-    <Link href={href} className="group rounded-2xl border border-border bg-card p-5 shadow-sm transition-colors hover:border-primary/20 hover:bg-accent-soft-hover lg:p-6">
+    <Link href={href} className="group rounded-3xl border border-border bg-card p-6 shadow-sm transition-all hover:border-primary/20 hover:shadow-md">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border bg-background text-primary">
@@ -89,9 +85,9 @@ export default function ProjectResourcesPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6 p-6 lg:p-8">
-        <div className="h-40 animate-pulse rounded-2xl border border-border bg-card" />
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mx-auto max-w-7xl p-6">
+        <div className="h-40 animate-pulse rounded-3xl border border-border bg-card" />
+        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {Array.from({ length: 4 }).map((_, index) => (
             <div key={index} className="h-28 animate-pulse rounded-2xl border border-border bg-card" />
           ))}
@@ -102,16 +98,18 @@ export default function ProjectResourcesPage() {
 
   if (!project) {
     return (
-      <div className="flex min-h-[60vh] flex-col items-center justify-center px-6 text-center">
-        <FolderKanban className="h-12 w-12 text-muted-foreground/40" />
-        <h1 className="mt-4 text-2xl font-semibold tracking-tight text-foreground">Recursos no disponibles</h1>
-        <p className="mt-2 max-w-md text-sm text-muted-foreground">No se pudo cargar la biblioteca del proyecto.</p>
+      <div className="mx-auto max-w-7xl p-6">
+        <section className="flex flex-col items-center justify-center rounded-3xl border border-border bg-card px-6 py-20 text-center shadow-sm">
+          <FolderKanban className="h-12 w-12 text-muted-foreground/30" />
+          <h1 className="mt-4 text-2xl font-semibold tracking-tight text-foreground">Recursos no disponibles</h1>
+          <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">No se pudo cargar la biblioteca del proyecto.</p>
+        </section>
       </div>
     );
   }
 
   const characterSummary = characters.length > 0
-    ? `${characters.slice(0, 3).map((character) => character.name).join(' · ')}${characters.length > 3 ? '...' : ''}`
+    ? `${characters.slice(0, 3).map((character) => character.name).join(' / ')}${characters.length > 3 ? '...' : ''}`
     : 'Todavia no hay personajes base';
   const backgroundSummary = backgrounds.length > 0
     ? `${backgrounds.filter((background) => background.reference_image_url).length} con referencia visual`
@@ -124,33 +122,44 @@ export default function ProjectResourcesPage() {
     : 'No hay plantillas creadas';
 
   return (
-    <div className="space-y-6 px-3 py-4 lg:space-y-8 lg:px-5 lg:py-5">
-      <Surface>
+    <div className="mx-auto max-w-7xl p-6">
+      {/* Hero section */}
+      <section className="rounded-3xl border border-border bg-card p-6 shadow-sm">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground/70">Biblioteca creativa</p>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-foreground">Todos los recursos base del proyecto en un mismo lugar</h1>
-            <p className="mt-3 text-sm leading-6 text-muted-foreground">Aquí centralizas personajes, fondos, presets de estilo y plantillas para que escenas, prompts y automatizaciones mantengan consistencia.</p>
+            <h1 className="mt-3 text-2xl font-semibold tracking-tight text-foreground">Recursos del proyecto</h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+              Centraliza personajes, fondos, presets de estilo y plantillas para que escenas, prompts y automatizaciones mantengan consistencia.
+            </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Link href={`/project/${project.short_id}/resources/characters`} className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90">
+            <Link
+              href={`/project/${project.short_id}/resources/characters`}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            >
               Gestionar personajes
             </Link>
-            <Link href={`/project/${project.short_id}/resources/backgrounds`} className="inline-flex h-11 items-center justify-center rounded-xl border border-border bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-accent-soft-hover">
+            <Link
+              href={`/project/${project.short_id}/resources/backgrounds`}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-border bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+            >
               Gestionar fondos
             </Link>
           </div>
         </div>
-      </Surface>
+      </section>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      {/* Stat cards */}
+      <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Personajes" value={characters.length} description="Entidades visuales listas para escenas" />
         <StatCard label="Fondos" value={backgrounds.length} description="Locaciones y atmosferas reutilizables" />
         <StatCard label="Estilos" value={stylePresets.length} description="Presets visuales y direccion artistica" />
         <StatCard label="Plantillas" value={templates.length} description="Prompts base para acelerar produccion" />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      {/* Section cards */}
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <SectionCard
           href={`/project/${project.short_id}/resources/characters`}
           icon={Users}
@@ -185,7 +194,8 @@ export default function ProjectResourcesPage() {
         />
       </div>
 
-      <Surface>
+      {/* Coverage section */}
+      <section className="mt-6 rounded-3xl border border-border bg-card p-6 shadow-sm">
         <div className="flex items-start gap-3">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border bg-background text-primary">
             <Sparkles className="h-5 w-5" />
@@ -196,20 +206,20 @@ export default function ProjectResourcesPage() {
           </div>
         </div>
         <div className="mt-5 grid gap-3 md:grid-cols-3">
-          <div className="rounded-2xl border border-border bg-background/70 p-4">
+          <div className="rounded-2xl border border-border bg-background p-5">
             <div className="flex items-center gap-2 text-sm font-medium text-foreground"><Users className="h-4 w-4 text-primary" /> Cobertura de personajes</div>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">{characters.length > 0 ? 'Ya tienes base suficiente para mantener continuidad visual entre escenas.' : 'Empieza por definir los personajes clave para evitar prompts inconsistentes.'}</p>
           </div>
-          <div className="rounded-2xl border border-border bg-background/70 p-4">
+          <div className="rounded-2xl border border-border bg-background p-5">
             <div className="flex items-center gap-2 text-sm font-medium text-foreground"><ImageIcon className="h-4 w-4 text-primary" /> Cobertura de atmosferas</div>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">{backgrounds.length > 0 ? 'Los fondos ya pueden alimentar moodboards, escenas y referencias de composicion.' : 'Agrega locaciones base para que la direccion visual tenga contexto solido.'}</p>
           </div>
-          <div className="rounded-2xl border border-border bg-background/70 p-4">
+          <div className="rounded-2xl border border-border bg-background p-5">
             <div className="flex items-center gap-2 text-sm font-medium text-foreground"><Layers3 className="h-4 w-4 text-primary" /> Estandarizacion</div>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">{stylePresets.length > 0 || templates.length > 0 ? 'Ya existe una capa reusable para estandarizar generacion y revision.' : 'Define presets o plantillas para que la produccion no dependa de prompts improvisados.'}</p>
           </div>
         </div>
-      </Surface>
+      </section>
     </div>
   );
 }
