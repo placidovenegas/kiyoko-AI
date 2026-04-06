@@ -124,10 +124,10 @@ export default function TimelinePage() {
           <h3 className="mb-1 text-lg font-semibold text-foreground">Sin escenas</h3>
           <p className="mb-4 text-sm text-muted-foreground">Crea escenas para visualizar la linea de tiempo</p>
           <Link
-            href={`/project/${shortId}/video/${videoShortId}/scenes`}
+            href={`/project/${shortId}/video/${videoShortId}`}
             className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-primary/90"
           >
-            <Film className="h-4 w-4" /> Ir a escenas
+            <Film className="h-4 w-4" /> Ir a vista general
           </Link>
         </div>
       )}

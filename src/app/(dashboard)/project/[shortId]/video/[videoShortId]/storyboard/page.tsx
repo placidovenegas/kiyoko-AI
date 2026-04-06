@@ -141,7 +141,7 @@ export default function StoryboardPage() {
           <Clapperboard className="h-10 w-10 text-muted-foreground/30 mb-4" />
           <p className="text-sm font-medium text-foreground mb-1">Sin escenas</p>
           <p className="text-xs text-muted-foreground mb-4">Crea escenas para ver el storyboard</p>
-          <Link href={`${basePath}/scenes`} className="text-sm font-medium text-primary hover:underline">Ir a escenas</Link>
+          <Link href={basePath} className="text-sm font-medium text-primary hover:underline">Ir a vista general</Link>
         </div>
       )}
 

@@ -234,7 +234,7 @@ function StoryboardCard({
 }) {
   const sceneLink = scene.short_id
     ? `${basePath}/scene/${scene.short_id}`
-    : `${basePath}/scenes`;
+    : `${basePath}`;
 
   const audio: AudioConfig = { music: false, dialogue: false, sfx: false, voiceover: false, ...(scene.audio_config as Partial<AudioConfig> | null) };
   const audioTags: string[] = [];
@@ -874,7 +874,7 @@ export default function VideoOverviewPage() {
             </button>
 
             <Link
-              href={`${basePath}/scenes`}
+              href={`${basePath}`}
               className="text-xs font-medium text-primary hover:underline"
             >
               Ver todas
@@ -941,7 +941,7 @@ export default function VideoOverviewPage() {
               return (
                 <Link
                   key={scene.id}
-                  href={scene.short_id ? `${basePath}/scene/${scene.short_id}` : `${basePath}/scenes`}
+                  href={scene.short_id ? `${basePath}/scene/${scene.short_id}` : `${basePath}`}
                   className="rounded-xl border border-border bg-card overflow-hidden hover:border-primary/30 transition-all"
                 >
                   <div className="aspect-video bg-background flex items-center justify-center relative">
@@ -996,7 +996,7 @@ export default function VideoOverviewPage() {
               {scenes.map((scene) => (
                 <Link
                   key={scene.id}
-                  href={scene.short_id ? `${basePath}/scene/${scene.short_id}` : `${basePath}/scenes`}
+                  href={scene.short_id ? `${basePath}/scene/${scene.short_id}` : `${basePath}`}
                   className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-accent transition-colors"
                 >
                   <span className="text-xs font-bold text-muted-foreground w-6 text-right tabular-nums">
