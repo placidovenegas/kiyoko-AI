@@ -565,7 +565,7 @@ export function SearchModal() {
                   Nueva pestaña
                 </span>
               </div>
-              <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground/40 hover:text-muted-foreground">
+              <Button type="button" variant="ghost" size="xs" isIconOnly className="h-6 w-6 text-muted-foreground/40 hover:text-muted-foreground">
                 <Settings size={13} />
               </Button>
             </div>

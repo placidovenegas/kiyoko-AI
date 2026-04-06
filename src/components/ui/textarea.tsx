@@ -18,14 +18,24 @@ const Textarea = React.forwardRef<
   }
 >(({ className, label, description, errorMessage, ...props }, ref) => {
   return (
-    <HeroTextarea
-      ref={ref}
-      label={label}
-      description={description}
-      errorMessage={errorMessage}
-      className={cn("w-full", className)}
-      {...props}
-    />
+    <div className="w-full">
+      {label && (
+        <label className="text-sm font-medium text-foreground mb-1.5 block">
+          {label}
+        </label>
+      )}
+      <HeroTextarea
+        ref={ref}
+        className={cn("w-full", className)}
+        {...props}
+      />
+      {description && !errorMessage && (
+        <p className="text-xs text-muted-foreground mt-1">{description}</p>
+      )}
+      {errorMessage && (
+        <p className="text-xs text-destructive mt-1">{errorMessage}</p>
+      )}
+    </div>
   );
 });
 Textarea.displayName = "Textarea";

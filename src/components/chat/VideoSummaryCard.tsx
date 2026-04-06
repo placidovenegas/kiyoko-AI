@@ -137,7 +137,7 @@ export function VideoSummaryCard({ data, onAction }: VideoSummaryCardProps) {
       {onAction && (
         <div className="flex flex-wrap gap-1.5 px-4 py-2.5 bg-muted/30 border-t border-border">
           {data.prompts_image_done < data.prompts_total && (
-            <Button type="button" variant="outline" color="primary" size="sm"
+            <Button type="button" variant="outline" size="sm"
               onPress={() => onAction('Genera los prompts de imagen que faltan')}
               className="text-[10px]">
               <Sparkles size={10} /> Generar prompts

@@ -1,43 +1,45 @@
 "use client";
 
-/**
- * Sheet — stub mínimo para sidebar.tsx.
- * TODO: migrar sidebar.tsx a HeroUI Drawer y eliminar este archivo.
- */
-
 import * as React from "react";
-import { Modal, ModalDialog } from "@heroui/react";
 import { cn } from "@/lib/utils/cn";
 
 function Sheet({
   open,
   onOpenChange,
   children,
-  ...props
 }: {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   children: React.ReactNode;
-  [key: string]: unknown;
 }) {
+  if (!open) return null;
   return (
-    <Modal isOpen={open} onOpenChange={onOpenChange} placement="center" {...props}>
+    <>
+      <div className="fixed inset-0 z-40 bg-black/50" onClick={() => onOpenChange?.(false)} />
       {children}
-    </Modal>
+    </>
   );
 }
 
 function SheetTrigger({ children, ...props }: { children: React.ReactNode; asChild?: boolean; [key: string]: unknown }) {
-  return <Modal.Trigger {...props}>{children}</Modal.Trigger>;
+  return <>{children}</>;
 }
 
 const SheetContent = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement> & { side?: "left" | "right" | "top" | "bottom" }
 >(({ className, children, side = "right", ...props }, ref) => (
-  <ModalDialog ref={ref} className={cn("fixed inset-y-0 z-50 flex flex-col bg-sidebar", side === "left" ? "left-0" : "right-0", className)} {...props}>
+  <div
+    ref={ref}
+    className={cn(
+      "fixed inset-y-0 z-50 flex flex-col bg-sidebar border-border shadow-xl",
+      side === "left" ? "left-0 border-r w-72" : "right-0 border-l w-72",
+      className
+    )}
+    {...props}
+  >
     {children}
-  </ModalDialog>
+  </div>
 ));
 SheetContent.displayName = "SheetContent";
 

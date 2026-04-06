@@ -156,15 +156,18 @@ export function Header({ onToggleChat, chatOpen }: HeaderProps) {
       {/* RIGHT: icons */}
       <div className="flex items-center gap-1 shrink-0">
         {/* Theme */}
-        <Tooltip content={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'} placement="bottom">
-          <button
-            type="button"
-            onClick={handleToggleTheme}
-            className="flex items-center justify-center size-8 rounded-md border border-foreground/6 text-foreground/40 hover:text-foreground/70 hover:bg-foreground/4 transition-all duration-150"
-            aria-label={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
-          >
-            {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
-          </button>
+        <Tooltip>
+          <Tooltip.Trigger>
+            <button
+              type="button"
+              onClick={handleToggleTheme}
+              className="flex items-center justify-center size-8 rounded-md border border-foreground/6 text-foreground/40 hover:text-foreground/70 hover:bg-foreground/4 transition-all duration-150"
+              aria-label={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+            >
+              {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+            </button>
+          </Tooltip.Trigger>
+          <Tooltip.Content>{theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}</Tooltip.Content>
         </Tooltip>
 
         {/* Notifications */}
@@ -172,19 +175,22 @@ export function Header({ onToggleChat, chatOpen }: HeaderProps) {
 
         {/* Chat */}
         {onToggleChat && (
-          <Tooltip content="Chat IA" placement="bottom">
-            <button
-              type="button"
-              onClick={onToggleChat}
-              className={cn(
-                'flex items-center justify-center size-8 rounded-md border transition-all duration-150',
-                chatOpen
-                  ? 'border-primary/30 text-primary bg-primary/10'
-                  : 'border-foreground/6 text-foreground/40 hover:text-foreground/70 hover:bg-foreground/4',
-              )}
-            >
-              <MessageCircle size={14} />
-            </button>
+          <Tooltip>
+            <Tooltip.Trigger>
+              <button
+                type="button"
+                onClick={onToggleChat}
+                className={cn(
+                  'flex items-center justify-center size-8 rounded-md border transition-all duration-150',
+                  chatOpen
+                    ? 'border-primary/30 text-primary bg-primary/10'
+                    : 'border-foreground/6 text-foreground/40 hover:text-foreground/70 hover:bg-foreground/4',
+                )}
+              >
+                <MessageCircle size={14} />
+              </button>
+            </Tooltip.Trigger>
+            <Tooltip.Content>Chat IA</Tooltip.Content>
           </Tooltip>
         )}
 
@@ -195,7 +201,8 @@ export function Header({ onToggleChat, chatOpen }: HeaderProps) {
               <Button
                 type="button"
                 variant="ghost"
-                size="icon"
+                size="sm"
+                isIconOnly
                 className="size-8 rounded-md border border-foreground/6 hover:bg-foreground/4 ml-0.5"
               >
                 {profile.avatar_url ? (

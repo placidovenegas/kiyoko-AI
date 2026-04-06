@@ -26,7 +26,9 @@ type ButtonVariant =
   | 'faded'
   | 'primary'
   | 'secondary'
+  | 'tertiary'
   | 'dark'
+  | 'danger'
   | 'danger-soft'
   | 'underlined';
 type ButtonColor = 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'danger';
@@ -45,7 +47,9 @@ const HERO_VARIANT_MAP: Record<ButtonVariant, string> = {
   faded: 'outline',
   primary: 'primary',
   secondary: 'secondary',
+  tertiary: 'ghost',
   dark: 'primary',
+  danger: 'primary',
   'danger-soft': 'outline',
   underlined: 'ghost',
 };
@@ -108,7 +112,9 @@ function getColorClass(variant: ButtonVariant, color: ButtonColor): string {
     case 'solid': return COLOR_SOLID[color];
     case 'primary': return COLOR_SOLID.primary;
     case 'secondary': return COLOR_FLAT.default;
+    case 'tertiary': return COLOR_GHOST.default;
     case 'dark': return 'bg-foreground text-background hover:opacity-90';
+    case 'danger': return COLOR_SOLID.danger;
     case 'danger-soft': return COLOR_FLAT.danger;
     case 'underlined': return 'text-foreground underline underline-offset-4 hover:opacity-80';
     case 'flat':
@@ -226,9 +232,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           }
         }}
         type={type}
-        title={title}
-        tabIndex={tabIndex}
-        aria-label={ariaProps['aria-label']}
+        aria-label={ariaProps['aria-label'] ?? title}
         id={id}
         style={style}
         className={cn(

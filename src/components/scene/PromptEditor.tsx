@@ -107,41 +107,50 @@ export function PromptEditor({
               text={value}
               className="h-7 px-2 text-[11px] opacity-60 hover:opacity-100"
             />
-            <Tooltip content={showTranslation ? 'Ocultar traduccion' : 'Traducir al espanol'} placement="top">
-              <button
-                type="button"
-                onClick={handleTranslate}
-                disabled={disabled || translating}
-                aria-label="Traducir prompt al espanol"
-                className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-card hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <Languages className="h-3 w-3" />
-              </button>
-            </Tooltip>
-            {onImprove && (
-              <Tooltip content="Mejorar con IA" placement="top">
+            <Tooltip>
+              <Tooltip.Trigger>
                 <button
                   type="button"
-                  onClick={onImprove}
-                  disabled={disabled}
-                  aria-label="Mejorar prompt con IA"
-                  className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-medium text-scene-filler transition-colors hover:bg-scene-filler/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  onClick={handleTranslate}
+                  disabled={disabled || translating}
+                  aria-label="Traducir prompt al espanol"
+                  className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-card hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <Sparkles className="h-3 w-3" /> IA
+                  <Languages className="h-3 w-3" />
                 </button>
+              </Tooltip.Trigger>
+              <Tooltip.Content>{showTranslation ? 'Ocultar traduccion' : 'Traducir al espanol'}</Tooltip.Content>
+            </Tooltip>
+            {onImprove && (
+              <Tooltip>
+                <Tooltip.Trigger>
+                  <button
+                    type="button"
+                    onClick={onImprove}
+                    disabled={disabled}
+                    aria-label="Mejorar prompt con IA"
+                    className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-medium text-scene-filler transition-colors hover:bg-scene-filler/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <Sparkles className="h-3 w-3" /> IA
+                  </button>
+                </Tooltip.Trigger>
+                <Tooltip.Content>Mejorar con IA</Tooltip.Content>
               </Tooltip>
             )}
             {onSave && !readOnly && (
-              <Tooltip content="Editar" placement="top">
-                <button
-                  type="button"
-                  onClick={handleEdit}
-                  disabled={disabled}
-                  aria-label={`Editar ${label}`}
-                  className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-card hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <Pencil className="h-3 w-3" />
-                </button>
+              <Tooltip>
+                <Tooltip.Trigger>
+                  <button
+                    type="button"
+                    onClick={handleEdit}
+                    disabled={disabled}
+                    aria-label={`Editar ${label}`}
+                    className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-card hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                </Tooltip.Trigger>
+                <Tooltip.Content>Editar</Tooltip.Content>
               </Tooltip>
             )}
           </div>

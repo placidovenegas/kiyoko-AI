@@ -60,7 +60,7 @@ export function CookieBanner() {
           <Button variant="outline" size="sm" onPress={decline}>
             Rechazar
           </Button>
-          <Button variant="primary" color="primary" size="sm" onPress={accept}>
+          <Button variant="primary" size="sm" onPress={accept}>
             Aceptar
           </Button>
         </div>

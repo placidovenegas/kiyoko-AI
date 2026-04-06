@@ -1,6 +1,5 @@
 'use client';
 
-import { Select, ListBoxItem } from '@heroui/react';
 import { cn } from '@/lib/utils/cn';
 
 export interface SceneSelectOption {
@@ -32,31 +31,21 @@ export function SceneSelect({
 }: SceneSelectProps) {
   return (
     <div className={cn('flex flex-col gap-1', className)}>
-      <Select
-        label={label}
-        selectedKeys={value ? [value] : []}
-        onSelectionChange={(keys) => {
-          const selected = [...keys][0];
-          if (selected) onChange(String(selected));
-        }}
-        isDisabled={disabled}
-        placeholder={placeholder}
+      <label className="text-xs font-medium text-muted-foreground">{label}</label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
         aria-label={ariaLabel ?? label}
-        size="sm"
-        className="text-xs"
-        labelPlacement="outside"
+        className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
       >
+        {!value && <option value="">{placeholder}</option>}
         {options.map((opt) => (
-          <ListBoxItem key={opt.value} textValue={opt.label}>
-            <div className="flex flex-col">
-              <span>{opt.label}</span>
-              {opt.description && (
-                <span className="text-[10px] text-muted-foreground">{opt.description}</span>
-              )}
-            </div>
-          </ListBoxItem>
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
         ))}
-      </Select>
+      </select>
     </div>
   );
 }

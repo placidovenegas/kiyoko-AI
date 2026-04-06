@@ -237,7 +237,7 @@ export default function CharacterDetailPage() {
               <Button variant="outline" size="sm" className="flex-1 text-xs">
                 Subir imagen
               </Button>
-              <Button variant="primary" color="primary" size="sm" className="flex-1 text-xs">
+              <Button variant="primary" size="sm" className="flex-1 text-xs">
                 Generar con IA
               </Button>
             </div>
@@ -498,7 +498,7 @@ function EditableSection({
             <Button variant="outline" size="sm" onClick={onCancel}>
               Cancelar
             </Button>
-            <Button variant="primary" color="primary" size="sm" onClick={() => onSave(fieldKey)} disabled={saving}>
+            <Button variant="primary" size="sm" onClick={() => onSave(fieldKey)} disabled={saving}>
               {saving ? 'Guardando...' : 'Guardar'}
             </Button>
           </div>

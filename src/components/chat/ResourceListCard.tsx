@@ -269,7 +269,7 @@ function CharacterList({ items, onAction }: { items: CharacterItem[]; onAction?:
           <span className="text-muted-foreground">({items.length})</span>
         </div>
         {onAction && (
-          <Button type="button" variant="ghost" color="primary" size="sm" onPress={() => onAction('Crear personaje')}
+          <Button type="button" variant="ghost" size="sm" onPress={() => onAction('Crear personaje')}
             className="text-[10px]">
             <Plus size={10} /> Nuevo
           </Button>
@@ -281,7 +281,7 @@ function CharacterList({ items, onAction }: { items: CharacterItem[]; onAction?:
           <Users size={20} className="mx-auto text-muted-foreground/30 mb-2" />
           <p className="text-muted-foreground">Sin personajes en el proyecto</p>
           {onAction && (
-            <Button type="button" variant="ghost" color="primary" size="sm" onPress={() => onAction('Crear personaje')}
+            <Button type="button" variant="ghost" size="sm" onPress={() => onAction('Crear personaje')}
               className="mt-2">
               Crear el primero
             </Button>
@@ -443,7 +443,7 @@ function BackgroundList({ items, onAction }: { items: BackgroundItem[]; onAction
           <span className="text-muted-foreground">({items.length})</span>
         </div>
         {onAction && (
-          <Button type="button" variant="ghost" color="primary" size="sm" onPress={() => onAction('Crear fondo')}
+          <Button type="button" variant="ghost" size="sm" onPress={() => onAction('Crear fondo')}
             className="text-[10px]">
             <Plus size={10} /> Nuevo
           </Button>
@@ -455,7 +455,7 @@ function BackgroundList({ items, onAction }: { items: BackgroundItem[]; onAction
           <MapPin size={20} className="mx-auto text-muted-foreground/30 mb-2" />
           <p className="text-muted-foreground">Sin fondos en el proyecto</p>
           {onAction && (
-            <Button type="button" variant="ghost" color="primary" size="sm" onPress={() => onAction('Crear fondo')}
+            <Button type="button" variant="ghost" size="sm" onPress={() => onAction('Crear fondo')}
               className="mt-2">
               Crear el primero
             </Button>
