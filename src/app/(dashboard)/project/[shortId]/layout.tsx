@@ -3,6 +3,7 @@
 import { useParams } from 'next/navigation';
 import { ProjectProvider, useProject } from '@/contexts/ProjectContext';
 import { useRealtimeProject } from '@/hooks/useRealtimeProject';
+import { ProjectSettingsModal } from '@/components/project/ProjectSettingsModal';
 
 function RealtimeSync() {
   const { project } = useProject();
@@ -23,6 +24,7 @@ export default function ProjectLayout({
           {children}
         </div>
       </div>
+      <ProjectSettingsModal />
     </ProjectProvider>
   );
 }

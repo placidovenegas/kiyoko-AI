@@ -21,6 +21,12 @@ interface UIState {
   workspaceModalOpen: boolean;
   settingsModalOpen: boolean;
   settingsSection: string;
+  projectCreatePanelOpen: boolean;
+  projectSettingsModalOpen: boolean;
+  projectSettingsSection: 'general' | 'ia';
+  videoSettingsModalOpen: boolean;
+  videoSettingsSection: 'general' | 'narracion';
+  taskCreatePanelOpen: boolean;
 
   // Sidebar
   setSidebarOpen: (open: boolean) => void;
@@ -42,6 +48,18 @@ interface UIState {
   closeWorkspaceModal: () => void;
   openSettingsModal: (section?: string) => void;
   closeSettingsModal: () => void;
+  // Project create
+  openProjectCreatePanel: () => void;
+  closeProjectCreatePanel: () => void;
+  // Project settings
+  openProjectSettingsModal: (section?: 'general' | 'ia') => void;
+  closeProjectSettingsModal: () => void;
+  // Video settings
+  openVideoSettingsModal: (section?: 'general' | 'narracion') => void;
+  closeVideoSettingsModal: () => void;
+  // Task create
+  openTaskCreatePanel: () => void;
+  closeTaskCreatePanel: () => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -59,6 +77,12 @@ export const useUIStore = create<UIState>()(
       workspaceModalOpen: false,
       settingsModalOpen: false,
       settingsSection: 'perfil',
+      projectCreatePanelOpen: false,
+      projectSettingsModalOpen: false,
+      projectSettingsSection: 'general',
+      videoSettingsModalOpen: false,
+      videoSettingsSection: 'general',
+      taskCreatePanelOpen: false,
 
       setSidebarOpen: (open) => set({ sidebarOpen: open, sidebarCollapsed: !open }),
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen, sidebarCollapsed: s.sidebarOpen })),
@@ -80,6 +104,14 @@ export const useUIStore = create<UIState>()(
       closeWorkspaceModal: () => set({ workspaceModalOpen: false }),
       openSettingsModal: (section = 'perfil') => set({ settingsModalOpen: true, settingsSection: section }),
       closeSettingsModal: () => set({ settingsModalOpen: false }),
+      openProjectCreatePanel: () => set({ projectCreatePanelOpen: true }),
+      closeProjectCreatePanel: () => set({ projectCreatePanelOpen: false }),
+      openProjectSettingsModal: (section = 'general') => set({ projectSettingsModalOpen: true, projectSettingsSection: section }),
+      closeProjectSettingsModal: () => set({ projectSettingsModalOpen: false }),
+      openVideoSettingsModal: (section = 'general') => set({ videoSettingsModalOpen: true, videoSettingsSection: section }),
+      closeVideoSettingsModal: () => set({ videoSettingsModalOpen: false }),
+      openTaskCreatePanel: () => set({ taskCreatePanelOpen: true }),
+      closeTaskCreatePanel: () => set({ taskCreatePanelOpen: false }),
     }),
     {
       name: 'kiyoko-ui',

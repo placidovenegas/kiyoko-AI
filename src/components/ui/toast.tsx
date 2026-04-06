@@ -9,7 +9,7 @@
 import { Toaster } from 'sonner';
 import { toast as sonnerToast } from 'sonner';
 import {
-  CheckCircle2, XCircle, AlertTriangle, Info, Loader2,
+  CheckCircle2, XCircle, AlertTriangle, Info, Loader2, Sparkles, Upload,
 } from 'lucide-react';
 
 /* ── Styled Toaster ───────────────────────────────────────── */
@@ -17,7 +17,7 @@ import {
 export function KiyokoToaster() {
   return (
     <Toaster
-      position="bottom-right"
+      position="bottom-center"
       expand={false}
       richColors={false}
       gap={8}
@@ -25,19 +25,21 @@ export function KiyokoToaster() {
         unstyled: false,
         classNames: {
           toast: [
-            'flex items-start gap-3 rounded-xl border border-border',
-            'bg-background px-4 py-3 text-sm text-foreground shadow-lg shadow-black/10',
-            'dark:shadow-black/30',
+            'group flex items-start gap-3 rounded-2xl border border-border',
+            'bg-card/95 backdrop-blur-xl',
+            'px-4 py-3.5 text-sm text-foreground',
+            'shadow-xl shadow-black/15 dark:shadow-black/40',
+            'min-w-80 max-w-md',
           ].join(' '),
           title:       'font-medium text-foreground leading-snug',
-          description: 'text-xs text-muted-foreground mt-0.5',
-          actionButton:'rounded-lg bg-primary-500 px-2.5 py-1 text-xs font-medium text-white hover:bg-primary-600 transition-colors',
-          cancelButton:'rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-muted transition-colors',
-          closeButton: 'absolute right-3 top-3 text-muted-foreground hover:text-foreground transition-colors',
-          error:   'border-danger-200  dark:border-danger-800',
-          success: 'border-success-200 dark:border-success-800',
-          warning: 'border-warning-200 dark:border-warning-800',
-          info:    'border-primary-200 dark:border-primary-800',
+          description: 'text-xs text-muted-foreground mt-0.5 leading-relaxed',
+          actionButton:'rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors',
+          cancelButton:'rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted transition-colors',
+          closeButton: 'opacity-0 group-hover:opacity-100 transition-opacity absolute right-3 top-3 text-muted-foreground hover:text-foreground',
+          error:       'border-danger-200/60 dark:border-danger-800/60',
+          success:     'border-success-200/60 dark:border-success-800/60',
+          warning:     'border-warning-200/60 dark:border-warning-800/60',
+          info:        'border-primary-200/60 dark:border-primary-800/60',
         },
       }}
     />
@@ -78,6 +80,19 @@ export const toast = {
   loading: (message: string, opts?: Parameters<typeof sonnerToast>[1]) =>
     sonnerToast.loading(message, {
       icon: icon(<Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" />),
+      ...opts,
+    }),
+
+  ai: (message: string, opts?: Parameters<typeof sonnerToast>[1]) =>
+    sonnerToast.loading(message, {
+      icon: icon(<Sparkles className="size-4 shrink-0 animate-pulse text-primary" />),
+      className: 'border-primary/30 bg-primary/5',
+      ...opts,
+    }),
+
+  upload: (message: string, opts?: Parameters<typeof sonnerToast>[1]) =>
+    sonnerToast.loading(message, {
+      icon: icon(<Upload className="size-4 shrink-0 animate-spin text-primary" />),
       ...opts,
     }),
 

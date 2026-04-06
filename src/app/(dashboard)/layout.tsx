@@ -14,6 +14,7 @@ import { useAIStore } from '@/stores/ai-store';
 import { useUIStore } from '@/stores/useUIStore';
 import { WorkspaceCreateModal } from '@/components/workspace/WorkspaceCreateModal';
 import { SettingsModal } from '@/components/settings/SettingsModal';
+import { ProjectCreatePanel } from '@/components/project/ProjectCreatePanel';
 import { CookieBanner } from '@/components/shared/CookieBanner';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
@@ -122,6 +123,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <SearchModal />
       <WorkspaceCreateModal />
       <SettingsModal />
+      <ProjectCreatePanel />
       <CookieBanner />
     </SidebarProvider>
   );
