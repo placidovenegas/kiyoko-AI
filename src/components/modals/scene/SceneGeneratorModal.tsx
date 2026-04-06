@@ -247,8 +247,8 @@ export function SceneGeneratorModal({
 
   /* ── Generate scenes ────────────────────────────────── */
   async function handleSend() {
-    const text = input.trim();
-    if (!text || isGenerating) return;
+    if (isGenerating) return;
+    const text = input.trim() || `Genera un ${VIDEO_TYPES.find(t => t.value === selectedType)?.label?.toLowerCase() ?? 'video'} de ${activeDuration}s para "${videoTitle}"`;
 
     setInput('');
     const userMsg: Message = { id: `u-${Date.now()}`, role: 'user', content: text };
@@ -474,10 +474,10 @@ export function SceneGeneratorModal({
                     <button
                       type="button"
                       onClick={handleSend}
-                      disabled={!input.trim() || isGenerating}
+                      disabled={isGenerating}
                       className="mt-2 w-full rounded-xl bg-primary py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
                     >
-                      {isGenerating ? <><Loader2 className="size-4 animate-spin inline mr-2" />Generando...</> : 'Generar escenas'}
+                      {isGenerating ? <><Loader2 className="size-4 animate-spin inline mr-2" />Generando...</> : input.trim() ? 'Generar escenas' : `Generar para "${videoTitle}"`}
                     </button>
                   </div>
                 </div>

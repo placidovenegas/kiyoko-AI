@@ -299,6 +299,9 @@
   html {
     @apply font-sans;
   }
+  button, [role="button"], a, select, label[for], input[type="checkbox"], input[type="radio"], summary {
+    cursor: pointer;
+  }
 }
 
 /* ============================================= */
