@@ -49,7 +49,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     if (body.apiKey !== undefined) {
       updates.api_key_encrypted = encrypt(body.apiKey);
-      updates.key_hint = getApiKeyHint(body.apiKey);
+      updates.api_key_hint = getApiKeyHint(body.apiKey);
     }
 
     if (body.isActive !== undefined) {
@@ -74,7 +74,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .update(updates)
       .eq('id', id)
       .eq('user_id', user.id)
-      .select('id, provider, key_hint, is_active, monthly_budget_usd, monthly_spent_usd, updated_at')
+      .select('id, provider, api_key_hint, is_active, monthly_budget_usd, monthly_spent_usd, updated_at')
       .single();
 
     if (updateError) {

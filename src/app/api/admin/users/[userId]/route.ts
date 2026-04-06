@@ -7,7 +7,7 @@ interface RouteParams {
 }
 
 interface UpdateUserBody {
-  role?: 'user' | 'admin' | 'moderator';
+  role?: 'admin' | 'editor' | 'viewer' | 'pending' | 'blocked';
 }
 
 /**
@@ -59,16 +59,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const validRoles = ['user', 'admin', 'moderator'];
+    const validRoles = ['admin', 'editor', 'viewer', 'pending', 'blocked'];
     if (!validRoles.includes(role)) {
       return NextResponse.json(
         { error: `Invalid role. Must be one of: ${validRoles.join(', ')}` },
         { status: 400 }
       );
     }
-
-    // Cast role to the DB enum type — the profiles table may use a different enum
-    const dbRole = role as 'admin' | 'editor' | 'viewer' | 'pending' | 'blocked';
 
     // Use admin client to bypass RLS
     const adminClient = createAdminClient();
@@ -78,7 +75,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     const { data: updatedUser, error: updateError } = await adminClient
       .from('profiles')
-      .update({ role: dbRole, updated_at: new Date().toISOString() })
+      .update({ role, updated_at: new Date().toISOString() })
       .eq('id', userId)
       .select('id, email, full_name, role, updated_at')
       .single();

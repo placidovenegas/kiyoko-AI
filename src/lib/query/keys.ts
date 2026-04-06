@@ -74,10 +74,6 @@ export const queryKeys = {
     members: (orgId: string) => ['organization-members', orgId] as const,
   },
 
-  timeEntries: {
-    byProject: (projectId: string) => ['time-entries', 'project', projectId] as const,
-  },
-
   userPlans: {
     byUser: (userId: string) => ['user-plans', userId] as const,
   },

@@ -134,8 +134,6 @@ export type Task = Row<'tasks'>;
 export type TaskInsert = Insert<'tasks'>;
 export type TaskUpdate = Update<'tasks'>;
 
-export type TimeEntry = Row<'time_entries'>;
-export type TimeEntryInsert = Insert<'time_entries'>;
 
 // ========================
 // Organizaciones
