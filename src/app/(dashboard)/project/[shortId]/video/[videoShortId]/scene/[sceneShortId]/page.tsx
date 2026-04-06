@@ -214,6 +214,19 @@ export default function SceneDetailPage() {
     enabled: !!video?.id,
   });
 
+  const { data: timelineEntry } = useQuery({
+    queryKey: ['timeline-entry', data?.scene?.id],
+    queryFn: async () => {
+      const { data: entry } = await supabase
+        .from('timeline_entries')
+        .select('*')
+        .eq('scene_id', data!.scene.id)
+        .single();
+      return entry;
+    },
+    enabled: !!data?.scene?.id,
+  });
+
   // ---- Mutations ----
 
   const updateScene = useMutation({
@@ -542,10 +555,11 @@ export default function SceneDetailPage() {
                 </button>
                 <button
                   type="button"
-                  className={btnGhost}
+                  className="inline-flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
                   onClick={() => imagePrompt?.prompt_text && copyPrompt(imagePrompt.prompt_text)}
                 >
-                  <span className="flex items-center gap-1"><Copy className="h-3 w-3" />Copiar</span>
+                  <Copy className="h-3 w-3" />
+                  Copiar
                 </button>
               </div>
             </div>
@@ -618,13 +632,29 @@ export default function SceneDetailPage() {
                 </button>
                 <button
                   type="button"
-                  className={btnGhost}
+                  className="inline-flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
                   onClick={() => videoPrompt?.prompt_text && copyPrompt(videoPrompt.prompt_text)}
                 >
-                  <span className="flex items-center gap-1"><Copy className="h-3 w-3" />Copiar</span>
+                  <Copy className="h-3 w-3" />
+                  Copiar
                 </button>
               </div>
             </div>
+
+            {/* Copiar ambos prompts */}
+            {(imagePrompt?.prompt_text || videoPrompt?.prompt_text) && (
+              <button
+                type="button"
+                onClick={() => {
+                  const parts = [imagePrompt?.prompt_text, videoPrompt?.prompt_text].filter(Boolean);
+                  navigator.clipboard.writeText(parts.join('\n\n---\n\n'));
+                  toast.success('Ambos prompts copiados');
+                }}
+                className="w-full rounded-xl border border-primary/20 bg-primary/5 py-2 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
+              >
+                Copiar ambos prompts
+              </button>
+            )}
 
             {/* Clips de Video */}
             <div className="rounded-xl border border-border bg-card p-4">
@@ -672,6 +702,19 @@ export default function SceneDetailPage() {
                 placeholder="Texto de dialogo o narracion para voiceover..."
                 className="text-sm"
               />
+            </div>
+
+            {/* ── Timeline breakdown ── */}
+            <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Desglose temporal</p>
+                <button type="button" className="text-xs text-primary hover:text-primary/80">Generar con IA</button>
+              </div>
+              {timelineEntry ? (
+                <p className="text-sm text-muted-foreground leading-relaxed">{(timelineEntry as { description?: string }).description}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground/50 italic">Sin desglose temporal. Pulsa &quot;Generar con IA&quot; para crear uno.</p>
+              )}
             </div>
           </div>
         </div>

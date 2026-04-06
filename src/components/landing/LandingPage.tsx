@@ -2,7 +2,7 @@ import Link from 'next/link';
 import {
   Layers, Sparkles, Video, Mic, FileText, Users,
   ArrowRight, CheckCircle, Play, Wand2, Copy,
-  Monitor, Clapperboard,
+  Clapperboard,
 } from 'lucide-react';
 import { KiyokoLogo, KiyokoLogoBrand } from '@/components/shared/KiyokoLogo';
 
@@ -15,37 +15,37 @@ const FEATURES = [
     icon: Layers,
     title: 'Storyboard Visual',
     desc: 'Tres vistas: compacto, grid y timeline con arco narrativo integrado. Drag & drop para reordenar.',
-    gradient: 'from-brand-teal to-[#2AAD9D]',
+    gradient: 'from-brand-teal to-brand-green',
   },
   {
     icon: Sparkles,
     title: 'IA Generativa',
     desc: 'Genera prompts de imagen y video en inglés + descripción en español. La IA entiende tu proyecto.',
-    gradient: 'from-brand-coral to-[#FF9A4A]',
+    gradient: 'from-brand-coral to-brand-coral/70',
   },
   {
     icon: Video,
     title: 'Multi-Video',
     desc: 'Un proyecto, múltiples videos. YouTube, Reels, TikTok — cada uno con sus escenas y configuración.',
-    gradient: 'from-[#8B5CF6] to-[#A78BFA]',
+    gradient: 'from-brand-purple to-brand-purple/60',
   },
   {
     icon: Mic,
     title: 'Narración con Voz',
     desc: 'Genera guiones completos y audio con ElevenLabs. Diálogos en cámara o voz en off.',
-    gradient: 'from-[#EC4899] to-[#F472B6]',
+    gradient: 'from-brand-coral/80 to-brand-purple/80',
   },
   {
     icon: FileText,
     title: 'Exportar Todo',
     desc: 'PDF storyboard, HTML interactivo, JSON datos, Markdown guión, MP3 narración y ZIP completo.',
-    gradient: 'from-[#10B981] to-[#34D399]',
+    gradient: 'from-brand-green to-brand-teal',
   },
   {
     icon: Users,
     title: 'Colaboración',
     desc: 'Trabaja en equipo en tiempo real. Comparte con link público, con password o entre usuarios.',
-    gradient: 'from-[#F59E0B] to-[#FBBF24]',
+    gradient: 'from-brand-coral/90 to-brand-green/80',
   },
 ] as const;
 
@@ -84,7 +84,7 @@ export function LandingPage() {
             </Link>
             <Link
               href="/register"
-              className="rounded-lg bg-linear-to-r from-brand-teal to-[#2AAD9D] px-5 py-2 text-sm font-medium text-white shadow-lg shadow-brand-teal/25 transition hover:shadow-brand-teal/40"
+              className="rounded-xl bg-primary px-5 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
             >
               Empezar gratis
             </Link>
@@ -110,7 +110,7 @@ export function LandingPage() {
 
         <div className="relative mx-auto max-w-6xl px-6 text-center">
           {/* Badge */}
-          <div className="mx-auto mb-8 inline-flex items-center gap-2 rounded-full border border-brand-teal/30 bg-brand-teal/10 px-5 py-2 text-sm font-medium text-brand-green">
+          <div className="mx-auto mb-8 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-5 py-2 text-sm font-medium text-brand-green">
             <span className="h-2 w-2 rounded-full bg-brand-green animate-pulse" />
             AI Storyboard Production Studio
           </div>
@@ -122,11 +122,11 @@ export function LandingPage() {
 
           <h1 className="mx-auto max-w-4xl text-4xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl lg:text-7xl">
             Crea videos con{' '}
-            <span className="bg-linear-to-r from-brand-green via-[#2AAD9D] to-brand-teal bg-clip-text text-transparent">
+            <span className="bg-linear-to-r from-brand-green via-brand-teal to-brand-teal bg-clip-text text-transparent">
               inteligencia
             </span>
             <br />
-            <span className="bg-linear-to-r from-brand-coral via-[#FF9A4A] to-[#FED657] bg-clip-text text-transparent">
+            <span className="bg-linear-to-r from-brand-coral via-brand-coral/80 to-brand-green bg-clip-text text-transparent">
               artificial
             </span>
           </h1>
@@ -139,7 +139,7 @@ export function LandingPage() {
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link
               href="/register"
-              className="group inline-flex items-center gap-2.5 rounded-xl bg-linear-to-r from-brand-teal to-[#2AAD9D] px-8 py-3.5 text-sm font-semibold text-white shadow-xl shadow-brand-teal/30 transition hover:shadow-brand-teal/50"
+              className="group inline-flex items-center gap-2.5 rounded-xl bg-primary px-8 py-3.5 text-sm font-medium text-primary-foreground shadow-xl shadow-primary/30 transition hover:bg-primary/90 hover:shadow-primary/50"
             >
               Empezar gratis
               <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
@@ -170,7 +170,7 @@ export function LandingPage() {
 
       {/* ---- Features ---- */}
       <section id="features" className="relative py-24">
-        <div className="absolute inset-0 bg-linear-to-b from-transparent via-brand-teal/5 to-transparent" />
+        <div className="absolute inset-0 bg-linear-to-b from-transparent via-primary/5 to-transparent" />
         <div className="relative mx-auto max-w-6xl px-6">
           <div className="text-center">
             <p className="text-sm font-semibold uppercase tracking-widest text-brand-coral">Características</p>
@@ -208,7 +208,7 @@ export function LandingPage() {
               <div key={s.title} className="relative text-center">
                 {/* Connector line */}
                 {i < STEPS.length - 1 && (
-                  <div className="absolute left-1/2 top-8 hidden h-px w-full bg-linear-to-r from-brand-teal/40 to-transparent lg:block" />
+                  <div className="absolute left-1/2 top-8 hidden h-px w-full bg-linear-to-r from-primary/40 to-transparent lg:block" />
                 )}
                 <div className="relative mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
                   <s.icon className="h-7 w-7 text-brand-green" />
@@ -240,7 +240,7 @@ export function LandingPage() {
               </div>
             </div>
             {/* Content area */}
-            <div className="flex h-72 items-center justify-center rounded-b-xl bg-linear-to-br from-[#0C0D20] to-[#111228] sm:h-96">
+            <div className="flex h-72 items-center justify-center rounded-b-xl bg-linear-to-br from-brand-dark to-brand-dark/90 sm:h-96">
               <div className="text-center">
                 <KiyokoLogo variant="dark" size={48} className="mx-auto mb-4 opacity-30" />
                 <p className="text-sm text-white/20">Vista previa del storyboard</p>
@@ -265,12 +265,12 @@ export function LandingPage() {
                 key={plan.name}
                 className={`relative flex flex-col rounded-2xl border p-7 text-left transition ${
                   plan.popular
-                    ? 'border-brand-teal/50 bg-brand-teal/5 shadow-xl shadow-brand-teal/10'
+                    ? 'border-primary/50 bg-primary/5 shadow-xl shadow-primary/10'
                     : 'border-white/5 bg-white/[0.02]'
                 }`}
               >
                 {plan.popular && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-linear-to-r from-brand-teal to-[#2AAD9D] px-4 py-1 text-xs font-bold text-white shadow-lg">
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-4 py-1 text-xs font-bold text-primary-foreground shadow-lg">
                     Popular
                   </span>
                 )}
@@ -289,9 +289,9 @@ export function LandingPage() {
                 </ul>
                 <Link
                   href="/register"
-                  className={`mt-8 block rounded-xl px-4 py-3 text-center text-sm font-semibold transition ${
+                  className={`mt-8 block rounded-xl px-6 py-3 text-center text-sm font-medium transition ${
                     plan.popular
-                      ? 'bg-linear-to-r from-brand-teal to-[#2AAD9D] text-white shadow-lg shadow-brand-teal/25 hover:shadow-brand-teal/40'
+                      ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25 hover:bg-primary/90'
                       : 'border border-white/10 text-white/60 hover:bg-white/5 hover:text-white'
                   }`}
                 >
@@ -319,7 +319,7 @@ export function LandingPage() {
           </p>
           <Link
             href="/register"
-            className="group mt-8 inline-flex items-center gap-2.5 rounded-xl bg-linear-to-r from-brand-coral to-[#FF9A4A] px-8 py-3.5 text-sm font-semibold text-white shadow-xl shadow-brand-coral/25 transition hover:shadow-brand-coral/40"
+            className="group mt-8 inline-flex items-center gap-2.5 rounded-xl bg-brand-coral px-8 py-3.5 text-sm font-medium text-white shadow-xl shadow-brand-coral/25 transition hover:bg-brand-coral/90 hover:shadow-brand-coral/40"
           >
             Crear cuenta gratis
             <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
