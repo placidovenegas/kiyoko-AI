@@ -14,7 +14,7 @@ import {
   Film, Clock, Monitor, Mic, FileOutput, Music, Image as ImageIcon,
   Video, Loader2, BarChart3, Layers, CheckCircle2, Target,
   Settings2, Copy, Sparkles, ExternalLink, MoreHorizontal,
-  Eye, Pencil, Camera, Clapperboard, Plus, Trash2,
+  Eye, Pencil, Camera, Clapperboard, Plus, Trash2, ArrowRight,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -24,6 +24,7 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { useState } from 'react';
+import { SceneCreateModal } from '@/components/modals';
 import type { NarrativeArc, Scene, ScenePrompt, SceneMedia } from '@/types';
 
 /* ------------------------------------------------------------------ */
@@ -106,6 +107,45 @@ interface AudioConfig {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Scene character / background / clip types                          */
+/* ------------------------------------------------------------------ */
+interface SceneCharacterWithChar {
+  scene_id: string;
+  character_id: string;
+  role_in_scene: string | null;
+  character: {
+    id: string;
+    name: string;
+    initials: string | null;
+    color_accent: string | null;
+    reference_image_url: string | null;
+  };
+}
+
+interface SceneBackgroundWithBg {
+  scene_id: string;
+  background_id: string;
+  is_primary: boolean | null;
+  background: {
+    id: string;
+    name: string;
+    reference_image_url: string | null;
+    location_type: string | null;
+  };
+}
+
+interface SceneClipRow {
+  scene_id: string;
+  clip_type: string | null;
+  duration_seconds: number | null;
+}
+
+/* ------------------------------------------------------------------ */
+/*  View mode                                                          */
+/* ------------------------------------------------------------------ */
+type ViewMode = 'storyboard' | 'compact' | 'timeline';
+
+/* ------------------------------------------------------------------ */
 /*  Quick links                                                        */
 /* ------------------------------------------------------------------ */
 const QUICK_LINKS = [
@@ -142,6 +182,9 @@ function StoryboardCard({
   videoPrompt,
   thumbnail,
   camera,
+  chars,
+  bgs,
+  clips,
   onGeneratePrompts,
   isGenerating,
 }: {
@@ -151,6 +194,9 @@ function StoryboardCard({
   videoPrompt: ScenePrompt | undefined;
   thumbnail: SceneMedia | undefined;
   camera: SceneCamera | undefined;
+  chars: SceneCharacterWithChar[];
+  bgs: SceneBackgroundWithBg[];
+  clips: SceneClipRow[];
   onGeneratePrompts: () => void;
   isGenerating: boolean;
 }) {
@@ -225,6 +271,81 @@ function StoryboardCard({
           {/* Director notes */}
           {scene.director_notes && (
             <p className="text-xs text-muted-foreground/70 line-clamp-1 italic">{scene.director_notes}</p>
+          )}
+
+          {/* Characters */}
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] text-muted-foreground mr-1">Personajes:</span>
+            {chars.length === 0 ? (
+              <span className="text-[10px] text-muted-foreground/50">&mdash;</span>
+            ) : (
+              chars.map((c) => {
+                const char = c.character;
+                return char.reference_image_url ? (
+                  <img
+                    key={c.character_id}
+                    src={char.reference_image_url}
+                    alt={char.name}
+                    title={char.name}
+                    className="size-5 rounded-full object-cover border border-border"
+                  />
+                ) : (
+                  <div
+                    key={c.character_id}
+                    title={char.name}
+                    className="flex size-5 items-center justify-center rounded-full text-[7px] font-bold text-white"
+                    style={{ backgroundColor: char.color_accent ?? '#6B7280' }}
+                  >
+                    {(char.initials || char.name?.slice(0, 2) || '?').toUpperCase()}
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Background */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-muted-foreground">Fondo:</span>
+            {bgs.length === 0 ? (
+              <span className="text-[10px] text-muted-foreground/50">&mdash;</span>
+            ) : (
+              bgs.map((b) => {
+                const bg = b.background;
+                return (
+                  <div key={b.background_id} className="flex items-center gap-1">
+                    {bg.reference_image_url && (
+                      <img
+                        src={bg.reference_image_url}
+                        alt={bg.name}
+                        className="h-5 w-8 rounded object-cover border border-border"
+                      />
+                    )}
+                    <span className="text-[10px] text-muted-foreground">{bg.name}</span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Clips count */}
+          {clips.length > 0 && (
+            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+              <Film className="size-3" />
+              {clips.filter((c) => c.clip_type === 'base').length} base
+              {clips.filter((c) => c.clip_type === 'extension').length > 0 && (
+                <span className="text-purple-400">
+                  + {clips.filter((c) => c.clip_type === 'extension').length} ext
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Continuation indicator */}
+          {scene.continuation_of_scene_id && (
+            <div className="flex items-center gap-1.5 text-[10px] text-sky-400">
+              <ArrowRight className="size-3" />
+              <span>Continua escena anterior</span>
+            </div>
           )}
         </div>
       </div>
@@ -412,6 +533,8 @@ export default function VideoOverviewPage() {
 
   const [generatingSceneId, setGeneratingSceneId] = useState<string | null>(null);
   const [generatingAll, setGeneratingAll] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('storyboard');
+  const [showCreateScene, setShowCreateScene] = useState(false);
 
   async function handleGeneratePrompts(sceneId: string) {
     setGeneratingSceneId(sceneId);
@@ -504,6 +627,54 @@ export default function VideoOverviewPage() {
         .select('scene_id, camera_angle, camera_movement')
         .in('scene_id', sceneIds);
       return (data ?? []) as SceneCamera[];
+    },
+    enabled: !!video?.id && scenes.length > 0,
+  });
+
+  // Fetch scene characters with character data
+  const { data: sceneCharacters = [] } = useQuery({
+    queryKey: ['scene-characters', video?.id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const sceneIds = scenes.map((s) => s.id);
+      if (!sceneIds.length) return [];
+      const { data } = await supabase
+        .from('scene_characters')
+        .select('scene_id, character_id, role_in_scene, character:characters!character_id(id, name, initials, color_accent, reference_image_url)')
+        .in('scene_id', sceneIds);
+      return (data ?? []) as unknown as SceneCharacterWithChar[];
+    },
+    enabled: !!video?.id && scenes.length > 0,
+  });
+
+  // Fetch scene backgrounds with background data
+  const { data: sceneBackgrounds = [] } = useQuery({
+    queryKey: ['scene-backgrounds', video?.id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const sceneIds = scenes.map((s) => s.id);
+      if (!sceneIds.length) return [];
+      const { data } = await supabase
+        .from('scene_backgrounds')
+        .select('scene_id, background_id, is_primary, background:backgrounds!background_id(id, name, reference_image_url, location_type)')
+        .in('scene_id', sceneIds);
+      return (data ?? []) as unknown as SceneBackgroundWithBg[];
+    },
+    enabled: !!video?.id && scenes.length > 0,
+  });
+
+  // Fetch scene video clips
+  const { data: sceneClips = [] } = useQuery({
+    queryKey: ['scene-clips', video?.id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const sceneIds = scenes.map((s) => s.id);
+      if (!sceneIds.length) return [];
+      const { data } = await supabase
+        .from('scene_video_clips')
+        .select('scene_id, clip_type, duration_seconds')
+        .in('scene_id', sceneIds);
+      return (data ?? []) as SceneClipRow[];
     },
     enabled: !!video?.id && scenes.length > 0,
   });
@@ -624,18 +795,50 @@ export default function VideoOverviewPage() {
         </div>
       )}
 
-      {/* ── Storyboard ─────────────────────────────────────── */}
+      {/* ── Scenes section ────────────────────────────────── */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
+        {/* Header row: title + tabs + actions */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Storyboard
+            Escenas
           </p>
-          <Link
-            href={`${basePath}/scenes`}
-            className="text-xs font-medium text-primary hover:underline"
-          >
-            Ver todas
-          </Link>
+
+          {/* View mode tabs */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1 rounded-lg border border-border p-0.5">
+              {(['storyboard', 'compact', 'timeline'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setViewMode(mode)}
+                  className={cn(
+                    'px-3 py-1.5 rounded-md text-xs font-medium transition-colors',
+                    viewMode === mode
+                      ? 'bg-secondary text-foreground'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {mode === 'storyboard' ? 'Storyboard' : mode === 'compact' ? 'Compacto' : 'Timeline'}
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowCreateScene(true)}
+              className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              <Plus className="size-3.5" />
+              Nueva escena
+            </button>
+
+            <Link
+              href={`${basePath}/scenes`}
+              className="text-xs font-medium text-primary hover:underline"
+            >
+              Ver todas
+            </Link>
+          </div>
         </div>
 
         {/* Content */}
@@ -648,20 +851,25 @@ export default function VideoOverviewPage() {
             <Film className="h-10 w-10 text-muted-foreground/60" />
             <h4 className="mt-3 text-sm font-medium text-foreground">Sin escenas todavia</h4>
             <p className="mt-1 text-xs text-muted-foreground">Crea escenas manualmente o genera con IA</p>
-            <Link
-              href={`${basePath}/scenes`}
+            <button
+              type="button"
+              onClick={() => setShowCreateScene(true)}
               className="mt-4 text-sm font-medium text-primary hover:underline"
             >
-              Ir a escenas
-            </Link>
+              Crear primera escena
+            </button>
           </div>
-        ) : (
+        ) : viewMode === 'storyboard' ? (
+          /* ── Storyboard view ── */
           <div className="space-y-3">
             {scenes.map((scene) => {
               const imagePrompt = scenePrompts.find((p) => p.scene_id === scene.id && p.prompt_type === 'image');
               const videoPrompt = scenePrompts.find((p) => p.scene_id === scene.id && p.prompt_type === 'video');
               const thumbnail = sceneMedia.find((m) => m.scene_id === scene.id);
               const camera = sceneCameras.find((c) => c.scene_id === scene.id);
+              const chars = sceneCharacters.filter((c) => c.scene_id === scene.id);
+              const bgList = sceneBackgrounds.filter((b) => b.scene_id === scene.id);
+              const clipList = sceneClips.filter((c) => c.scene_id === scene.id);
 
               return (
                 <StoryboardCard
@@ -672,11 +880,106 @@ export default function VideoOverviewPage() {
                   videoPrompt={videoPrompt}
                   thumbnail={thumbnail}
                   camera={camera}
+                  chars={chars}
+                  bgs={bgList}
+                  clips={clipList}
                   onGeneratePrompts={() => handleGeneratePrompts(scene.id)}
                   isGenerating={generatingSceneId === scene.id}
                 />
               );
             })}
+          </div>
+        ) : viewMode === 'compact' ? (
+          /* ── Compact view ── */
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            {scenes.map((scene) => {
+              const thumb = sceneMedia.find((m) => m.scene_id === scene.id);
+              const thumbUrl = thumb?.thumbnail_url ?? thumb?.file_url;
+              return (
+                <Link
+                  key={scene.id}
+                  href={scene.short_id ? `${basePath}/scene/${scene.short_id}` : `${basePath}/scenes`}
+                  className="rounded-xl border border-border bg-card overflow-hidden hover:border-primary/30 transition-all"
+                >
+                  <div className="aspect-video bg-background flex items-center justify-center relative">
+                    {thumbUrl ? (
+                      <img src={thumbUrl} alt={scene.title} className="size-full object-cover" />
+                    ) : (
+                      <Film className="size-6 text-muted-foreground/40" />
+                    )}
+                    <span className="absolute top-1.5 left-1.5 bg-black/70 text-white text-[9px] font-bold px-1 rounded">
+                      #{scene.scene_number}
+                    </span>
+                    {scene.arc_phase && (
+                      <span
+                        className={cn(
+                          'absolute bottom-1.5 left-1.5 text-[9px] px-1 rounded',
+                          PHASE_STYLES[scene.arc_phase] ?? 'bg-zinc-500/80 text-white',
+                        )}
+                      >
+                        {scene.arc_phase}
+                      </span>
+                    )}
+                  </div>
+                  <div className="p-2">
+                    <p className="text-xs font-medium truncate">{scene.title}</p>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span className="text-[10px] text-muted-foreground">{scene.duration_seconds ?? 5}s</span>
+                      <span
+                        className={cn(
+                          'size-1.5 rounded-full',
+                          SCENE_STATUS_DOT[scene.status ?? 'draft'],
+                        )}
+                      />
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        ) : (
+          /* ── Timeline view ── */
+          <div className="space-y-3">
+            {/* Arc bar */}
+            {arcs.length > 0 && (
+              <ArcBar
+                arcs={arcs}
+                totalDuration={totalDuration || video.target_duration_seconds || 60}
+                className="h-4"
+              />
+            )}
+            {/* Scene list */}
+            <div className="space-y-1">
+              {scenes.map((scene) => (
+                <Link
+                  key={scene.id}
+                  href={scene.short_id ? `${basePath}/scene/${scene.short_id}` : `${basePath}/scenes`}
+                  className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-accent transition-colors"
+                >
+                  <span className="text-xs font-bold text-muted-foreground w-6 text-right tabular-nums">
+                    #{scene.scene_number}
+                  </span>
+                  <span className="text-sm font-medium flex-1 truncate">{scene.title}</span>
+                  {scene.arc_phase && (
+                    <span
+                      className={cn(
+                        'rounded px-1.5 py-0.5 text-[10px] font-medium',
+                        PHASE_STYLES[scene.arc_phase] ?? 'bg-zinc-500/80 text-white',
+                      )}
+                    >
+                      {scene.arc_phase}
+                    </span>
+                  )}
+                  <span className="text-xs text-muted-foreground tabular-nums">{scene.duration_seconds ?? 5}s</span>
+                  <span
+                    className={cn(
+                      'size-2 rounded-full',
+                      SCENE_STATUS_DOT[scene.status ?? 'draft'],
+                    )}
+                  />
+                </Link>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -728,6 +1031,18 @@ export default function VideoOverviewPage() {
           <p className="text-sm leading-relaxed text-muted-foreground">{video.description}</p>
         </div>
       )}
+
+      {/* ── Create scene modal ──────────────────────────────── */}
+      <SceneCreateModal
+        open={showCreateScene}
+        onOpenChange={setShowCreateScene}
+        videoId={video.id}
+        projectId={project.id}
+        nextSceneNumber={scenes.length + 1}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['scene-prompts', video.id] });
+        }}
+      />
     </div>
   );
 }
