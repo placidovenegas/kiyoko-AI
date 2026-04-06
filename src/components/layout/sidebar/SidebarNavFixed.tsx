@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Search, Home, CheckSquare, Sparkles } from 'lucide-react';
+import { Search, Home, Inbox, CheckSquare, Sparkles } from 'lucide-react';
 import { Tooltip } from '@heroui/react';
 import { useSidebar } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils/cn';
@@ -11,6 +11,7 @@ import { useUIStore } from '@/stores/useUIStore';
 const NAV_ITEMS = [
   { id: 'search', label: 'Buscar', icon: Search, href: null, shortcut: '⌘K' },
   { id: 'home', label: 'Inicio', icon: Home, href: '/dashboard' },
+  { id: 'inbox', label: 'Inbox', icon: Inbox, href: '/dashboard/notifications', badge: true },
   { id: 'tasks', label: 'Tareas', icon: CheckSquare, href: '/dashboard/tasks' },
   { id: 'kiyoko', label: 'Kiyoko IA', icon: Sparkles, href: null },
 ];
@@ -53,6 +54,11 @@ export function SidebarNavFixed() {
             <>
               <item.icon className="h-4 w-4 shrink-0 text-sidebar-foreground/60" />
               {!isCollapsed && <span className="truncate">{item.label}</span>}
+              {!isCollapsed && item.badge && (
+                <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium text-primary-foreground">
+                  3
+                </span>
+              )}
               {!isCollapsed && item.shortcut && (
                 <span className="ml-auto text-[10px] text-sidebar-foreground/30">{item.shortcut}</span>
               )}

@@ -53,8 +53,18 @@ function NavItem({ href, icon: Icon, label, pathname, isCollapsed }: {
   );
 }
 
-function VideoItem({ href, label, pathname }: { href: string; label: string; pathname: string }) {
+const VIDEO_STATUS_COLORS: Record<string, string> = {
+  draft: 'bg-zinc-400',
+  prompting: 'bg-blue-400',
+  generating: 'bg-amber-400',
+  review: 'bg-purple-400',
+  approved: 'bg-emerald-400',
+  exported: 'bg-emerald-600',
+};
+
+function VideoItem({ href, label, status, pathname }: { href: string; label: string; status?: string; pathname: string }) {
   const isActive = pathname.startsWith(href);
+  const dotColor = VIDEO_STATUS_COLORS[status ?? 'draft'] ?? 'bg-zinc-400';
   return (
     <li>
       <Link
@@ -66,6 +76,7 @@ function VideoItem({ href, label, pathname }: { href: string; label: string; pat
             : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
         )}
       >
+        <span className={cn('w-2 h-2 rounded-full shrink-0', dotColor)} />
         <Film className="h-3.5 w-3.5 shrink-0 text-sidebar-foreground/50" />
         <span className="truncate">{label}</span>
       </Link>
@@ -168,21 +179,25 @@ export function SidebarProjectNav({ projectShortId }: Props) {
                   <Plus className="h-3.5 w-3.5" />
                 </Link>
               </div>
-              {videos?.map((v) => (
-                <Link
-                  key={v.id}
-                  href={`${base}/video/${v.short_id}`}
-                  className={cn(
-                    'flex w-full items-center gap-2 rounded-md px-2 h-7 text-[12px] transition-colors',
-                    pathname.startsWith(`${base}/video/${v.short_id}`)
-                      ? 'bg-accent font-medium text-foreground'
-                      : 'text-foreground/80 hover:bg-accent',
-                  )}
-                >
-                  <Film className="h-3 w-3 shrink-0 text-muted-foreground/60" />
-                  <span className="truncate">{v.title}</span>
-                </Link>
-              ))}
+              {videos?.map((v) => {
+                const dotColor = VIDEO_STATUS_COLORS[v.status ?? 'draft'] ?? 'bg-zinc-400';
+                return (
+                  <Link
+                    key={v.id}
+                    href={`${base}/video/${v.short_id}`}
+                    className={cn(
+                      'flex w-full items-center gap-2 rounded-md px-2 h-7 text-[12px] transition-colors',
+                      pathname.startsWith(`${base}/video/${v.short_id}`)
+                        ? 'bg-accent font-medium text-foreground'
+                        : 'text-foreground/80 hover:bg-accent',
+                    )}
+                  >
+                    <span className={cn('w-2 h-2 rounded-full shrink-0', dotColor)} />
+                    <Film className="h-3 w-3 shrink-0 text-muted-foreground/60" />
+                    <span className="truncate">{v.title}</span>
+                  </Link>
+                );
+              })}
               {videos && videos.length === 0 && (
                 <p className="px-2 py-2 text-xs text-muted-foreground">Sin vídeos</p>
               )}
@@ -238,8 +253,8 @@ export function SidebarProjectNav({ projectShortId }: Props) {
         <div className="px-2 py-1.5">
           <ul className="flex flex-col gap-0.5">
             <NavItem href={`${base}/settings`} icon={Settings} label="General" pathname={pathname} isCollapsed />
-            <NavItem href={`${base}/settings/ai`} icon={Bot} label="IA y Agente" pathname={pathname} isCollapsed />
-            <NavItem href={`${base}/settings/sharing`} icon={UserPlus} label="Colaboradores" pathname={pathname} isCollapsed />
+            <NavItem href={`${base}/settings/ai`} icon={Bot} label="Director IA" pathname={pathname} isCollapsed />
+            <NavItem href={`${base}/settings/sharing`} icon={UserPlus} label="Compartir" pathname={pathname} isCollapsed />
           </ul>
         </div>
       </div>
@@ -275,7 +290,7 @@ export function SidebarProjectNav({ projectShortId }: Props) {
         </div>
         <ul className="flex flex-col gap-0.5">
           {videos?.map((video) => (
-            <VideoItem key={video.id} href={`${base}/video/${video.short_id}`} label={video.title} pathname={pathname} />
+            <VideoItem key={video.id} href={`${base}/video/${video.short_id}`} label={video.title} status={video.status ?? undefined} pathname={pathname} />
           ))}
           {videos && videos.length === 0 && (
             <li className="px-2 py-1 text-xs text-sidebar-foreground/40">Sin vídeos</li>
@@ -321,8 +336,8 @@ export function SidebarProjectNav({ projectShortId }: Props) {
         </div>
         <ul className="flex flex-col gap-0.5">
           <NavItem href={`${base}/settings`} icon={Settings} label="General" pathname={pathname} isCollapsed={false} />
-          <NavItem href={`${base}/settings/ai`} icon={Bot} label="IA y Agente" pathname={pathname} isCollapsed={false} />
-          <NavItem href={`${base}/settings/sharing`} icon={UserPlus} label="Colaboradores" pathname={pathname} isCollapsed={false} />
+          <NavItem href={`${base}/settings/ai`} icon={Bot} label="Director IA" pathname={pathname} isCollapsed={false} />
+          <NavItem href={`${base}/settings/sharing`} icon={UserPlus} label="Compartir" pathname={pathname} isCollapsed={false} />
         </ul>
       </div>
     </div>

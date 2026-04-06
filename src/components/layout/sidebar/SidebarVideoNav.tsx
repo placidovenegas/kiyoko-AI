@@ -4,8 +4,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import {
-  LayoutDashboard, Film, Clock, Mic, BarChart3,
-  Share2, Download, ChevronDown, ChevronLeft,
+  LayoutDashboard, Clapperboard, GanttChart, Mic, BarChart3,
+  Share2, Download, ChevronDown, ChevronLeft, Film,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,16 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils/cn';
+
+const SCENE_STATUS_COLORS: Record<string, string> = {
+  draft: 'bg-zinc-400',
+  prompt_ready: 'bg-blue-400',
+  generating: 'bg-amber-400',
+  generated: 'bg-emerald-400',
+  approved: 'bg-emerald-600',
+  rejected: 'bg-red-400',
+};
 interface Props {
   projectShortId: string;
   videoShortId: string;
@@ -52,12 +62,25 @@ export function SidebarVideoNav({ projectShortId, videoShortId }: Props) {
     enabled: !!currentVideo?.project_id,
   });
 
+  const { data: scenes } = useQuery({
+    queryKey: queryKeys.scenes.byVideo(currentVideo?.id ?? ''),
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('scenes')
+        .select('id, short_id, scene_number, title, status')
+        .eq('video_id', currentVideo!.id)
+        .order('scene_number');
+      return data ?? [];
+    },
+    enabled: !!currentVideo?.id,
+  });
+
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
 
   const navItems = [
-    { title: 'Overview', icon: LayoutDashboard, href: base },
-    { title: 'Escenas', icon: Film, href: `${base}/scenes` },
-    { title: 'Timeline', icon: Clock, href: `${base}/timeline` },
+    { title: 'Vista general', icon: LayoutDashboard, href: base },
+    { title: 'Escenas', icon: Clapperboard, href: `${base}/scenes` },
+    { title: 'Timeline', icon: GanttChart, href: `${base}/timeline` },
     { title: 'Narracion', icon: Mic, href: `${base}/narration` },
     { title: 'Analisis', icon: BarChart3, href: `${base}/analysis` },
     { title: 'Compartir', icon: Share2, href: `${base}/share` },
@@ -125,6 +148,36 @@ export function SidebarVideoNav({ projectShortId, videoShortId }: Props) {
           </SidebarMenu>
         </SidebarGroupContent>
       </SidebarGroup>
+
+      {/* Scenes list */}
+      {scenes && scenes.length > 0 && (
+        <SidebarGroup>
+          <SidebarGroupLabel>{`Escenas (${scenes.length})`}</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {scenes.map((scene) => {
+                const sceneHref = `${base}/scenes/${scene.short_id}`;
+                const dotColor = SCENE_STATUS_COLORS[scene.status ?? 'draft'] ?? 'bg-zinc-400';
+                return (
+                  <SidebarMenuItem key={scene.id}>
+                    <SidebarMenuButton
+                      render={<Link href={sceneHref} />}
+                      isActive={isActive(sceneHref)}
+                      className="gap-2"
+                    >
+                      <span className={cn('w-2 h-2 rounded-full shrink-0', dotColor)} />
+                      <span className="font-mono text-[11px] text-muted-foreground shrink-0">
+                        {String(scene.scene_number).padStart(2, '0')}
+                      </span>
+                      <span className="truncate">{scene.title ?? 'Sin titulo'}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      )}
 
     </>
   );

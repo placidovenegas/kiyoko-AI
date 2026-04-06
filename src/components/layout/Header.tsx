@@ -1,60 +1,72 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useMemo } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import {
   Sun,
   Moon,
-  User,
-  Key,
-  LogOut,
-  Shield,
   Search,
   MessageCircle,
+  ChevronLeft,
+  LayoutGrid,
+  FolderKanban,
+  Film,
+  Plus,
+  Settings2,
 } from 'lucide-react';
 import { Tooltip } from '@heroui/react';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuLabel,
-} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils/cn';
-import { createClient } from '@/lib/supabase/client';
 import { FeedbackDialog } from '@/components/shared/FeedbackDialog';
 import { NotificationBell } from '@/components/layout/NotificationBell';
-
-/* ------------------------------------------------------------------ */
-/*  Types                                                              */
-/* ------------------------------------------------------------------ */
-
-interface UserProfile {
-  full_name: string | null;
-  email: string;
-  avatar_url: string | null;
-  role: string | null;
-}
+import { useUIStore } from '@/stores/useUIStore';
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                          */
 /* ------------------------------------------------------------------ */
 
 const THEME_STORAGE_KEY = 'kiyoko-theme';
-const ROLE_STYLES: Record<string, string> = {
-  admin: 'bg-purple-500/15 text-purple-600', editor: 'bg-emerald-500/15 text-emerald-600', viewer: 'bg-blue-500/15 text-blue-600',
-};
-const ROLE_LABELS: Record<string, string> = { admin: 'Admin', editor: 'Editor', viewer: 'Viewer' };
+
+/** Paths where the back button should NOT appear */
+const NO_BACK_PATHS = ['/', '/dashboard', '/project'];
 
 /* ------------------------------------------------------------------ */
-/*  Helpers                                                            */
+/*  Context helpers                                                    */
 /* ------------------------------------------------------------------ */
 
-function getInitials(name: string | null, email: string): string {
-  if (name) return name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
-  return email?.[0]?.toUpperCase() ?? '?';
+type PageContext = 'dashboard' | 'project' | 'video' | 'other';
+
+function resolveContext(pathname: string): PageContext {
+  // Video: /project/[shortId]/video/*
+  if (/^\/project\/[^/]+\/video/.test(pathname)) return 'video';
+  // Project: /project/[shortId]/* (but not video, caught above)
+  if (/^\/project\/[^/]+/.test(pathname)) return 'project';
+  // Dashboard
+  if (pathname === '/dashboard' || pathname.startsWith('/dashboard/')) return 'dashboard';
+  return 'other';
+}
+
+interface BreadcrumbInfo {
+  icon: typeof LayoutGrid;
+  label: string;
+}
+
+function resolveBreadcrumb(pathname: string, ctx: PageContext): BreadcrumbInfo | null {
+  switch (ctx) {
+    case 'dashboard': {
+      if (pathname.startsWith('/dashboard/tasks') || pathname.startsWith('/dashboard/tareas'))
+        return { icon: LayoutGrid, label: 'Tareas' };
+      if (pathname.startsWith('/dashboard/settings') || pathname.startsWith('/dashboard/ajustes'))
+        return { icon: LayoutGrid, label: 'Ajustes' };
+      return { icon: LayoutGrid, label: 'Dashboard' };
+    }
+    case 'project':
+      return { icon: FolderKanban, label: 'Proyecto' };
+    case 'video':
+      return { icon: Film, label: 'Video' };
+    default:
+      return null;
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -68,8 +80,14 @@ interface HeaderProps {
 
 export function Header({ onToggleChat, chatOpen }: HeaderProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const ctx = useMemo(() => resolveContext(pathname), [pathname]);
+  const breadcrumb = useMemo(() => resolveBreadcrumb(pathname, ctx), [pathname, ctx]);
 
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const openTaskCreatePanel = useUIStore((s) => s.openTaskCreatePanel);
+  const openProjectSettingsModal = useUIStore((s) => s.openProjectSettingsModal);
+  const openVideoSettingsModal = useUIStore((s) => s.openVideoSettingsModal);
+
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem(THEME_STORAGE_KEY);
@@ -82,49 +100,61 @@ export function Header({ onToggleChat, chatOpen }: HeaderProps) {
   // Feedback
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
-  /* ---- Fetch profile ---- */
-  useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return;
-      supabase.from('profiles').select('full_name, email, avatar_url, role').eq('id', user.id).single()
-        .then(({ data }) => {
-          if (data) setProfile({ full_name: data.full_name, email: data.email ?? user.email ?? '', avatar_url: data.avatar_url, role: data.role });
-        });
-    });
-  }, []);
+  /* ---- Show back button? ---- */
+  const showBack = !NO_BACK_PATHS.includes(pathname);
 
   /* ---- Handlers ---- */
   function handleToggleTheme() {
     const next = theme === 'dark' ? 'light' : 'dark';
     setTheme(next);
     localStorage.setItem(THEME_STORAGE_KEY, next);
-    // shadcn dark mode uses class 'dark' on <html>
     document.documentElement.classList.toggle('dark', next === 'dark');
     document.documentElement.setAttribute('data-theme', next);
   }
 
-  async function handleSignOut() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push('/login');
-  }
-
-  /* ---- Derived ---- */
-  const displayName = profile?.full_name || profile?.email || '';
-  const initials = getInitials(profile?.full_name ?? null, profile?.email ?? '');
-  const isAdmin = profile?.role === 'admin';
+  /* ---- Icon button style (shared) ---- */
+  const iconBtnClass =
+    'flex items-center justify-center size-8 rounded-md border border-foreground/6 text-foreground/40 hover:text-foreground/70 hover:bg-foreground/4 transition-all duration-150';
 
   return (
     <div className="flex items-center h-full px-3 w-full">
-      {/* Spacer left */}
-      <div className="flex-1" />
+      {/* ===== LEFT SECTION ===== */}
+      <div className="flex items-center gap-2 flex-1 min-w-0">
+        {/* Back button */}
+        {showBack && (
+          <Tooltip>
+            <Tooltip.Trigger>
+              <button
+                type="button"
+                onClick={() => router.back()}
+                className={iconBtnClass}
+                aria-label="Volver"
+              >
+                <ChevronLeft size={16} />
+              </button>
+            </Tooltip.Trigger>
+            <Tooltip.Content>Volver</Tooltip.Content>
+          </Tooltip>
+        )}
 
-      {/* Search — center of navbar, always visible */}
+        {/* Breadcrumb badge */}
+        {breadcrumb && (
+          <div className="hidden md:flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-medium text-foreground/70">
+            <breadcrumb.icon size={13} className="shrink-0" />
+            <span>{breadcrumb.label}</span>
+          </div>
+        )}
+      </div>
+
+      {/* ===== CENTER SECTION (search) ===== */}
       <Button
         type="button"
         variant="ghost"
-        onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }))}
+        onClick={() =>
+          document.dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }),
+          )
+        }
         className={cn(
           'flex items-center gap-2 h-8 w-64 px-3 rounded-lg',
           'bg-foreground/4 border border-foreground/8',
@@ -139,29 +169,82 @@ export function Header({ onToggleChat, chatOpen }: HeaderProps) {
         </kbd>
       </Button>
 
-      {/* Spacer right */}
-      <div className="flex-1" />
+      {/* ===== RIGHT SECTION (context-aware) ===== */}
+      <div className="flex items-center gap-1 flex-1 justify-end shrink-0">
+        {/* --- Dashboard context --- */}
+        {ctx === 'dashboard' && (
+          <>
+            {/* Feedback */}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setFeedbackOpen(true)}
+              className="shrink-0 mr-1 px-2.5 py-1 rounded-md border border-foreground/8 text-[12px] text-foreground/40 hover:text-foreground/70 hover:bg-foreground/4"
+            >
+              Feedback
+            </Button>
 
-      {/* Feedback */}
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        onClick={() => setFeedbackOpen(true)}
-        className="shrink-0 mr-1.5 px-2.5 py-1 rounded-md border border-foreground/8 text-[12px] text-foreground/40 hover:text-foreground/70 hover:bg-foreground/4"
-      >
-        Feedback
-      </Button>
+            {/* Nueva tarea */}
+            <Tooltip>
+              <Tooltip.Trigger>
+                <button
+                  type="button"
+                  onClick={() => openTaskCreatePanel()}
+                  className={cn(
+                    'flex items-center gap-1.5 h-8 rounded-md border border-foreground/6 px-2 text-foreground/40 hover:text-foreground/70 hover:bg-foreground/4 transition-all duration-150',
+                  )}
+                >
+                  <Plus size={14} />
+                  <span className="hidden lg:inline text-xs font-medium">Nueva tarea</span>
+                </button>
+              </Tooltip.Trigger>
+              <Tooltip.Content>Nueva tarea</Tooltip.Content>
+            </Tooltip>
+          </>
+        )}
 
-      {/* RIGHT: icons */}
-      <div className="flex items-center gap-1 shrink-0">
-        {/* Theme */}
+        {/* --- Project context --- */}
+        {ctx === 'project' && (
+          <Tooltip>
+            <Tooltip.Trigger>
+              <button
+                type="button"
+                onClick={() => openProjectSettingsModal()}
+                className={iconBtnClass}
+                aria-label="Ajustes del proyecto"
+              >
+                <Settings2 size={14} />
+              </button>
+            </Tooltip.Trigger>
+            <Tooltip.Content>Ajustes del proyecto</Tooltip.Content>
+          </Tooltip>
+        )}
+
+        {/* --- Video context --- */}
+        {ctx === 'video' && (
+          <Tooltip>
+            <Tooltip.Trigger>
+              <button
+                type="button"
+                onClick={() => openVideoSettingsModal()}
+                className={iconBtnClass}
+                aria-label="Ajustes del video"
+              >
+                <Settings2 size={14} />
+              </button>
+            </Tooltip.Trigger>
+            <Tooltip.Content>Ajustes del video</Tooltip.Content>
+          </Tooltip>
+        )}
+
+        {/* Theme toggle (always) */}
         <Tooltip>
           <Tooltip.Trigger>
             <button
               type="button"
               onClick={handleToggleTheme}
-              className="flex items-center justify-center size-8 rounded-md border border-foreground/6 text-foreground/40 hover:text-foreground/70 hover:bg-foreground/4 transition-all duration-150"
+              className={iconBtnClass}
               aria-label={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
             >
               {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
@@ -170,10 +253,10 @@ export function Header({ onToggleChat, chatOpen }: HeaderProps) {
           <Tooltip.Content>{theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}</Tooltip.Content>
         </Tooltip>
 
-        {/* Notifications */}
+        {/* Notifications (always) */}
         <NotificationBell />
 
-        {/* Chat */}
+        {/* Chat/Bot (always, context-aware tooltip) */}
         {onToggleChat && (
           <Tooltip>
             <Tooltip.Trigger>
@@ -190,73 +273,10 @@ export function Header({ onToggleChat, chatOpen }: HeaderProps) {
                 <MessageCircle size={14} />
               </button>
             </Tooltip.Trigger>
-            <Tooltip.Content>Chat IA</Tooltip.Content>
+            <Tooltip.Content>
+              {ctx === 'dashboard' ? 'Chat IA' : 'Asistente contextual'}
+            </Tooltip.Content>
           </Tooltip>
-        )}
-
-        {/* User */}
-        {profile && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                isIconOnly
-                className="size-8 rounded-md border border-foreground/6 hover:bg-foreground/4 ml-0.5"
-              >
-                {profile.avatar_url ? (
-                  <img src={profile.avatar_url} alt={displayName} className="size-5 rounded-full object-cover" />
-                ) : (
-                  <div className="flex items-center justify-center size-5 rounded-full bg-foreground/10 text-foreground/50 text-[9px] font-semibold">
-                    {initials}
-                  </div>
-                )}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel className="cursor-default">
-                <div className="flex items-center gap-2.5">
-                  {profile.avatar_url ? (
-                    <img src={profile.avatar_url} alt={displayName} className="size-9 rounded-full object-cover shrink-0" />
-                  ) : (
-                    <div className="flex items-center justify-center size-9 rounded-full bg-primary text-primary-foreground text-xs font-semibold shrink-0">
-                      {initials}
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-foreground truncate">{profile.full_name || 'Usuario'}</p>
-                    <p className="text-xs text-foreground/40 truncate">{profile.email}</p>
-                  </div>
-                  {profile.role && (
-                    <span className={cn('shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wider', ROLE_STYLES[profile.role] ?? 'bg-foreground/10 text-foreground/40')}>
-                      {ROLE_LABELS[profile.role] ?? profile.role}
-                    </span>
-                  )}
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => router.push('/settings')}>
-                <User size={16} className="text-foreground/40" />
-                Perfil
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push('/settings/api-keys')}>
-                <Key size={16} className="text-foreground/40" />
-                API Keys
-              </DropdownMenuItem>
-              {isAdmin && (
-                <DropdownMenuItem onClick={() => router.push('/admin/users')}>
-                  <Shield size={16} className="text-foreground/40" />
-                  Panel Admin
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={handleSignOut}>
-                <LogOut size={16} />
-                Cerrar sesion
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         )}
       </div>
 
