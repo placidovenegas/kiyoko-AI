@@ -261,11 +261,8 @@ export function TaskWorkspacePage({ taskId, initialProjectId = '', initialVideoI
         metadata: writeTaskWorkspacePage(null, form.page),
       };
 
-      console.log('[createTask] payload:', JSON.stringify(payload, null, 2));
-
       try {
         const result = await createWorkspaceTask(supabase, payload);
-        console.log('[createTask] OK:', result);
         return result;
       } catch (err) {
         console.error('[createTask] FAILED:', err);

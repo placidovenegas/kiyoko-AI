@@ -467,7 +467,7 @@ No inventes análisis visual detallado sin visión.
         else rest.push(m);
       }
       availableModels = [...visionFirst, ...rest];
-      console.log(`[chat] Images detected — vision models prioritized: [${visionFirst.map((m) => m.providerId).join(', ')}]`);
+      logServerEvent('chat/POST', requestContext, `Images detected — vision models prioritized: [${visionFirst.map((m) => m.providerId).join(', ')}]`);
     }
 
     // Reordenar según preferencias del agente (si hay)

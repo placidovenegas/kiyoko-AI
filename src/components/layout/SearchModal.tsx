@@ -330,7 +330,7 @@ export function SearchModal() {
       });
       (scenes?.data ?? []).forEach((s: Record<string, unknown>) => {
         const vid = s.videos as { short_id: string; project_id: string; projects: { short_id: string; title: string } | null } | null;
-        items.push({ type: 'scene', id: s.id as string, title: `#${s.scene_number} ${s.title}`, subtitle: vid?.projects?.title, href: `/project/${vid?.projects?.short_id}/video/${vid?.short_id}/scenes` });
+        items.push({ type: 'scene', id: s.id as string, title: `#${s.scene_number} ${s.title}`, subtitle: vid?.projects?.title, href: `/project/${vid?.projects?.short_id}/video/${vid?.short_id}/scene/${s.short_id}` });
       });
       (chars?.data ?? []).forEach((c: Record<string, unknown>) => {
         const proj = c.projects as { short_id: string; title: string } | null;

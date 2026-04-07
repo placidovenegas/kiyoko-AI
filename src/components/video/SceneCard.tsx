@@ -54,7 +54,7 @@ interface SceneCardProps {
 export function SceneCard({ scene, basePath, characters = [], onAction }: SceneCardProps) {
   const sceneLink = scene.short_id
     ? `${basePath}/scene/${scene.short_id}`
-    : `${basePath}/scenes`;
+    : basePath;
 
   // Extension count is not stored on the scene row; we show a placeholder indicator
   const extensionCount = 0;
