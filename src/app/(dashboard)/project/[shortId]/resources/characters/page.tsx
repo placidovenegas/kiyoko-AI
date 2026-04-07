@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import {
   Copy,
   Image as ImageIcon,
+  Loader2,
   MoreHorizontal,
   Plus,
   Sparkles,
@@ -59,6 +60,27 @@ export default function CharactersPage() {
   const supabase = createClient();
   const queryClient = useQueryClient();
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [generatingCharacter, setGeneratingCharacter] = useState(false);
+
+  async function handleGenerateCharacter() {
+    if (!project?.id) return;
+    setGeneratingCharacter(true);
+    toast.loading('Generando personaje...', { id: 'gen-char' });
+    try {
+      const res = await fetch('/api/ai/generate-characters', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: project.id, count: 1 }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success('Personaje generado', { id: 'gen-char' });
+      queryClient.invalidateQueries({ queryKey: queryKeys.characters.byProject(project.id) });
+    } catch {
+      toast.error('Error al generar personaje', { id: 'gen-char' });
+    } finally {
+      setGeneratingCharacter(false);
+    }
+  }
 
   const { data: characters = [], isLoading } = useQuery({
     queryKey: queryKeys.characters.byProject(project?.id ?? ''),
@@ -150,6 +172,15 @@ export default function CharactersPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleGenerateCharacter}
+              disabled={generatingCharacter}
+              className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {generatingCharacter ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+              Generar con IA
+            </button>
             <button
               type="button"
               onClick={() => {

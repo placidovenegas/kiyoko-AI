@@ -18,6 +18,8 @@ import {
 import { useAIStore } from '@/stores/ai-store';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { CameraAngle, CameraMovement } from '@/types';
+import { CharacterPickerModal } from '@/components/modals/character/CharacterPickerModal';
+import { BackgroundPickerModal } from '@/components/modals/background/BackgroundPickerModal';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -171,6 +173,8 @@ export default function SceneDetailPage() {
   const queryClient = useQueryClient();
 
   const [imageVersionIndex, setImageVersionIndex] = useState(0);
+  const [showCharacterPicker, setShowCharacterPicker] = useState(false);
+  const [showBackgroundPicker, setShowBackgroundPicker] = useState(false);
   const { openChat, setActiveAgent } = useAIStore();
 
   // ---- Generate prompts mutation ----
@@ -457,7 +461,7 @@ export default function SceneDetailPage() {
             <div className="rounded-xl border border-border bg-card p-4">
               <div className="flex items-center justify-between mb-2">
                 <SectionLabel>Personajes</SectionLabel>
-                <button type="button" className={btnGhost}>+ Anadir</button>
+                <button type="button" className={btnGhost} onClick={() => setShowCharacterPicker(true)}>+ Anadir</button>
               </div>
               {characters.length > 0 ? (
                 <div className="space-y-2">
@@ -492,7 +496,7 @@ export default function SceneDetailPage() {
             <div className="rounded-xl border border-border bg-card p-4">
               <div className="flex items-center justify-between mb-2">
                 <SectionLabel>Fondos</SectionLabel>
-                <button type="button" className={btnGhost}>+ Anadir</button>
+                <button type="button" className={btnGhost} onClick={() => setShowBackgroundPicker(true)}>+ Anadir</button>
               </div>
               {backgrounds.length > 0 ? (
                 <div className="space-y-2">
@@ -578,7 +582,7 @@ export default function SceneDetailPage() {
                     {generatePrompts.isPending
                       ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       : <Sparkles className="h-3.5 w-3.5" />}
-                    Generar con IA
+                    {imagePrompt?.prompt_text ? 'Mejorar prompt' : 'Generar con IA'}
                   </span>
                 </button>
                 <button
@@ -655,7 +659,7 @@ export default function SceneDetailPage() {
                     {generatePrompts.isPending
                       ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       : <Sparkles className="h-3.5 w-3.5" />}
-                    Generar con IA
+                    {videoPrompt?.prompt_text ? 'Mejorar prompt' : 'Generar con IA'}
                   </span>
                 </button>
                 <button
@@ -747,6 +751,55 @@ export default function SceneDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Picker Modals ── */}
+      {project && (
+        <CharacterPickerModal
+          open={showCharacterPicker}
+          onOpenChange={setShowCharacterPicker}
+          projectId={project.id}
+          sceneId={scene.id}
+          assignedCharacterIds={characters.map((c) => c.character_id)}
+          onAssign={async (charId, role) => {
+            const { error: insertError } = await supabase.from('scene_characters').insert({
+              scene_id: scene.id,
+              character_id: charId,
+              role_in_scene: role,
+            });
+            if (insertError) {
+              toast.error('Error al asignar personaje');
+              return;
+            }
+            queryClient.invalidateQueries({ queryKey: queryKeys.scenes.detail(sceneShortId) });
+            toast.success('Personaje asignado');
+            setShowCharacterPicker(false);
+          }}
+        />
+      )}
+
+      {project && (
+        <BackgroundPickerModal
+          open={showBackgroundPicker}
+          onOpenChange={setShowBackgroundPicker}
+          projectId={project.id}
+          sceneId={scene.id}
+          assignedBackgroundIds={backgrounds.map((b) => b.background_id)}
+          onAssign={async (bgId) => {
+            const { error: insertError } = await supabase.from('scene_backgrounds').insert({
+              scene_id: scene.id,
+              background_id: bgId,
+              is_primary: backgrounds.length === 0,
+            });
+            if (insertError) {
+              toast.error('Error al asignar fondo');
+              return;
+            }
+            queryClient.invalidateQueries({ queryKey: queryKeys.scenes.detail(sceneShortId) });
+            toast.success('Fondo asignado');
+            setShowBackgroundPicker(false);
+          }}
+        />
+      )}
     </div>
   );
 }
