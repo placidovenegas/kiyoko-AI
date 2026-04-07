@@ -7,7 +7,8 @@ import { useProject } from '@/contexts/ProjectContext';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { Clock, Film, Layers, ChevronRight } from 'lucide-react';
+import { Clock, Film, Layers, ChevronRight, Sparkles } from 'lucide-react';
+import { toast } from 'sonner';
 import type { NarrativeArc, Scene } from '@/types';
 
 const ARC_PHASE_COLORS: Record<string, { bg: string; border: string; text: string; label: string }> = {
@@ -106,7 +107,7 @@ export default function TimelinePage() {
   }
 
   return (
-    <div className="h-full overflow-y-auto space-y-6 p-6">
+    <div className="mx-auto max-w-5xl px-4 py-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -114,6 +115,22 @@ export default function TimelinePage() {
           <p className="mt-1 text-sm text-muted-foreground">
             {scenes.length} escenas / {formatSeconds(totalDuration)} total
           </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => toast.success('Generación de arco IA próximamente')}
+            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Generar arco con IA
+          </button>
+          <button
+            onClick={() => toast.success('Generación de desglose temporal próximamente')}
+            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Generar desglose temporal
+          </button>
         </div>
       </div>
 
