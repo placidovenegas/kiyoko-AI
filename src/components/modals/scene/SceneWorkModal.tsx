@@ -7,11 +7,17 @@ import { cn } from '@/lib/utils/cn';
 import { createClient } from '@/lib/supabase/client';
 import { generateShortId } from '@/lib/utils/nanoid';
 import {
+  Button, TextField, TextArea, Label, Input,
+  Select, ListBox, Slider, Checkbox,
+  ToggleButton, ToggleButtonGroup,
+} from '@heroui/react';
+import {
   X, Sparkles, Send, Loader2, Copy, Check,
   Camera, Expand, Trash2, Wand2,
 } from 'lucide-react';
 import type { Scene } from '@/types';
 import type { Database } from '@/types/database.types';
+import type { Key } from 'react';
 
 /* ── Enums ────────────────────────────────────────────── */
 
@@ -289,12 +295,14 @@ export function SceneWorkModal({
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [copiedPrompt, setCopiedPrompt] = useState<string | null>(null);
+  const [insertPosition, setInsertPosition] = useState<'end' | number>('end');
 
   // Populate form when editing
   useEffect(() => {
     if (!open) return;
     setMessages([]);
     setInput('');
+    setInsertPosition('end');
     if (isEdit && scene) {
       setForm({
         title: scene.title ?? '',
@@ -320,6 +328,15 @@ export function SceneWorkModal({
   const updateField = <K extends keyof SceneWorkForm>(key: K, val: SceneWorkForm[K]) =>
     setForm(f => ({ ...f, [key]: val }));
 
+  /* ── Position context for IA ── */
+
+  function buildIAContext(): string {
+    if (insertPosition === 'end') return 'Insertar al final del video.';
+    const prev = allScenes?.[insertPosition as number];
+    const next = allScenes?.[(insertPosition as number) + 1];
+    return `Insertar despues de "${prev?.title}" y antes de "${next?.title ?? 'final'}". Analiza ambas para sugerir una transicion natural.`;
+  }
+
   /* ── IA handlers ── */
 
   const handleQuickAction = useCallback((actionId: string) => {
@@ -342,12 +359,14 @@ export function SceneWorkModal({
     const text = input.trim();
     setInput('');
     setIsProcessing(true);
+
+    const contextLine = !isEdit ? `\n\n[Contexto: ${buildIAContext()}]` : '';
     setMessages(prev => [...prev, { id: `u-${Date.now()}`, role: 'user', content: text }]);
 
     setTimeout(() => {
       const reply = isEdit
         ? `Entendido. He analizado tu peticion para "${scene?.title}". Aplicare los cambios sugeridos.`
-        : `Entendido. He creado una escena basada en tu descripcion. Revisa la previsualizacion y ajusta lo que necesites.`;
+        : `Entendido. ${buildIAContext()} He creado una escena basada en tu descripcion. Revisa la previsualizacion y ajusta lo que necesites.`;
       setMessages(prev => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: reply, isTyping: true }]);
       setIsProcessing(false);
     }, 800);
@@ -365,7 +384,6 @@ export function SceneWorkModal({
       setMessages(prev => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: 'Cambios guardados.' }]);
       return;
     }
-    // Generic follow-up
     setIsProcessing(true);
     setTimeout(() => {
       setMessages(prev => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: 'Procesando... Los cambios se aplicaran en breve.', isTyping: true }]);
@@ -381,6 +399,22 @@ export function SceneWorkModal({
     try {
       const supabase = createClient();
       const shortId = generateShortId();
+
+      // Calculate actual scene number based on position
+      let actualSceneNumber = sceneNumber;
+      let actualSortOrder = sceneNumber * 1000;
+      if (insertPosition !== 'end' && typeof insertPosition === 'number') {
+        const afterScene = allScenes[insertPosition];
+        const nextScene = allScenes[insertPosition + 1];
+        if (afterScene && nextScene) {
+          actualSceneNumber = afterScene.scene_number + 1;
+          actualSortOrder = ((afterScene.sort_order ?? afterScene.scene_number * 1000) + (nextScene.sort_order ?? nextScene.scene_number * 1000)) / 2;
+        } else if (afterScene) {
+          actualSceneNumber = afterScene.scene_number + 1;
+          actualSortOrder = (afterScene.sort_order ?? afterScene.scene_number * 1000) + 1000;
+        }
+      }
+
       const { data: newScene, error } = await supabase.from('scenes').insert({
         video_id: videoId,
         project_id: projectId,
@@ -388,8 +422,8 @@ export function SceneWorkModal({
         description: form.description.trim() || null,
         duration_seconds: form.duration,
         arc_phase: form.arcPhase,
-        scene_number: sceneNumber,
-        sort_order: sceneNumber * 1000,
+        scene_number: actualSceneNumber,
+        sort_order: actualSortOrder,
         short_id: shortId,
         status: 'draft',
         scene_type: 'original',
@@ -462,9 +496,22 @@ export function SceneWorkModal({
 
   const quickActions = isEdit && scene ? getQuickActions(scene, allScenes) : [];
 
-  /* ── Shared input classes ── */
-  const inputCls = 'w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-colors';
-  const labelCls = 'text-xs font-medium text-muted-foreground mb-1 block';
+  // Audio checkboxes as string array for CheckboxGroup
+  const audioValues: string[] = [];
+  if (form.audioMusic) audioValues.push('music');
+  if (form.audioDialogue) audioValues.push('dialogue');
+  if (form.audioSfx) audioValues.push('sfx');
+  if (form.audioVoiceover) audioValues.push('voiceover');
+
+  function handleAudioChange(values: string[]) {
+    setForm(f => ({
+      ...f,
+      audioMusic: values.includes('music'),
+      audioDialogue: values.includes('dialogue'),
+      audioSfx: values.includes('sfx'),
+      audioVoiceover: values.includes('voiceover'),
+    }));
+  }
 
   return (
     <div className="fixed inset-0 z-50">
@@ -475,24 +522,18 @@ export function SceneWorkModal({
         {/* ── Header ── */}
         <div className="flex items-center justify-between border-b border-border px-5 py-3">
           <div className="flex items-center gap-4">
-            {/* Mode tabs */}
-            <div className="flex rounded-lg border border-border bg-background p-0.5">
-              {(['manual', 'ia'] as const).map(m => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setMode(m)}
-                  className={cn(
-                    'rounded-md px-3 py-1 text-xs font-medium transition-colors',
-                    mode === m
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  {m === 'manual' ? 'Manual' : 'Con IA'}
-                </button>
-              ))}
-            </div>
+            <ToggleButtonGroup
+              selectionMode="single"
+              selectedKeys={new Set([mode])}
+              onSelectionChange={(keys) => {
+                const selected = [...keys][0] as string | undefined;
+                if (selected === 'manual' || selected === 'ia') setMode(selected);
+              }}
+              size="sm"
+            >
+              <ToggleButton id="manual">Manual</ToggleButton>
+              <ToggleButton id="ia">Con IA</ToggleButton>
+            </ToggleButtonGroup>
 
             <span className="text-sm font-semibold text-foreground">
               {isEdit ? `Editar escena #${sceneNumber}` : `Nueva escena #${sceneNumber}`}
@@ -511,118 +552,164 @@ export function SceneWorkModal({
           <div className="flex flex-col flex-1 min-w-0 border-r border-border">
             <div className="flex-1 overflow-y-auto px-5 py-4">
 
-              {/* Manual mode */}
+              {/* ── Manual mode ── */}
               {mode === 'manual' && (
-                <div className="space-y-4 max-w-lg">
-                  <div>
-                    <label className={labelCls}>Titulo *</label>
-                    <input
-                      type="text"
-                      className={inputCls}
-                      placeholder="Ej. Ana entra en la oficina"
-                      value={form.title}
-                      onChange={e => updateField('title', e.target.value)}
-                      autoFocus
-                    />
-                  </div>
+                <div className="space-y-5 max-w-lg">
 
-                  <div>
-                    <label className={labelCls}>Descripcion visual</label>
-                    <textarea
-                      className={inputCls}
-                      rows={3}
-                      placeholder="Describe que se ve en la escena..."
-                      value={form.description}
-                      onChange={e => updateField('description', e.target.value)}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className={labelCls}>Fase narrativa</label>
+                  {/* POSICION (create mode only) */}
+                  {!scene && allScenes.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Posicion en el video</p>
                       <select
-                        className={cn(inputCls, 'appearance-none')}
-                        value={form.arcPhase}
-                        onChange={e => updateField('arcPhase', e.target.value as SceneWorkForm['arcPhase'])}
+                        value={insertPosition === 'end' ? 'end' : String(insertPosition)}
+                        onChange={(e) => setInsertPosition(e.target.value === 'end' ? 'end' : parseInt(e.target.value, 10))}
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none appearance-none focus:border-primary/30 focus:ring-1 focus:ring-primary/10"
                       >
-                        {ARC_PHASES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+                        <option value="end">Al final (escena #{allScenes.length + 1})</option>
+                        {allScenes.map((s, i) => (
+                          <option key={s.id} value={i}>
+                            Después de #{s.scene_number} &quot;{s.title}&quot;
+                          </option>
+                        ))}
                       </select>
                     </div>
-                    <div>
-                      <label className={labelCls}>Duracion: {form.duration}s</label>
-                      <input
-                        type="range"
-                        min={1}
-                        max={30}
-                        step={1}
-                        value={form.duration}
-                        onChange={e => updateField('duration', Number(e.target.value))}
-                        className="w-full mt-1 accent-primary"
-                      />
+                  )}
+
+                  {/* Insertion context */}
+                  {!scene && insertPosition !== 'end' && typeof insertPosition === 'number' && (
+                    <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-primary">Contexto de insercion</p>
+                      <div className="text-xs text-muted-foreground space-y-1">
+                        <p>&larr; Escena anterior: <strong className="text-foreground">&quot;{allScenes[insertPosition]?.title}&quot;</strong> ({allScenes[insertPosition]?.duration_seconds}s &middot; {allScenes[insertPosition]?.arc_phase})</p>
+                        {allScenes[insertPosition + 1] && (
+                          <p>&rarr; Escena siguiente: <strong className="text-foreground">&quot;{allScenes[insertPosition + 1]?.title}&quot;</strong> ({allScenes[insertPosition + 1]?.duration_seconds}s &middot; {allScenes[insertPosition + 1]?.arc_phase})</p>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">La IA usara este contexto para sugerir la escena ideal.</p>
+                    </div>
+                  )}
+
+                  {/* INFORMACION BASICA */}
+                  <div className="space-y-4">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Informacion basica</p>
+
+                    <TextField variant="secondary" value={form.title} onChange={(v) => updateField('title', v)} isRequired>
+                      <Label>Titulo</Label>
+                      <Input placeholder="Ej. Ana entra en la oficina" autoFocus />
+                    </TextField>
+
+                    <TextField variant="secondary" value={form.description} onChange={(v) => updateField('description', v)}>
+                      <Label>Descripcion visual</Label>
+                      <TextArea placeholder="Describe que se ve en la escena..." rows={3} />
+                    </TextField>
+                  </div>
+
+                  {/* CONFIGURACION */}
+                  <div className="space-y-4">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Configuracion</p>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <Select variant="secondary" aria-label="Fase" selectedKey={form.arcPhase} onSelectionChange={(key: Key | null) => { if (key) updateField('arcPhase', key as SceneWorkForm['arcPhase']); }}>
+                        <Label>Fase narrativa</Label>
+                        <Select.Trigger><Select.Value /><Select.Indicator /></Select.Trigger>
+                        <Select.Popover><ListBox>{ARC_PHASES.map(p => <ListBox.Item key={p.value} id={p.value}>{p.label}</ListBox.Item>)}</ListBox></Select.Popover>
+                      </Select>
+
+                      <div>
+                        <p className="text-sm font-medium text-foreground mb-2">Duracion: {form.duration}s</p>
+                        <Slider
+                          aria-label="Duracion"
+                          defaultValue={form.duration}
+                          minValue={1}
+                          maxValue={30}
+                          step={1}
+                          onChange={(v) => updateField('duration', v as number)}
+                        >
+                          <Slider.Track>
+                            <Slider.Fill />
+                            <Slider.Thumb />
+                          </Slider.Track>
+                        </Slider>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <Select variant="secondary" aria-label="Angulo" selectedKey={form.cameraAngle} onSelectionChange={(key: Key | null) => { if (key) updateField('cameraAngle', key as CameraAngle); }}>
+                        <Label>Angulo de camara</Label>
+                        <Select.Trigger><Select.Value /><Select.Indicator /></Select.Trigger>
+                        <Select.Popover><ListBox>{CAMERA_ANGLES.map(a => <ListBox.Item key={a.value} id={a.value}>{a.label}</ListBox.Item>)}</ListBox></Select.Popover>
+                      </Select>
+
+                      <Select variant="secondary" aria-label="Movimiento" selectedKey={form.cameraMovement} onSelectionChange={(key: Key | null) => { if (key) updateField('cameraMovement', key as CameraMovement); }}>
+                        <Label>Movimiento</Label>
+                        <Select.Trigger><Select.Value /><Select.Indicator /></Select.Trigger>
+                        <Select.Popover><ListBox>{CAMERA_MOVEMENTS.map(m => <ListBox.Item key={m.value} id={m.value}>{m.label}</ListBox.Item>)}</ListBox></Select.Popover>
+                      </Select>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className={labelCls}>Angulo de camara</label>
-                      <select
-                        className={cn(inputCls, 'appearance-none')}
-                        value={form.cameraAngle}
-                        onChange={e => updateField('cameraAngle', e.target.value as CameraAngle)}
-                      >
-                        {CAMERA_ANGLES.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className={labelCls}>Movimiento</label>
-                      <select
-                        className={cn(inputCls, 'appearance-none')}
-                        value={form.cameraMovement}
-                        onChange={e => updateField('cameraMovement', e.target.value as CameraMovement)}
-                      >
-                        {CAMERA_MOVEMENTS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className={labelCls}>Audio</label>
-                    <div className="flex flex-wrap gap-4 mt-1">
+                  {/* AUDIO */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Audio</p>
+                    <div className="flex flex-wrap gap-4">
                       {([
-                        ['audioMusic', 'Musica'],
-                        ['audioDialogue', 'Dialogo'],
-                        ['audioSfx', 'SFX'],
-                        ['audioVoiceover', 'Voiceover'],
-                      ] as const).map(([key, label]) => (
-                        <label key={key} className="flex items-center gap-1.5 text-sm text-foreground cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={form[key]}
-                            onChange={e => updateField(key, e.target.checked)}
-                            className="accent-primary"
-                          />
+                        ['music', 'Musica'],
+                        ['dialogue', 'Dialogo'],
+                        ['sfx', 'SFX'],
+                        ['voiceover', 'Voiceover'],
+                      ] as const).map(([val, label]) => (
+                        <Checkbox
+                          key={val}
+                          isSelected={audioValues.includes(val)}
+                          onChange={(checked) => {
+                            const next = checked
+                              ? [...audioValues, val]
+                              : audioValues.filter(v => v !== val);
+                            handleAudioChange(next);
+                          }}
+                        >
                           {label}
-                        </label>
+                        </Checkbox>
                       ))}
                     </div>
                   </div>
 
-                  <div>
-                    <label className={labelCls}>Dialogo / Narracion</label>
-                    <textarea
-                      className={inputCls}
-                      rows={2}
-                      placeholder="Que se dice o narra en esta escena..."
-                      value={form.dialogue}
-                      onChange={e => updateField('dialogue', e.target.value)}
-                    />
-                  </div>
+                  {/* DIALOGO */}
+                  <TextField variant="secondary" value={form.dialogue} onChange={(v) => updateField('dialogue', v)}>
+                    <Label>Dialogo / Narracion</Label>
+                    <TextArea placeholder="Que se dice o narra en esta escena..." rows={2} />
+                  </TextField>
                 </div>
               )}
 
-              {/* IA mode */}
+              {/* ── IA mode ── */}
               {mode === 'ia' && (
                 <div className="space-y-4">
+                  {/* Position selector in IA create mode */}
+                  {!isEdit && messages.length === 0 && allScenes.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Posicion</p>
+                      <select
+                        value={insertPosition === 'end' ? 'end' : String(insertPosition)}
+                        onChange={(e) => setInsertPosition(e.target.value === 'end' ? 'end' : parseInt(e.target.value, 10))}
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground outline-none appearance-none focus:border-primary/30"
+                      >
+                        <option value="end">Al final (escena #{allScenes.length + 1})</option>
+                        {allScenes.map((s, i) => (
+                          <option key={s.id} value={i}>Después de #{s.scene_number} "{s.title}"</option>
+                        ))}
+                      </select>
+                      {insertPosition !== 'end' && typeof insertPosition === 'number' && (
+                        <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground space-y-0.5">
+                          <p>← <strong className="text-foreground">{allScenes[insertPosition]?.title}</strong> ({allScenes[insertPosition]?.duration_seconds}s)</p>
+                          {allScenes[insertPosition + 1] && (
+                            <p>→ <strong className="text-foreground">{allScenes[insertPosition + 1]?.title}</strong> ({allScenes[insertPosition + 1]?.duration_seconds}s)</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Quick actions (edit mode, no messages yet) */}
                   {isEdit && messages.length === 0 && (
                     <div className="space-y-3">
@@ -750,20 +837,22 @@ export function SceneWorkModal({
                     rows={2}
                     className="flex-1 resize-none rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:border-primary/30 focus:ring-1 focus:ring-primary/10"
                   />
-                  <button
-                    type="button"
-                    onClick={handleSend}
-                    disabled={!input.trim() || isProcessing}
-                    className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors shrink-0"
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    isIconOnly
+                    onPress={handleSend}
+                    isDisabled={!input.trim() || isProcessing}
+                    className="size-9 shrink-0"
                   >
                     {isProcessing ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
           </div>
 
-          {/* RIGHT PANEL — Preview */}
+          {/* RIGHT PANEL -- Preview */}
           <div className="w-[340px] shrink-0 flex-col bg-background/50 hidden lg:flex">
             <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
               {/* Scene preview card */}
@@ -810,7 +899,7 @@ export function SceneWorkModal({
                 {form.dialogue && (
                   <div>
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Dialogo</p>
-                    <p className="text-xs text-muted-foreground italic leading-relaxed">"{form.dialogue}"</p>
+                    <p className="text-xs text-muted-foreground italic leading-relaxed">&quot;{form.dialogue}&quot;</p>
                   </div>
                 )}
               </div>
@@ -862,25 +951,15 @@ export function SceneWorkModal({
 
         {/* ── Footer ── */}
         <div className="flex items-center justify-between border-t border-border px-5 py-3">
-          <button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+          <Button variant="ghost" onPress={() => onOpenChange(false)}>Cancelar</Button>
+          <Button
+            variant="primary"
+            onPress={isEdit ? handleSave : handleCreate}
+            isDisabled={!form.title.trim() || isSaving}
           >
-            Cancelar
-          </button>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={isEdit ? handleSave : handleCreate}
-              disabled={!form.title.trim() || isSaving}
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center gap-2"
-            >
-              {isSaving && <Loader2 className="size-4 animate-spin" />}
-              {isEdit ? 'Guardar cambios' : 'Crear escena'}
-            </button>
-          </div>
+            {isSaving && <Loader2 className="size-4 animate-spin mr-2" />}
+            {isEdit ? 'Guardar cambios' : 'Crear escena'}
+          </Button>
         </div>
       </div>
     </div>
