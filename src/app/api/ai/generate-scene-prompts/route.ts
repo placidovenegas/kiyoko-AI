@@ -267,6 +267,19 @@ PLATFORM: ${videoData.platform ?? 'unknown'} (${videoData.aspect_ratio ?? '16:9'
       videoVersion: nextVideoVersion,
     });
 
+    // ── Send notification ───────────────────────────────────────────────
+    await supabase.from('notifications').insert({
+      user_id: user.id,
+      type: 'ai_completed',
+      title: 'Prompts generados',
+      body: `Los prompts de imagen y video para "${scene.title}" han sido generados correctamente.`,
+      read: false,
+    }).then(({ error: notifError }) => {
+      if (notifError) {
+        logServerEvent('generate-scene-prompts', ctx, 'Failed to insert notification', { error: notifError.message });
+      }
+    });
+
     return apiJson(ctx, {
       success: true,
       prompt_image: prompts.prompt_image,

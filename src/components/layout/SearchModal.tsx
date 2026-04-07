@@ -7,7 +7,6 @@ import { createClient } from '@/lib/supabase/client';
 import { createPortal } from 'react-dom';
 import { useUIStore } from '@/stores/useUIStore';
 import { cn } from '@/lib/utils/cn';
-import { Button } from '@heroui/react';
 import {
   Search, FolderOpen, Film, Clapperboard, Users, Settings,
   LayoutDashboard, Calendar, Key, ArrowRight,
@@ -567,9 +566,9 @@ export function SearchModal() {
                   Nueva pestaña
                 </span>
               </div>
-              <Button type="button" variant="ghost" size="sm" isIconOnly className="h-6 w-6 text-muted-foreground/40 hover:text-muted-foreground">
+              <button type="button" className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent transition-colors">
                 <Settings size={13} />
-              </Button>
+              </button>
             </div>
           </div>
 

@@ -381,12 +381,14 @@ export default function SceneDetailPage() {
           <div className="h-4 w-px bg-border" />
 
           <span className="text-muted-foreground text-sm font-mono shrink-0">#{scene.scene_number}</span>
-          <EditableText
-            value={scene.title}
-            onSave={saveField('title')}
-            className="text-sm font-semibold truncate"
-            placeholder="Titulo de la escena"
-          />
+          <div className="min-w-0 flex-1">
+            <EditableText
+              value={scene.title}
+              onSave={saveField('title')}
+              className="text-sm font-semibold truncate"
+              placeholder="Titulo de la escena"
+            />
+          </div>
 
           <div className="ml-auto flex items-center gap-2">
             <button
@@ -410,12 +412,12 @@ export default function SceneDetailPage() {
             </span>
 
             {prevScene && (
-              <Link href={`/project/${shortId}/video/${videoShortId}/scene/${prevScene.short_id}`} className={btnGhost} title="Escena anterior">
+              <Link href={`/project/${shortId}/video/${videoShortId}/scene/${prevScene.short_id}`} className={cn(btnGhost, 'hidden sm:inline-flex')} title="Escena anterior">
                 <ChevronLeft className="h-4 w-4" />
               </Link>
             )}
             {nextScene && (
-              <Link href={`/project/${shortId}/video/${videoShortId}/scene/${nextScene.short_id}`} className={btnGhost} title="Escena siguiente">
+              <Link href={`/project/${shortId}/video/${videoShortId}/scene/${nextScene.short_id}`} className={cn(btnGhost, 'hidden sm:inline-flex')} title="Escena siguiente">
                 <ChevronRight className="h-4 w-4" />
               </Link>
             )}
