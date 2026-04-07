@@ -340,6 +340,28 @@ export default function ProjectOverviewPage() {
         </button>
       </header>
 
+      {/* ── Quick action buttons ───────────────────────────── */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Link href={`/project/${sid}/videos`} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:border-primary/30 hover:bg-primary/5 transition-colors">
+          <Plus className="size-3.5 text-primary" />Crear video
+        </Link>
+        <Link href={`/project/${sid}/resources/characters`} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:border-primary/30 hover:bg-primary/5 transition-colors">
+          <UserRound className="size-3.5 text-muted-foreground" />Personajes
+        </Link>
+        <Link href={`/project/${sid}/resources/backgrounds`} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:border-primary/30 hover:bg-primary/5 transition-colors">
+          <ImageIcon className="size-3.5 text-muted-foreground" />Fondos
+        </Link>
+        <Link href={`/project/${sid}/tasks`} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:border-primary/30 hover:bg-primary/5 transition-colors">
+          <Layers3 className="size-3.5 text-muted-foreground" />Tareas
+        </Link>
+        <Link href={`/project/${sid}/publications`} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:border-primary/30 hover:bg-primary/5 transition-colors">
+          <Sparkles className="size-3.5 text-muted-foreground" />Publicaciones
+        </Link>
+        <Link href={`/project/${sid}/resources`} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:border-primary/30 hover:bg-primary/5 transition-colors">
+          <Film className="size-3.5 text-muted-foreground" />Recursos
+        </Link>
+      </div>
+
       {/* ── Stats row ───────────────────────────────────── */}
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat icon={VideoIcon} label="Videos" value={videos.length} />
@@ -374,91 +396,36 @@ export default function ProjectOverviewPage() {
                 projectId={project.id}
                 projectShortId={sid}
                 video={video}
-                counts={sceneMetrics.byVideo[video.id] ?? { total: 0, approved: 0 }}
+                counts={sceneMetrics.byVideo[video.id] ?? { total: 0, withPrompts: 0 }}
               />
             ))}
           </div>
         )}
       </section>
 
-      {/* ── AI Readiness + Quick actions ─────────────────── */}
-      <section className="grid gap-6 lg:grid-cols-2">
-        {/* AI Readiness */}
-        <div className="space-y-3">
-          <SectionLabel>Preparacion para IA</SectionLabel>
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-lg font-semibold tabular-nums text-foreground">{aiReadyCount}/4</p>
-                <p className="text-[11px] text-muted-foreground">Cobertura actual</p>
-              </div>
-              <div className="flex size-8 items-center justify-center rounded-lg bg-muted/60 text-muted-foreground">
-                <Brain className="size-4" />
-              </div>
+      {/* ── AI Readiness ──────────────────────────────────── */}
+      <section className="space-y-3">
+        <SectionLabel>Preparacion para IA</SectionLabel>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="flex items-center gap-4">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <Brain className="size-5" />
             </div>
-            <div className="mt-4 space-y-1.5">
-              {aiChecklist.map((item) => (
-                <div key={item.label} className="flex items-center justify-between rounded-lg px-3 py-2 text-sm">
-                  <span className="text-foreground">{item.label}</span>
-                  <span className={cn(
-                    'rounded-full px-2 py-0.5 text-[10px] font-medium',
-                    item.ready ? 'bg-emerald-500/12 text-emerald-300' : 'bg-amber-500/12 text-amber-300',
-                  )}>
-                    {item.ready ? 'listo' : 'pendiente'}
-                  </span>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-semibold text-foreground">{aiReadyCount}/4 completado</p>
+                <div className="flex-1 h-1.5 rounded-full bg-muted max-w-32">
+                  <div className="h-1.5 rounded-full bg-primary transition-all" style={{ width: `${(aiReadyCount / 4) * 100}%` }} />
                 </div>
-              ))}
+              </div>
+              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
+                {aiChecklist.map((item) => (
+                  <span key={item.label} className={cn('text-[10px]', item.ready ? 'text-emerald-400' : 'text-muted-foreground/50')}>
+                    {item.ready ? '✓' : '○'} {item.label}
+                  </span>
+                ))}
+              </div>
             </div>
-          </div>
-        </div>
-
-        {/* Quick actions */}
-        <div className="space-y-3">
-          <SectionLabel>Acciones rapidas</SectionLabel>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Link
-              href={`/project/${sid}/tasks`}
-              className="rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/20"
-            >
-              <div className="flex items-center gap-2">
-                <Layers3 className="size-4 text-primary" />
-                <span className="text-sm font-medium text-foreground">Gestionar tareas</span>
-              </div>
-              <p className="mt-1.5 text-xs text-muted-foreground">Prioridades, seguimiento y operacion.</p>
-            </Link>
-
-            <Link
-              href={`/project/${sid}/resources`}
-              className="rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/20"
-            >
-              <div className="flex items-center gap-2">
-                <UserRound className="size-4 text-primary" />
-                <span className="text-sm font-medium text-foreground">Recursos</span>
-              </div>
-              <p className="mt-1.5 text-xs text-muted-foreground">Personajes, fondos, estilos y plantillas.</p>
-            </Link>
-
-            <Link
-              href={`/project/${sid}/videos`}
-              className="rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/20"
-            >
-              <div className="flex items-center gap-2">
-                <Plus className="size-4 text-primary" />
-                <span className="text-sm font-medium text-foreground">Crear video</span>
-              </div>
-              <p className="mt-1.5 text-xs text-muted-foreground">Nuevo video con escenas y prompts.</p>
-            </Link>
-
-            <Link
-              href={`/project/${sid}/publications`}
-              className="rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/20"
-            >
-              <div className="flex items-center gap-2">
-                <Sparkles className="size-4 text-primary" />
-                <span className="text-sm font-medium text-foreground">Publicaciones</span>
-              </div>
-              <p className="mt-1.5 text-xs text-muted-foreground">Planificar y organizar contenido para redes.</p>
-            </Link>
           </div>
         </div>
       </section>
