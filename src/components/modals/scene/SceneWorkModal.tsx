@@ -7,102 +7,32 @@ import { cn } from '@/lib/utils/cn';
 import { createClient } from '@/lib/supabase/client';
 import { generateShortId } from '@/lib/utils/nanoid';
 import {
-  Button, TextField, TextArea, Label, Input,
-  Select, ListBox, Slider, Checkbox,
-  ToggleButton, ToggleButtonGroup,
-} from '@heroui/react';
-import {
-  X, Sparkles, Send, Loader2, Copy, Check,
-  Camera, Expand, Trash2, Wand2,
+  X, Sparkles, Send, Loader2, Copy, Check, Camera, Expand,
+  Trash2, Wand2, Music, MessageSquare, Film, Clock, ChevronDown,
 } from 'lucide-react';
 import type { Scene } from '@/types';
 import type { Database } from '@/types/database.types';
-import type { Key } from 'react';
 
-/* ── Enums ────────────────────────────────────────────── */
+/* ── Types ─────────────────────────────────────────────── */
 
 type CameraAngle = Database['public']['Enums']['camera_angle'];
 type CameraMovement = Database['public']['Enums']['camera_movement'];
 
-const CAMERA_ANGLES: { value: CameraAngle; label: string }[] = [
-  { value: 'wide', label: 'Plano general' },
-  { value: 'medium', label: 'Plano medio' },
-  { value: 'close_up', label: 'Primer plano' },
-  { value: 'extreme_close_up', label: 'Extreme close-up' },
-  { value: 'pov', label: 'POV' },
-  { value: 'low_angle', label: 'Contrapicado' },
-  { value: 'high_angle', label: 'Picado' },
-  { value: 'birds_eye', label: 'Cenital' },
-  { value: 'dutch', label: 'Dutch angle' },
-  { value: 'over_shoulder', label: 'Over shoulder' },
-];
-
-const CAMERA_MOVEMENTS: { value: CameraMovement; label: string }[] = [
-  { value: 'static', label: 'Estatica' },
-  { value: 'dolly_in', label: 'Dolly in' },
-  { value: 'dolly_out', label: 'Dolly out' },
-  { value: 'pan_left', label: 'Pan izquierda' },
-  { value: 'pan_right', label: 'Pan derecha' },
-  { value: 'tilt_up', label: 'Tilt arriba' },
-  { value: 'tilt_down', label: 'Tilt abajo' },
-  { value: 'tracking', label: 'Tracking' },
-  { value: 'crane', label: 'Grua' },
-  { value: 'handheld', label: 'Handheld' },
-  { value: 'orbit', label: 'Orbita' },
-];
-
-const ARC_PHASES = [
-  { value: 'hook', label: 'Hook' },
-  { value: 'build', label: 'Build' },
-  { value: 'peak', label: 'Peak' },
-  { value: 'close', label: 'Close' },
-] as const;
-
-/* ── Types ────────────────────────────────────────────── */
-
-interface SceneWorkForm {
+interface SceneForm {
   title: string;
   description: string;
-  arcPhase: 'hook' | 'build' | 'peak' | 'close';
+  arcPhase: string;
   duration: number;
   cameraAngle: CameraAngle;
   cameraMovement: CameraMovement;
   dialogue: string;
-  audioMusic: boolean;
-  audioDialogue: boolean;
-  audioSfx: boolean;
-  audioVoiceover: boolean;
+  music: boolean;
+  dialogue_audio: boolean;
+  sfx: boolean;
+  voiceover: boolean;
 }
 
-const DEFAULT_FORM: SceneWorkForm = {
-  title: '',
-  description: '',
-  arcPhase: 'build',
-  duration: 5,
-  cameraAngle: 'medium',
-  cameraMovement: 'static',
-  dialogue: '',
-  audioMusic: false,
-  audioDialogue: false,
-  audioSfx: false,
-  audioVoiceover: false,
-};
-
-interface ActionButton {
-  label: string;
-  variant: 'primary' | 'ghost' | 'danger';
-  action: string;
-}
-
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  actions?: ActionButton[];
-  isTyping?: boolean;
-}
-
-interface SceneWorkModalProps {
+interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   videoId: string;
@@ -115,834 +45,495 @@ interface SceneWorkModalProps {
   onUpdate?: () => void;
 }
 
-/* ── Markdown renderer ────────────────────────────────── */
+/* ── Constants ─────────────────────────────────────────── */
 
-function MarkdownText({ text }: { text: string }) {
-  const lines = text.split('\n');
-  return (
-    <div className="space-y-1.5">
-      {lines.map((line, i) => {
-        if (!line.trim()) return <div key={i} className="h-1" />;
-        const parts = line.split(/(\*\*.*?\*\*)/g).map((part, j) => {
-          if (part.startsWith('**') && part.endsWith('**'))
-            return <strong key={j} className="font-semibold text-foreground">{part.slice(2, -2)}</strong>;
-          return <span key={j}>{part}</span>;
-        });
-        if (line.startsWith('- ') || line.startsWith('• '))
-          return <p key={i} className="pl-3 text-sm text-muted-foreground leading-relaxed flex gap-1.5"><span className="text-primary shrink-0">-</span><span>{parts}</span></p>;
-        if (line.match(/^[A-Z\u{1F4F7}\u{1F3AC}\u{1F5BC}\u{1F3A5}\u{1F4CB}\u{1F4DD}\u{1F3B5}\u{26A0}\u{2728}]/u))
-          return <p key={i} className="text-sm text-foreground leading-relaxed mt-2">{parts}</p>;
-        return <p key={i} className="text-sm text-muted-foreground leading-relaxed">{parts}</p>;
-      })}
-    </div>
-  );
-}
-
-/* ── Typing animation ─────────────────────────────────── */
-
-function TypingMessage({ content, actions, onFinished, onAction }: {
-  content: string;
-  actions?: ActionButton[];
-  onFinished: () => void;
-  onAction?: (id: string) => void;
-}) {
-  const [displayed, setDisplayed] = useState('');
-  const [done, setDone] = useState(false);
-
-  useEffect(() => {
-    let i = 0;
-    const words = content.split(' ');
-    const interval = setInterval(() => {
-      i++;
-      setDisplayed(words.slice(0, i).join(' '));
-      if (i >= words.length) { clearInterval(interval); setDone(true); onFinished(); }
-    }, 30);
-    return () => clearInterval(interval);
-  }, [content, onFinished]);
-
-  return (
-    <div>
-      <MarkdownText text={displayed} />
-      {!done && <span className="inline-block w-1.5 h-4 bg-primary/60 animate-pulse ml-0.5 align-middle" />}
-      {done && actions && actions.length > 0 && (
-        <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-border/50">
-          {actions.map(a => (
-            <button
-              key={a.label}
-              type="button"
-              className={cn(
-                'rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
-                a.variant === 'primary' ? 'bg-primary text-primary-foreground hover:bg-primary/90' :
-                a.variant === 'danger' ? 'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20' :
-                'border border-border text-muted-foreground hover:bg-accent hover:text-foreground',
-              )}
-              onClick={() => onAction?.(a.action)}
-            >
-              {a.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ── Quick actions (edit mode) ────────────────────────── */
-
-function getQuickActions(scene: Scene, allScenes: Scene[]) {
-  const idx = allScenes.findIndex(s => s.id === scene.id);
-  const prev = idx > 0 ? allScenes[idx - 1] : null;
-  const next = idx < allScenes.length - 1 ? allScenes[idx + 1] : null;
-
-  return [
-    { id: 'improve', label: 'Mejorar escena', icon: Sparkles, desc: 'Mejoras de composicion y narrativa', color: 'text-primary bg-primary/10 border-primary/20' },
-    { id: 'extend', label: 'Extender escena', icon: Expand, desc: `Extension de ${scene.duration_seconds ?? 5}s`, color: 'text-purple-400 bg-purple-500/10 border-purple-500/20' },
-    { id: 'edit-camera', label: 'Cambiar camara', icon: Camera, desc: 'Angulos y movimientos alternativos', color: 'text-sky-400 bg-sky-500/10 border-sky-500/20' },
-    { id: 'regenerate', label: 'Regenerar prompts', icon: Wand2, desc: 'Nuevos prompts de imagen y video', color: 'text-amber-400 bg-amber-500/10 border-amber-500/20' },
-    { id: 'delete', label: 'Eliminar escena', icon: Trash2, desc: prev && next ? `Impacto entre "${prev.title}" y "${next.title}"` : 'Impacto en flujo narrativo', color: 'text-red-400 bg-red-500/10 border-red-500/20' },
-  ];
-}
-
-/* ── IA response generators ───────────────────────────── */
-
-function generateResponse(actionId: string, scene: Scene, allScenes: Scene[]): { content: string; actions?: ActionButton[] } {
-  const idx = allScenes.findIndex(s => s.id === scene.id);
-  const prev = idx > 0 ? allScenes[idx - 1] : null;
-  const next = idx < allScenes.length - 1 ? allScenes[idx + 1] : null;
-
-  switch (actionId) {
-    case 'improve':
-      return {
-        content: `**Sugerencias para "${scene.title}":**\n\n**Camara:** Un ${scene.scene_number === 1 ? 'close-up con dolly-in' : 'tracking lateral'} daria mas energia.\n\n**Narrativa:** ${scene.arc_phase === 'hook' ? 'Como gancho, los primeros 2s son criticos.' : 'Refuerza la conexion con la escena anterior.'}\n\n**Prompt:** Anade "volumetric light, shallow depth of field, warm grading".\n\nQuieres que aplique alguna mejora?`,
-        actions: [
-          { label: 'Aplicar mejoras', variant: 'primary', action: 'apply_improvements' },
-          { label: 'Solo prompt imagen', variant: 'ghost', action: 'improve_image_only' },
-        ],
-      };
-    case 'extend':
-      return {
-        content: `**Extension de "${scene.title}":**\n\nClip de 6s que continua desde el ultimo frame.\n\n- 0-2s: Transicion suave\n- 2-4s: Desarrollo con nuevo angulo\n- 4-6s: Cierre hacia la siguiente escena\n\nGenero la extension?`,
-        actions: [
-          { label: 'Crear extension', variant: 'primary', action: 'create_extension' },
-          { label: 'Cambiar parametros', variant: 'ghost', action: 'edit_extension' },
-        ],
-      };
-    case 'edit-camera':
-      return {
-        content: `**3 opciones de camara:**\n\n**Opcion 1: Cinematografica**\n- low_angle + crane\n\n**Opcion 2: Intima**\n- close_up + static\n\n**Opcion 3: Dinamica**\n- medium + tracking\n\nCual prefieres?`,
-        actions: [
-          { label: 'Cinematografica', variant: 'primary', action: 'camera_1' },
-          { label: 'Intima', variant: 'ghost', action: 'camera_2' },
-          { label: 'Dinamica', variant: 'ghost', action: 'camera_3' },
-        ],
-      };
-    case 'regenerate':
-      return {
-        content: `Regenerando prompts para "${scene.title}"...\n\nIncluiran:\n- Mas detalle en texturas\n- Iluminacion volumetrica\n- Desglose segundo a segundo\n\nGenero ahora?`,
-        actions: [
-          { label: 'Generar ahora', variant: 'primary', action: 'regenerate_prompts' },
-          { label: 'Solo imagen', variant: 'ghost', action: 'regen_image' },
-        ],
-      };
-    case 'delete': {
-      let analysis = `**Impacto de eliminar escena #${scene.scene_number} "${scene.title}":**\n\n`;
-      if (prev && next) {
-        analysis += `"${prev.title}" conectara con "${next.title}".\n\n`;
-        if (prev.arc_phase !== next.arc_phase) analysis += `Atencion: salto de fase (${prev.arc_phase} -> ${next.arc_phase}).`;
-      } else if (!prev) {
-        analysis += `"${next!.title}" pasara a ser la apertura.`;
-      } else {
-        analysis += `"${prev.title}" pasara a ser el cierre.`;
-      }
-      return {
-        content: analysis,
-        actions: [
-          { label: 'Confirmar eliminacion', variant: 'danger', action: 'delete_scene' },
-          { label: 'Cancelar', variant: 'ghost', action: 'cancel' },
-        ],
-      };
-    }
-    default:
-      return { content: 'Procesando...' };
-  }
-}
-
-/* ── Create-mode IA suggestions ───────────────────────── */
-
-const CREATE_SUGGESTIONS = [
-  { label: 'Gancho visual de 3s', prompt: 'Crea una escena de 3 segundos que funcione como gancho visual. Algo impactante que capte la atencion inmediatamente.' },
-  { label: 'Escena de transicion', prompt: 'Crea una escena de transicion suave entre dos momentos del video. Movimiento de camara fluido.' },
-  { label: 'Close-up del producto', prompt: 'Crea un primer plano cinematografico del producto con iluminacion dramatica y detalles de textura.' },
+const PHASES = [
+  { value: 'hook', label: 'Hook', color: 'bg-red-500' },
+  { value: 'build', label: 'Build', color: 'bg-amber-500' },
+  { value: 'peak', label: 'Peak', color: 'bg-emerald-500' },
+  { value: 'close', label: 'Close', color: 'bg-blue-500' },
 ];
 
-/* ── Main modal ───────────────────────────────────────── */
+const ANGLES: { value: CameraAngle; label: string }[] = [
+  { value: 'wide', label: 'General' }, { value: 'medium', label: 'Medio' },
+  { value: 'close_up', label: 'Primer plano' }, { value: 'extreme_close_up', label: 'Extreme CU' },
+  { value: 'pov', label: 'POV' }, { value: 'low_angle', label: 'Contrapicado' },
+  { value: 'high_angle', label: 'Picado' }, { value: 'birds_eye', label: 'Cenital' },
+  { value: 'dutch', label: 'Dutch' }, { value: 'over_shoulder', label: 'Over shoulder' },
+];
+
+const MOVEMENTS: { value: CameraMovement; label: string }[] = [
+  { value: 'static', label: 'Estática' }, { value: 'dolly_in', label: 'Dolly in' },
+  { value: 'dolly_out', label: 'Dolly out' }, { value: 'pan_left', label: 'Pan izq' },
+  { value: 'pan_right', label: 'Pan der' }, { value: 'tilt_up', label: 'Tilt up' },
+  { value: 'tilt_down', label: 'Tilt down' }, { value: 'tracking', label: 'Tracking' },
+  { value: 'crane', label: 'Grúa' }, { value: 'handheld', label: 'Handheld' },
+  { value: 'orbit', label: 'Órbita' },
+];
+
+const DEFAULT_FORM: SceneForm = {
+  title: '', description: '', arcPhase: 'build', duration: 5,
+  cameraAngle: 'medium', cameraMovement: 'static', dialogue: '',
+  music: false, dialogue_audio: false, sfx: false, voiceover: false,
+};
+
+/* ── Pill selector ─────────────────────────────────────── */
+
+function PillSelect({ label, options, value, onChange }: {
+  label: string;
+  options: { value: string; label: string; color?: string }[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <p className="text-[11px] font-medium text-muted-foreground">{label}</p>
+      <div className="flex flex-wrap gap-1">
+        {options.map(o => (
+          <button
+            key={o.value}
+            type="button"
+            onClick={() => onChange(o.value)}
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all',
+              value === o.value
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'bg-card border border-border text-muted-foreground hover:border-primary/30 hover:text-foreground',
+            )}
+          >
+            {o.color && <span className={cn('size-2 rounded-full', o.color)} />}
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── Toggle chip ───────────────────────────────────────── */
+
+function ToggleChip({ label, icon: Icon, active, onClick }: {
+  label: string; icon: typeof Music; active: boolean; onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all',
+        active
+          ? 'bg-primary/10 border border-primary/30 text-primary'
+          : 'bg-card border border-border text-muted-foreground hover:border-primary/20',
+      )}
+    >
+      <Icon className="size-3" />
+      {label}
+    </button>
+  );
+}
+
+/* ── Main Modal ────────────────────────────────────────── */
 
 export function SceneWorkModal({
-  open, onOpenChange, videoId, projectId,
-  nextSceneNumber, scene, imagePrompt, videoPrompt, allScenes = [], onUpdate,
-}: SceneWorkModalProps) {
-  const isEdit = !!scene;
-  const sceneNumber = isEdit ? scene.scene_number : (nextSceneNumber ?? 1);
-
+  open, onOpenChange, videoId, projectId, nextSceneNumber = 1,
+  scene, imagePrompt, videoPrompt, allScenes = [], onUpdate,
+}: Props) {
   const queryClient = useQueryClient();
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-
+  const isEdit = !!scene;
   const [mode, setMode] = useState<'manual' | 'ia'>('manual');
-  const [form, setForm] = useState<SceneWorkForm>(DEFAULT_FORM);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [copiedPrompt, setCopiedPrompt] = useState<string | null>(null);
+  const [form, setForm] = useState<SceneForm>(DEFAULT_FORM);
   const [insertPosition, setInsertPosition] = useState<'end' | number>('end');
+  const [saving, setSaving] = useState(false);
 
-  // Populate form when editing
+  // IA mode state
+  const [iaInput, setIaInput] = useState('');
+  const [iaMessages, setIaMessages] = useState<Array<{ id: string; role: 'user' | 'assistant'; content: string }>>([]);
+  const [iaProcessing, setIaProcessing] = useState(false);
+  const iaEndRef = useRef<HTMLDivElement>(null);
+
+  // Init form from scene (edit mode)
+  useEffect(() => {
+    if (open && scene) {
+      setForm({
+        title: scene.title ?? '', description: scene.description ?? '',
+        arcPhase: scene.arc_phase ?? 'build', duration: Number(scene.duration_seconds) || 5,
+        cameraAngle: 'medium', cameraMovement: 'static', dialogue: scene.dialogue ?? '',
+        music: false, dialogue_audio: false, sfx: false, voiceover: false,
+      });
+    } else if (open) {
+      setForm(DEFAULT_FORM);
+      setIaMessages([]);
+      setIaInput('');
+    }
+  }, [open, scene]);
+
+  useEffect(() => { iaEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [iaMessages]);
+
+  // Escape to close
   useEffect(() => {
     if (!open) return;
-    setMessages([]);
-    setInput('');
-    setInsertPosition('end');
-    if (isEdit && scene) {
-      setForm({
-        title: scene.title ?? '',
-        description: scene.description ?? '',
-        arcPhase: (scene.arc_phase as SceneWorkForm['arcPhase']) ?? 'build',
-        duration: scene.duration_seconds ?? 5,
-        cameraAngle: 'medium',
-        cameraMovement: 'static',
-        dialogue: scene.dialogue ?? '',
-        audioMusic: false,
-        audioDialogue: !!scene.dialogue,
-        audioSfx: false,
-        audioVoiceover: false,
-      });
-    } else {
-      setForm({ ...DEFAULT_FORM });
-    }
-    setTimeout(() => inputRef.current?.focus(), 100);
-  }, [open, isEdit, scene]);
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onOpenChange(false); };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, [open, onOpenChange]);
 
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
-
-  const updateField = <K extends keyof SceneWorkForm>(key: K, val: SceneWorkForm[K]) =>
+  const update = useCallback(<K extends keyof SceneForm>(key: K, val: SceneForm[K]) => {
     setForm(f => ({ ...f, [key]: val }));
+  }, []);
 
-  /* ── Position context for IA ── */
+  // Adjacent scenes context
+  const prevScene = typeof insertPosition === 'number' ? allScenes[insertPosition] : null;
+  const nextScene = typeof insertPosition === 'number' ? allScenes[insertPosition + 1] : null;
 
-  function buildIAContext(): string {
-    if (insertPosition === 'end') return 'Insertar al final del video.';
-    const prev = allScenes?.[insertPosition as number];
-    const next = allScenes?.[(insertPosition as number) + 1];
-    return `Insertar despues de "${prev?.title}" y antes de "${next?.title ?? 'final'}". Analiza ambas para sugerir una transicion natural.`;
-  }
-
-  /* ── IA handlers ── */
-
-  const handleQuickAction = useCallback((actionId: string) => {
-    if (!scene) return;
-    setIsProcessing(true);
-    setMessages(prev => [...prev, { id: `u-${Date.now()}`, role: 'user', content: `Accion: ${actionId}` }]);
-
-    setTimeout(() => {
-      const resp = generateResponse(actionId, scene, allScenes);
-      setMessages(prev => [...prev, {
-        id: `a-${Date.now()}`, role: 'assistant', content: resp.content,
-        actions: resp.actions, isTyping: true,
-      }]);
-      setIsProcessing(false);
-    }, 300);
-  }, [scene, allScenes]);
-
-  function handleSend() {
-    if (!input.trim() || isProcessing) return;
-    const text = input.trim();
-    setInput('');
-    setIsProcessing(true);
-
-    const contextLine = !isEdit ? `\n\n[Contexto: ${buildIAContext()}]` : '';
-    setMessages(prev => [...prev, { id: `u-${Date.now()}`, role: 'user', content: text }]);
-
-    setTimeout(() => {
-      const reply = isEdit
-        ? `Entendido. He analizado tu peticion para "${scene?.title}". Aplicare los cambios sugeridos.`
-        : `Entendido. ${buildIAContext()} He creado una escena basada en tu descripcion. Revisa la previsualizacion y ajusta lo que necesites.`;
-      setMessages(prev => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: reply, isTyping: true }]);
-      setIsProcessing(false);
-    }, 800);
-  }
-
-  function handleActionButton(actionId: string) {
-    if (actionId === 'cancel') {
-      setMessages(prev => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: 'Cancelado. Sin cambios.' }]);
-      return;
-    }
-    if (actionId === 'close') { onOpenChange(false); return; }
-    if (actionId.startsWith('save_') || actionId === 'apply_improvements' || actionId === 'delete_scene') {
-      toast.success(actionId === 'delete_scene' ? 'Escena eliminada' : 'Escena actualizada');
-      onUpdate?.();
-      setMessages(prev => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: 'Cambios guardados.' }]);
-      return;
-    }
-    setIsProcessing(true);
-    setTimeout(() => {
-      setMessages(prev => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: 'Procesando... Los cambios se aplicaran en breve.', isTyping: true }]);
-      setIsProcessing(false);
-    }, 400);
-  }
-
-  /* ── Save logic ── */
-
-  async function handleCreate() {
-    if (!form.title.trim()) return;
-    setIsSaving(true);
-    try {
-      const supabase = createClient();
-      const shortId = generateShortId();
-
-      // Calculate actual scene number based on position
-      let actualSceneNumber = sceneNumber;
-      let actualSortOrder = sceneNumber * 1000;
-      if (insertPosition !== 'end' && typeof insertPosition === 'number') {
-        const afterScene = allScenes[insertPosition];
-        const nextScene = allScenes[insertPosition + 1];
-        if (afterScene && nextScene) {
-          actualSceneNumber = afterScene.scene_number + 1;
-          actualSortOrder = ((afterScene.sort_order ?? afterScene.scene_number * 1000) + (nextScene.sort_order ?? nextScene.scene_number * 1000)) / 2;
-        } else if (afterScene) {
-          actualSceneNumber = afterScene.scene_number + 1;
-          actualSortOrder = (afterScene.sort_order ?? afterScene.scene_number * 1000) + 1000;
-        }
-      }
-
-      const { data: newScene, error } = await supabase.from('scenes').insert({
-        video_id: videoId,
-        project_id: projectId,
-        title: form.title.trim(),
-        description: form.description.trim() || null,
-        duration_seconds: form.duration,
-        arc_phase: form.arcPhase,
-        scene_number: actualSceneNumber,
-        sort_order: actualSortOrder,
-        short_id: shortId,
-        status: 'draft',
-        scene_type: 'original',
-        dialogue: form.dialogue.trim() || null,
-      }).select('id').single();
-
-      if (error) throw error;
-
-      if (newScene) {
-        await supabase.from('scene_camera').insert({
-          scene_id: newScene.id,
-          camera_angle: form.cameraAngle,
-          camera_movement: form.cameraMovement,
-        });
-      }
-
-      toast.success('Escena creada');
-      queryClient.invalidateQueries({ queryKey: ['scenes'] });
-      queryClient.invalidateQueries({ queryKey: ['scenes-nav'] });
-      queryClient.invalidateQueries({ queryKey: ['video'] });
-      onOpenChange(false);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error al crear escena');
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
+  /* ── Save ────────────────────────────────────────────── */
   async function handleSave() {
-    if (!scene || !form.title.trim()) return;
-    setIsSaving(true);
+    if (!form.title.trim()) { toast.error('El título es obligatorio'); return; }
+    setSaving(true);
     try {
       const supabase = createClient();
-      const { error } = await supabase.from('scenes').update({
-        title: form.title.trim(),
-        description: form.description.trim() || null,
-        duration_seconds: form.duration,
-        arc_phase: form.arcPhase,
-        dialogue: form.dialogue.trim() || null,
-      }).eq('id', scene.id);
-
-      if (error) throw error;
-
-      await supabase.from('scene_camera').upsert({
-        scene_id: scene.id,
-        camera_angle: form.cameraAngle,
-        camera_movement: form.cameraMovement,
-      }, { onConflict: 'scene_id' });
-
-      toast.success('Escena actualizada');
+      if (isEdit && scene) {
+        await supabase.from('scenes').update({
+          title: form.title, description: form.description,
+          arc_phase: form.arcPhase as 'hook' | 'build' | 'peak' | 'close',
+          duration_seconds: form.duration, dialogue: form.dialogue,
+        }).eq('id', scene.id);
+        toast.success('Escena actualizada');
+      } else {
+        const num = insertPosition === 'end' ? allScenes.length + 1 : (typeof insertPosition === 'number' ? insertPosition + 2 : nextSceneNumber);
+        const { data: newScene } = await supabase.from('scenes').insert({
+          video_id: videoId, project_id: projectId, title: form.title,
+          description: form.description, duration_seconds: form.duration,
+          arc_phase: form.arcPhase as 'hook' | 'build' | 'peak' | 'close',
+          scene_number: num, sort_order: num, short_id: generateShortId(),
+          status: 'draft', scene_type: 'original', dialogue: form.dialogue,
+        }).select('id').single();
+        if (newScene) {
+          await supabase.from('scene_camera').insert({
+            scene_id: newScene.id,
+            camera_angle: form.cameraAngle,
+            camera_movement: form.cameraMovement,
+          });
+        }
+        toast.success('Escena creada');
+      }
       queryClient.invalidateQueries({ queryKey: ['scenes'] });
-      queryClient.invalidateQueries({ queryKey: ['scenes-nav'] });
+      queryClient.invalidateQueries({ queryKey: ['video'] });
       onUpdate?.();
       onOpenChange(false);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error al guardar');
-    } finally {
-      setIsSaving(false);
-    }
+    } catch { toast.error('Error al guardar'); }
+    finally { setSaving(false); }
   }
 
-  function copyPrompt(text: string, label: string) {
-    navigator.clipboard.writeText(text);
-    setCopiedPrompt(label);
-    toast.success(`${label} copiado`);
-    setTimeout(() => setCopiedPrompt(null), 2000);
+  /* ── IA handler ──────────────────────────────────────── */
+  function handleIaSend() {
+    const text = iaInput.trim();
+    if (!text || iaProcessing) return;
+    setIaInput('');
+    setIaProcessing(true);
+    setIaMessages(prev => [...prev, { id: `u-${Date.now()}`, role: 'user', content: text }]);
+    setTimeout(() => {
+      const context = prevScene ? `Insertar entre "${prevScene.title}" y "${nextScene?.title ?? 'final'}".` : '';
+      setIaMessages(prev => [...prev, {
+        id: `a-${Date.now()}`, role: 'assistant',
+        content: `He analizado tu petición${context ? ` (${context})` : ''}. Sugiero una escena de ${form.duration}s con ${ANGLES.find(a => a.value === form.cameraAngle)?.label ?? 'plano medio'}.\n\n¿Quieres que rellene el formulario con esta sugerencia?`,
+      }]);
+      setIaProcessing(false);
+    }, 600);
   }
 
   if (!open) return null;
 
-  const quickActions = isEdit && scene ? getQuickActions(scene, allScenes) : [];
-
-  // Audio checkboxes as string array for CheckboxGroup
-  const audioValues: string[] = [];
-  if (form.audioMusic) audioValues.push('music');
-  if (form.audioDialogue) audioValues.push('dialogue');
-  if (form.audioSfx) audioValues.push('sfx');
-  if (form.audioVoiceover) audioValues.push('voiceover');
-
-  function handleAudioChange(values: string[]) {
-    setForm(f => ({
-      ...f,
-      audioMusic: values.includes('music'),
-      audioDialogue: values.includes('dialogue'),
-      audioSfx: values.includes('sfx'),
-      audioVoiceover: values.includes('voiceover'),
-    }));
-  }
+  const sceneNum = isEdit ? scene?.scene_number : (insertPosition === 'end' ? allScenes.length + 1 : (typeof insertPosition === 'number' ? insertPosition + 2 : nextSceneNumber));
 
   return (
     <div className="fixed inset-0 z-50">
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => onOpenChange(false)} />
-
-      <div className="fixed inset-4 sm:inset-8 lg:inset-y-8 lg:left-[10%] lg:right-[10%] z-10 flex flex-col rounded-2xl border border-border bg-card shadow-2xl overflow-hidden">
+      <div className="fixed inset-4 sm:inset-6 lg:inset-y-6 lg:left-[10%] lg:right-[10%] z-10 flex flex-col rounded-2xl border border-border bg-card shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
 
         {/* ── Header ── */}
-        <div className="flex items-center justify-between border-b border-border px-5 py-3">
-          <div className="flex items-center gap-4">
-            <ToggleButtonGroup
-              selectionMode="single"
-              selectedKeys={new Set([mode])}
-              onSelectionChange={(keys) => {
-                const selected = [...keys][0] as string | undefined;
-                if (selected === 'manual' || selected === 'ia') setMode(selected);
-              }}
-              size="sm"
-            >
-              <ToggleButton id="manual">Manual</ToggleButton>
-              <ToggleButton id="ia">Con IA</ToggleButton>
-            </ToggleButtonGroup>
-
-            <span className="text-sm font-semibold text-foreground">
-              {isEdit ? `Editar escena #${sceneNumber}` : `Nueva escena #${sceneNumber}`}
-            </span>
+        <div className="flex items-center gap-3 border-b border-border px-5 py-3 shrink-0">
+          <div className="flex rounded-lg border border-border p-0.5 bg-background">
+            {(['manual', 'ia'] as const).map(m => (
+              <button key={m} type="button" onClick={() => setMode(m)} className={cn(
+                'rounded-md px-3.5 py-1.5 text-xs font-medium transition-all',
+                mode === m ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+              )}>
+                {m === 'manual' ? 'Manual' : '✨ Con IA'}
+              </button>
+            ))}
           </div>
-
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-foreground truncate">
+              {isEdit ? `Editar escena #${scene?.scene_number}` : `Nueva escena #${sceneNum}`}
+            </p>
+          </div>
           <button type="button" onClick={() => onOpenChange(false)} className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
             <X className="size-4" />
           </button>
         </div>
 
-        {/* ── Body: two panels ── */}
-        <div className="flex flex-1 min-h-0">
+        {/* ── Body ── */}
+        <div className="flex flex-1 min-h-0 overflow-hidden">
 
-          {/* LEFT PANEL */}
-          <div className="flex flex-col flex-1 min-w-0 border-r border-border">
-            <div className="flex-1 overflow-y-auto px-5 py-4">
-
-              {/* ── Manual mode ── */}
-              {mode === 'manual' && (
-                <div className="space-y-5 max-w-lg">
-
-                  {/* POSICION (create mode only) */}
-                  {!scene && allScenes.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Posicion en el video</p>
-                      <select
-                        value={insertPosition === 'end' ? 'end' : String(insertPosition)}
-                        onChange={(e) => setInsertPosition(e.target.value === 'end' ? 'end' : parseInt(e.target.value, 10))}
-                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none appearance-none focus:border-primary/30 focus:ring-1 focus:ring-primary/10"
-                      >
-                        <option value="end">Al final (escena #{allScenes.length + 1})</option>
-                        {allScenes.map((s, i) => (
-                          <option key={s.id} value={i}>
-                            Después de #{s.scene_number} &quot;{s.title}&quot;
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  {/* Insertion context */}
-                  {!scene && insertPosition !== 'end' && typeof insertPosition === 'number' && (
-                    <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-2">
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-primary">Contexto de insercion</p>
-                      <div className="text-xs text-muted-foreground space-y-1">
-                        <p>&larr; Escena anterior: <strong className="text-foreground">&quot;{allScenes[insertPosition]?.title}&quot;</strong> ({allScenes[insertPosition]?.duration_seconds}s &middot; {allScenes[insertPosition]?.arc_phase})</p>
-                        {allScenes[insertPosition + 1] && (
-                          <p>&rarr; Escena siguiente: <strong className="text-foreground">&quot;{allScenes[insertPosition + 1]?.title}&quot;</strong> ({allScenes[insertPosition + 1]?.duration_seconds}s &middot; {allScenes[insertPosition + 1]?.arc_phase})</p>
-                        )}
-                      </div>
-                      <p className="text-[10px] text-muted-foreground">La IA usara este contexto para sugerir la escena ideal.</p>
-                    </div>
-                  )}
-
-                  {/* INFORMACION BASICA */}
-                  <div className="space-y-4">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Informacion basica</p>
-
-                    <TextField variant="secondary" value={form.title} onChange={(v) => updateField('title', v)} isRequired>
-                      <Label>Titulo</Label>
-                      <Input placeholder="Ej. Ana entra en la oficina" autoFocus />
-                    </TextField>
-
-                    <TextField variant="secondary" value={form.description} onChange={(v) => updateField('description', v)}>
-                      <Label>Descripcion visual</Label>
-                      <TextArea placeholder="Describe que se ve en la escena..." rows={3} />
-                    </TextField>
-                  </div>
-
-                  {/* CONFIGURACION */}
-                  <div className="space-y-4">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Configuracion</p>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <Select variant="secondary" aria-label="Fase" selectedKey={form.arcPhase} onSelectionChange={(key: Key | null) => { if (key) updateField('arcPhase', key as SceneWorkForm['arcPhase']); }}>
-                        <Label>Fase narrativa</Label>
-                        <Select.Trigger><Select.Value /><Select.Indicator /></Select.Trigger>
-                        <Select.Popover><ListBox>{ARC_PHASES.map(p => <ListBox.Item key={p.value} id={p.value}>{p.label}</ListBox.Item>)}</ListBox></Select.Popover>
-                      </Select>
-
-                      <div>
-                        <p className="text-sm font-medium text-foreground mb-2">Duracion: {form.duration}s</p>
-                        <Slider
-                          aria-label="Duracion"
-                          defaultValue={form.duration}
-                          minValue={1}
-                          maxValue={30}
-                          step={1}
-                          onChange={(v) => updateField('duration', v as number)}
-                        >
-                          <Slider.Track>
-                            <Slider.Fill />
-                            <Slider.Thumb />
-                          </Slider.Track>
-                        </Slider>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <Select variant="secondary" aria-label="Angulo" selectedKey={form.cameraAngle} onSelectionChange={(key: Key | null) => { if (key) updateField('cameraAngle', key as CameraAngle); }}>
-                        <Label>Angulo de camara</Label>
-                        <Select.Trigger><Select.Value /><Select.Indicator /></Select.Trigger>
-                        <Select.Popover><ListBox>{CAMERA_ANGLES.map(a => <ListBox.Item key={a.value} id={a.value}>{a.label}</ListBox.Item>)}</ListBox></Select.Popover>
-                      </Select>
-
-                      <Select variant="secondary" aria-label="Movimiento" selectedKey={form.cameraMovement} onSelectionChange={(key: Key | null) => { if (key) updateField('cameraMovement', key as CameraMovement); }}>
-                        <Label>Movimiento</Label>
-                        <Select.Trigger><Select.Value /><Select.Indicator /></Select.Trigger>
-                        <Select.Popover><ListBox>{CAMERA_MOVEMENTS.map(m => <ListBox.Item key={m.value} id={m.value}>{m.label}</ListBox.Item>)}</ListBox></Select.Popover>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {/* AUDIO */}
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Audio</p>
-                    <div className="flex flex-wrap gap-4">
-                      {([
-                        ['music', 'Musica'],
-                        ['dialogue', 'Dialogo'],
-                        ['sfx', 'SFX'],
-                        ['voiceover', 'Voiceover'],
-                      ] as const).map(([val, label]) => (
-                        <Checkbox
-                          key={val}
-                          isSelected={audioValues.includes(val)}
-                          onChange={(checked) => {
-                            const next = checked
-                              ? [...audioValues, val]
-                              : audioValues.filter(v => v !== val);
-                            handleAudioChange(next);
-                          }}
-                        >
-                          {label}
-                        </Checkbox>
+          {/* ── Left: Form or IA ── */}
+          <div className="flex-1 overflow-y-auto px-5 py-4">
+            {mode === 'manual' ? (
+              <div className="space-y-5 max-w-lg">
+                {/* Position */}
+                {!isEdit && allScenes.length > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="text-[11px] font-medium text-muted-foreground">Insertar</p>
+                    <select
+                      value={insertPosition === 'end' ? 'end' : String(insertPosition)}
+                      onChange={e => setInsertPosition(e.target.value === 'end' ? 'end' : parseInt(e.target.value, 10))}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary/30 focus:ring-1 focus:ring-primary/10"
+                    >
+                      <option value="end">Al final (escena #{allScenes.length + 1})</option>
+                      {allScenes.map((s, i) => (
+                        <option key={s.id} value={i}>Después de #{s.scene_number} "{s.title}"</option>
                       ))}
+                    </select>
+                    {prevScene && (
+                      <div className="flex items-center gap-2 rounded-lg bg-primary/5 border border-primary/10 px-3 py-2 text-[11px] text-muted-foreground">
+                        <span>←</span>
+                        <span className="text-foreground font-medium">{prevScene.title}</span>
+                        <span className="text-muted-foreground/50">|</span>
+                        <span className="text-foreground font-medium">{nextScene?.title ?? 'Final'}</span>
+                        <span>→</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Title */}
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-medium text-muted-foreground">Título <span className="text-danger-500">*</span></p>
+                  <input
+                    type="text" value={form.title} onChange={e => update('title', e.target.value)}
+                    placeholder="Ej. Ana entra en la oficina" autoFocus
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground/50 focus:border-primary/30 focus:ring-1 focus:ring-primary/10"
+                  />
+                </div>
+
+                {/* Description */}
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-medium text-muted-foreground">Descripción visual</p>
+                  <textarea
+                    value={form.description} onChange={e => update('description', e.target.value)}
+                    placeholder="Describe qué se ve en la escena..." rows={3}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground outline-none resize-y placeholder:text-muted-foreground/50 focus:border-primary/30 focus:ring-1 focus:ring-primary/10"
+                  />
+                </div>
+
+                {/* Phase pills */}
+                <PillSelect label="Fase narrativa" options={PHASES} value={form.arcPhase} onChange={v => update('arcPhase', v)} />
+
+                {/* Duration */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] font-medium text-muted-foreground">Duración</p>
+                    <span className="text-sm font-semibold text-primary tabular-nums">{form.duration}s</span>
+                  </div>
+                  <input
+                    type="range" min={1} max={30} step={1} value={form.duration}
+                    onChange={e => update('duration', parseInt(e.target.value, 10))}
+                    className="w-full accent-primary h-1.5"
+                  />
+                  <div className="flex justify-between text-[10px] text-muted-foreground/50">
+                    <span>1s</span><span>15s</span><span>30s</span>
+                  </div>
+                </div>
+
+                {/* Camera — two inline selects */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <p className="text-[11px] font-medium text-muted-foreground">Ángulo</p>
+                    <div className="relative">
+                      <select value={form.cameraAngle} onChange={e => update('cameraAngle', e.target.value as CameraAngle)}
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none appearance-none pr-8 focus:border-primary/30">
+                        {ANGLES.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
+                      </select>
+                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
                     </div>
                   </div>
-
-                  {/* DIALOGO */}
-                  <TextField variant="secondary" value={form.dialogue} onChange={(v) => updateField('dialogue', v)}>
-                    <Label>Dialogo / Narracion</Label>
-                    <TextArea placeholder="Que se dice o narra en esta escena..." rows={2} />
-                  </TextField>
-                </div>
-              )}
-
-              {/* ── IA mode ── */}
-              {mode === 'ia' && (
-                <div className="space-y-4">
-                  {/* Position selector in IA create mode */}
-                  {!isEdit && messages.length === 0 && allScenes.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Posicion</p>
-                      <select
-                        value={insertPosition === 'end' ? 'end' : String(insertPosition)}
-                        onChange={(e) => setInsertPosition(e.target.value === 'end' ? 'end' : parseInt(e.target.value, 10))}
-                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground outline-none appearance-none focus:border-primary/30"
-                      >
-                        <option value="end">Al final (escena #{allScenes.length + 1})</option>
-                        {allScenes.map((s, i) => (
-                          <option key={s.id} value={i}>Después de #{s.scene_number} "{s.title}"</option>
-                        ))}
+                  <div className="space-y-1.5">
+                    <p className="text-[11px] font-medium text-muted-foreground">Movimiento</p>
+                    <div className="relative">
+                      <select value={form.cameraMovement} onChange={e => update('cameraMovement', e.target.value as CameraMovement)}
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none appearance-none pr-8 focus:border-primary/30">
+                        {MOVEMENTS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
                       </select>
-                      {insertPosition !== 'end' && typeof insertPosition === 'number' && (
-                        <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground space-y-0.5">
-                          <p>← <strong className="text-foreground">{allScenes[insertPosition]?.title}</strong> ({allScenes[insertPosition]?.duration_seconds}s)</p>
-                          {allScenes[insertPosition + 1] && (
-                            <p>→ <strong className="text-foreground">{allScenes[insertPosition + 1]?.title}</strong> ({allScenes[insertPosition + 1]?.duration_seconds}s)</p>
+                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Audio toggles */}
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-medium text-muted-foreground">Audio</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    <ToggleChip label="Música" icon={Music} active={form.music} onClick={() => update('music', !form.music)} />
+                    <ToggleChip label="Diálogo" icon={MessageSquare} active={form.dialogue_audio} onClick={() => update('dialogue_audio', !form.dialogue_audio)} />
+                    <ToggleChip label="SFX" icon={Film} active={form.sfx} onClick={() => update('sfx', !form.sfx)} />
+                    <ToggleChip label="Voiceover" icon={Music} active={form.voiceover} onClick={() => update('voiceover', !form.voiceover)} />
+                  </div>
+                </div>
+
+                {/* Dialogue */}
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-medium text-muted-foreground">Diálogo / Narración</p>
+                  <textarea
+                    value={form.dialogue} onChange={e => update('dialogue', e.target.value)}
+                    placeholder="Qué se dice o narra en esta escena..." rows={2}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground outline-none resize-y placeholder:text-muted-foreground/50 focus:border-primary/30 focus:ring-1 focus:ring-primary/10"
+                  />
+                </div>
+              </div>
+            ) : (
+              /* ── IA Mode ── */
+              <div className="flex flex-col h-full">
+                <div className="flex-1 overflow-y-auto space-y-3">
+                  {iaMessages.length === 0 && (
+                    <div className="space-y-4 py-4">
+                      {/* Position selector in IA mode */}
+                      {!isEdit && allScenes.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-[11px] font-medium text-muted-foreground">¿Dónde va esta escena?</p>
+                          <select
+                            value={insertPosition === 'end' ? 'end' : String(insertPosition)}
+                            onChange={e => setInsertPosition(e.target.value === 'end' ? 'end' : parseInt(e.target.value, 10))}
+                            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary/30"
+                          >
+                            <option value="end">Al final (escena #{allScenes.length + 1})</option>
+                            {allScenes.map((s, i) => (
+                              <option key={s.id} value={i}>Después de #{s.scene_number} "{s.title}"</option>
+                            ))}
+                          </select>
+                          {prevScene && (
+                            <div className="rounded-lg bg-primary/5 border border-primary/10 px-3 py-2 text-[11px] text-muted-foreground space-y-1">
+                              <p className="text-[10px] font-medium text-primary">Kiyoko analizará el contexto:</p>
+                              <p>← <strong className="text-foreground">{prevScene.title}</strong> ({prevScene.duration_seconds}s · {prevScene.arc_phase})</p>
+                              {nextScene && <p>→ <strong className="text-foreground">{nextScene.title}</strong> ({nextScene.duration_seconds}s · {nextScene.arc_phase})</p>}
+                              <p className="text-muted-foreground/60 mt-1">La IA sugerirá una escena que conecte naturalmente con ambas.</p>
+                            </div>
                           )}
                         </div>
                       )}
-                    </div>
-                  )}
 
-                  {/* Quick actions (edit mode, no messages yet) */}
-                  {isEdit && messages.length === 0 && (
-                    <div className="space-y-3">
-                      <p className="text-sm font-medium text-foreground">Que quieres hacer con esta escena?</p>
-                      <div className="grid gap-2">
-                        {quickActions.map(qa => {
-                          const Icon = qa.icon;
-                          return (
-                            <button
-                              key={qa.id}
-                              type="button"
-                              onClick={() => handleQuickAction(qa.id)}
-                              className={cn('flex items-start gap-3 rounded-xl border p-3 text-left transition-all hover:shadow-md', qa.color)}
-                            >
-                              <Icon className="size-4 mt-0.5 shrink-0" />
-                              <div>
-                                <p className="text-sm font-medium">{qa.label}</p>
-                                <p className="text-[11px] opacity-70 mt-0.5">{qa.desc}</p>
-                              </div>
+                      <p className="text-sm text-muted-foreground">
+                        {isEdit ? '¿Qué quieres hacer con esta escena?' : 'Describe qué quieres y Kiyoko te ayudará a crearla.'}
+                      </p>
+                      {!isEdit && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {['Gancho visual impactante', 'Transición suave', 'Close-up emocional', 'Escena de acción'].map(s => (
+                            <button key={s} type="button" onClick={() => setIaInput(s)}
+                              className="rounded-lg border border-border bg-card px-3 py-2 text-xs text-muted-foreground hover:border-primary/30 hover:text-foreground transition-colors">
+                              {s}
                             </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Create-mode suggestions */}
-                  {!isEdit && messages.length === 0 && (
-                    <div className="space-y-3">
-                      <p className="text-sm text-muted-foreground">Describe que quieres en esta escena y Kiyoko te ayudara a crearla.</p>
-                      <div className="grid gap-2">
-                        {CREATE_SUGGESTIONS.map(s => (
-                          <button
-                            key={s.label}
-                            type="button"
-                            onClick={() => { setInput(s.prompt); inputRef.current?.focus(); }}
-                            className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-left text-sm text-foreground hover:bg-primary/10 transition-colors"
-                          >
-                            {s.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Messages */}
-                  {messages.map(msg => (
-                    <div key={msg.id} className={cn('flex gap-3', msg.role === 'user' ? 'justify-end' : '')}>
-                      {msg.role === 'assistant' && (
-                        <div className="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0 mt-0.5">
-                          <Sparkles className="size-3.5" />
+                          ))}
                         </div>
                       )}
-                      <div className={cn(
-                        'rounded-xl px-3.5 py-2.5 max-w-[90%]',
-                        msg.role === 'user' ? 'bg-primary text-primary-foreground text-sm' : 'bg-background border border-border',
-                      )}>
-                        {msg.role === 'assistant' && msg.isTyping ? (
-                          <TypingMessage
-                            content={msg.content}
-                            actions={msg.actions}
-                            onAction={handleActionButton}
-                            onFinished={() => setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, isTyping: false } : m))}
-                          />
-                        ) : msg.role === 'assistant' ? (
-                          <div>
-                            <MarkdownText text={msg.content} />
-                            {msg.actions && msg.actions.length > 0 && (
-                              <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-border/50">
-                                {msg.actions.map(a => (
-                                  <button
-                                    key={a.label}
-                                    type="button"
-                                    className={cn(
-                                      'rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
-                                      a.variant === 'primary' ? 'bg-primary text-primary-foreground hover:bg-primary/90' :
-                                      a.variant === 'danger' ? 'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20' :
-                                      'border border-border text-muted-foreground hover:bg-accent hover:text-foreground',
-                                    )}
-                                    onClick={() => handleActionButton(a.action)}
-                                  >
-                                    {a.label}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        ) : msg.content}
+                      {isEdit && (
+                        <div className="grid gap-2">
+                          {[
+                            { label: 'Mejorar escena', icon: Sparkles, color: 'text-primary bg-primary/10 border-primary/20' },
+                            { label: 'Extender escena', icon: Expand, color: 'text-purple-400 bg-purple-500/10 border-purple-500/20' },
+                            { label: 'Cambiar cámara', icon: Camera, color: 'text-sky-400 bg-sky-500/10 border-sky-500/20' },
+                            { label: 'Regenerar prompts', icon: Wand2, color: 'text-amber-400 bg-amber-500/10 border-amber-500/20' },
+                          ].map(a => (
+                            <button key={a.label} type="button" onClick={() => { setIaInput(a.label); handleIaSend(); }}
+                              className={cn('flex items-center gap-2.5 rounded-xl border p-3 text-left text-sm font-medium transition-all hover:shadow-md', a.color)}>
+                              <a.icon className="size-4" />{a.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {iaMessages.map(msg => (
+                    <div key={msg.id} className={cn('flex gap-2', msg.role === 'user' ? 'justify-end' : '')}>
+                      {msg.role === 'assistant' && <div className="flex size-6 items-center justify-center rounded-md bg-primary/10 text-primary shrink-0 mt-0.5"><Sparkles className="size-3" /></div>}
+                      <div className={cn('rounded-xl px-3 py-2 text-sm max-w-[85%] whitespace-pre-line',
+                        msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-background border border-border text-foreground')}>
+                        {msg.content}
                       </div>
                     </div>
                   ))}
-
-                  {isProcessing && (
-                    <div className="flex gap-3">
-                      <div className="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
-                        <Sparkles className="size-3.5 animate-pulse" />
-                      </div>
-                      <div className="rounded-xl bg-background border border-border px-3.5 py-2.5 text-sm text-muted-foreground">
-                        <Loader2 className="size-4 animate-spin inline mr-2" />Analizando...
+                  {iaProcessing && (
+                    <div className="flex gap-2">
+                      <div className="flex size-6 items-center justify-center rounded-md bg-primary/10 text-primary shrink-0"><Sparkles className="size-3 animate-pulse" /></div>
+                      <div className="rounded-xl bg-background border border-border px-3 py-2 text-sm text-muted-foreground">
+                        <Loader2 className="size-3.5 animate-spin inline mr-1.5" />Pensando...
                       </div>
                     </div>
                   )}
-
-                  {messages.length > 0 && !isProcessing && (
-                    <button type="button" onClick={() => setMessages([])} className="text-xs text-primary hover:text-primary/80 transition-colors">
-                      Volver a acciones
-                    </button>
-                  )}
-
-                  <div ref={messagesEndRef} />
+                  <div ref={iaEndRef} />
                 </div>
-              )}
-            </div>
-
-            {/* IA input bar (only in IA mode) */}
-            {mode === 'ia' && (
-              <div className="border-t border-border px-4 py-3">
-                <div className="flex items-end gap-2">
-                  <textarea
-                    ref={inputRef}
-                    value={input}
-                    onChange={e => setInput(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-                    placeholder="Describe que quieres..."
-                    rows={2}
-                    className="flex-1 resize-none rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:border-primary/30 focus:ring-1 focus:ring-primary/10"
+                <div className="flex items-end gap-2 pt-3 border-t border-border mt-3">
+                  <textarea value={iaInput} onChange={e => setIaInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleIaSend(); } }}
+                    placeholder="Describe qué quieres..." rows={2}
+                    className="flex-1 resize-none rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground/50 focus:border-primary/30"
                   />
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    isIconOnly
-                    onPress={handleSend}
-                    isDisabled={!input.trim() || isProcessing}
-                    className="size-9 shrink-0"
-                  >
-                    {isProcessing ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-                  </Button>
+                  <button type="button" onClick={handleIaSend} disabled={!iaInput.trim() || iaProcessing}
+                    className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors shrink-0">
+                    <Send className="size-4" />
+                  </button>
                 </div>
               </div>
             )}
           </div>
 
-          {/* RIGHT PANEL -- Preview */}
-          <div className="w-[340px] shrink-0 flex-col bg-background/50 hidden lg:flex">
-            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-              {/* Scene preview card */}
-              <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <span className="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">#{sceneNumber}</span>
-                  <span className="text-sm font-semibold text-foreground truncate">{form.title || 'Sin titulo'}</span>
-                </div>
-
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span>{form.duration}s</span>
-                  <span>-</span>
-                  <span>{form.arcPhase}</span>
-                </div>
-
-                {form.description && (
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Descripcion</p>
-                    <p className="text-xs text-muted-foreground leading-relaxed">{form.description}</p>
-                  </div>
-                )}
-
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Camara</p>
-                  <p className="text-xs text-foreground">
-                    {CAMERA_ANGLES.find(a => a.value === form.cameraAngle)?.label ?? form.cameraAngle}
-                    {' - '}
-                    {CAMERA_MOVEMENTS.find(m => m.value === form.cameraMovement)?.label ?? form.cameraMovement}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Audio</p>
-                  <p className="text-xs text-foreground">
-                    {[
-                      form.audioMusic && 'Musica',
-                      form.audioDialogue && 'Dialogo',
-                      form.audioSfx && 'SFX',
-                      form.audioVoiceover && 'Voiceover',
-                    ].filter(Boolean).join(', ') || 'Sin audio'}
-                  </p>
-                </div>
-
-                {form.dialogue && (
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Dialogo</p>
-                    <p className="text-xs text-muted-foreground italic leading-relaxed">&quot;{form.dialogue}&quot;</p>
-                  </div>
-                )}
+          {/* ── Right: Preview ── */}
+          <div className="w-[300px] shrink-0 border-l border-border bg-background/50 p-4 overflow-y-auto hidden lg:block">
+            <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">#{sceneNum}</span>
+                <span className="text-sm font-medium text-foreground truncate">{form.title || 'Sin título'}</span>
               </div>
 
-              {/* Prompts (edit mode) */}
-              {isEdit && imagePrompt && (
-                <div className="rounded-xl border border-border bg-card p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Prompt imagen</p>
-                    <button
-                      type="button"
-                      onClick={() => copyPrompt(imagePrompt, 'Prompt imagen')}
-                      className="flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[10px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-                    >
-                      {copiedPrompt === 'Prompt imagen' ? <Check className="size-3 text-emerald-400" /> : <Copy className="size-3" />}
-                      {copiedPrompt === 'Prompt imagen' ? 'Copiado' : 'Copiar'}
-                    </button>
-                  </div>
-                  <p className="font-mono text-[11px] text-muted-foreground leading-relaxed line-clamp-4">{imagePrompt}</p>
-                </div>
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                <span className="flex items-center gap-1"><Clock className="size-3" />{form.duration}s</span>
+                <span className={cn('size-2 rounded-full', PHASES.find(p => p.value === form.arcPhase)?.color ?? 'bg-zinc-500')} />
+                <span>{form.arcPhase}</span>
+              </div>
+
+              {form.description && <p className="text-xs text-muted-foreground line-clamp-3">{form.description}</p>}
+
+              <div className="text-[11px] text-muted-foreground space-y-1">
+                <p className="flex items-center gap-1.5"><Camera className="size-3" />{ANGLES.find(a => a.value === form.cameraAngle)?.label} · {MOVEMENTS.find(m => m.value === form.cameraMovement)?.label}</p>
+                <p className="flex items-center gap-1.5">
+                  <Music className="size-3" />
+                  {[form.music && 'Música', form.sfx && 'SFX', form.dialogue_audio && 'Diálogo', form.voiceover && 'Voz'].filter(Boolean).join(' · ') || 'Sin audio'}
+                </p>
+              </div>
+
+              {form.dialogue && (
+                <p className="text-xs italic text-muted-foreground border-l-2 border-primary/20 pl-2 line-clamp-2">&ldquo;{form.dialogue}&rdquo;</p>
               )}
 
-              {isEdit && videoPrompt && (
-                <div className="rounded-xl border border-border bg-card p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Prompt video</p>
-                    <button
-                      type="button"
-                      onClick={() => copyPrompt(videoPrompt, 'Prompt video')}
-                      className="flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[10px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-                    >
-                      {copiedPrompt === 'Prompt video' ? <Check className="size-3 text-emerald-400" /> : <Copy className="size-3" />}
-                      {copiedPrompt === 'Prompt video' ? 'Copiado' : 'Copiar'}
-                    </button>
-                  </div>
-                  <p className="font-mono text-[11px] text-muted-foreground leading-relaxed line-clamp-4">{videoPrompt}</p>
+              {/* Prompts (edit mode) */}
+              {isEdit && (imagePrompt || videoPrompt) && (
+                <div className="space-y-2 pt-2 border-t border-border">
+                  {imagePrompt && (
+                    <div>
+                      <p className="text-[10px] font-medium text-muted-foreground mb-1">Prompt imagen</p>
+                      <p className="font-mono text-[10px] text-muted-foreground line-clamp-2 bg-background rounded px-2 py-1">{imagePrompt}</p>
+                    </div>
+                  )}
+                  {videoPrompt && (
+                    <div>
+                      <p className="text-[10px] font-medium text-muted-foreground mb-1">Prompt video</p>
+                      <p className="font-mono text-[10px] text-muted-foreground line-clamp-2 bg-background rounded px-2 py-1">{videoPrompt}</p>
+                    </div>
+                  )}
                 </div>
               )}
 
               {!isEdit && (
-                <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-center">
-                  <Sparkles className="size-4 text-primary mx-auto mb-1" />
-                  <p className="text-xs text-muted-foreground">Los prompts se generaran despues de crear la escena</p>
+                <div className="flex items-center gap-2 rounded-lg bg-primary/5 border border-primary/10 px-3 py-2 text-[10px] text-muted-foreground">
+                  <Sparkles className="size-3 text-primary shrink-0" />
+                  Los prompts se generarán al crear
                 </div>
               )}
             </div>
@@ -950,16 +541,16 @@ export function SceneWorkModal({
         </div>
 
         {/* ── Footer ── */}
-        <div className="flex items-center justify-between border-t border-border px-5 py-3">
-          <Button variant="ghost" onPress={() => onOpenChange(false)}>Cancelar</Button>
-          <Button
-            variant="primary"
-            onPress={isEdit ? handleSave : handleCreate}
-            isDisabled={!form.title.trim() || isSaving}
-          >
-            {isSaving && <Loader2 className="size-4 animate-spin mr-2" />}
+        <div className="flex items-center justify-between border-t border-border px-5 py-3 shrink-0">
+          <button type="button" onClick={() => onOpenChange(false)}
+            className="rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+            Cancelar
+          </button>
+          <button type="button" onClick={handleSave} disabled={!form.title.trim() || saving}
+            className="rounded-xl bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center gap-2">
+            {saving && <Loader2 className="size-4 animate-spin" />}
             {isEdit ? 'Guardar cambios' : 'Crear escena'}
-          </Button>
+          </button>
         </div>
       </div>
     </div>
