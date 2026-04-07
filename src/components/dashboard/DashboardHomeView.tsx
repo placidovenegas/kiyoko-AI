@@ -5,15 +5,13 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   AlertTriangle,
-  BarChart3,
   CheckSquare,
   FolderOpen,
-  Layers,
+  Loader2,
   Plus,
   Sparkles,
   Star,
   TrendingUp,
-  Users,
   Zap,
 } from 'lucide-react';
 import type { Project } from '@/types';
@@ -23,8 +21,6 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { useFavorites } from '@/hooks/useFavorites';
 import { createClient } from '@/lib/supabase/client';
 import { ProjectGrid } from '@/components/project/ProjectGrid';
-import { type AiAssistAction } from '@/components/ai/AiAssistBar';
-import { AiResultDrawer, type AiResultPayload } from '@/components/ai/AiResultDrawer';
 import { queryKeys } from '@/lib/query/keys';
 import { fetchWorkspaceProjects } from '@/lib/queries/projects';
 import { useUIStore } from '@/stores/useUIStore';
@@ -50,20 +46,6 @@ function fmtTokens(v: number): string {
 
 function fmtUsd(v: number): string {
   return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(v);
-}
-
-/* ── AI actions ──────────────────────────────────────────── */
-
-const AI_ACTIONS: AiAssistAction[] = [
-  { id: 'overview', label: 'Resumen operativo', description: 'Estado del workspace y señales del mes.', icon: Sparkles },
-  { id: 'unblock', label: 'Detectar bloqueos', description: 'Cuellos de botella en tareas y escenas.', icon: AlertTriangle },
-  { id: 'prioritize', label: 'Siguiente paso', description: 'Acciones con mayor retorno.', icon: TrendingUp },
-];
-
-function buildAiResult(id: string, o: NonNullable<ReturnType<typeof useDashboardOverview>['data']>): AiResultPayload {
-  if (id === 'unblock') return { title: 'Bloqueos detectados', summary: `${o.overdueTasksCount} tareas vencidas, ${o.pendingTasksCount} activas.`, sections: [{ title: 'Señales', items: [`${o.overdueTasksCount} requieren atención inmediata.`, `${o.focusTasks.length} en cola de foco.`] }, { title: 'Intervención', items: ['Concentrar en un proyecto antes de abrir nuevas líneas.', 'Mover tareas sin fecha a cola secundaria.'] }], suggestions: ['Resolver tareas vencidas urgentes primero.', 'Revisar proyecto más activo.'] };
-  if (id === 'prioritize') return { title: 'Prioridad recomendada', summary: `${o.projects.length} proyectos, ${o.pendingTasksCount} tareas, ${fmtTokens(o.tokensThisMonth)} tokens este mes.`, sections: [{ title: 'Secuencia', items: ['Cerrar cuello de botella del proyecto más activo.', 'Revisar escenas del video con más actividad.', 'IA solo para tareas cerradas, no nuevas ramas.'] }], suggestions: ['Tomar tarea vencida como primera acción.', 'Reducir cambios de contexto.'] };
-  return { title: 'Resumen operativo', summary: `${o.projects.length} proyectos, ${o.pendingTasksCount} tareas, coste ${fmtUsd(o.monthlyCostUsd)}/mes.`, sections: [{ title: 'Capacidad', items: [`${o.projects.length} proyectos activos.`, `${o.focusTasks.length} tareas en foco.`, `${o.recentActivity.length} eventos recientes.`] }], suggestions: ['Conectar panel a acciones reales.', 'Añadir métricas por proyecto.'] };
 }
 
 /* ── Compact stat ─────────────────────────────────────────── */
@@ -92,8 +74,8 @@ export function DashboardHomeView() {
   const [activeFilter, setActiveFilter] = useState<StatusFilter>('all');
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<'recent' | 'name_asc'>('recent');
-  const [aiResult, setAiResult] = useState<AiResultPayload | null>(null);
-  const [aiOpen, setAiOpen] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<{title: string; summary: string; recommendations: string[]; nextAction: string} | null>(null);
   const debouncedSearch = useDebounce(search, 250);
   const { isFavorite } = useFavorites();
   const supabase = createClient();
@@ -129,11 +111,31 @@ export function DashboardHomeView() {
     return r;
   }, [projects, activeFilter, debouncedSearch, sort, isFavorite]);
 
-  const handleAi = (a: AiAssistAction) => {
+  async function handleAnalyzeWorkspace() {
     if (!overview) return;
-    setAiResult(buildAiResult(a.id, overview));
-    setAiOpen(true);
-  };
+    setAnalyzing(true);
+    try {
+      const result = {
+        title: 'Estado del workspace',
+        summary: `${overview.projects.length} proyecto${overview.projects.length !== 1 ? 's' : ''}, ${overview.pendingTasksCount} tareas activas, ${fmtTokens(overview.tokensThisMonth)} tokens este mes.`,
+        recommendations: [
+          overview.overdueTasksCount > 0 ? `${overview.overdueTasksCount} tarea${overview.overdueTasksCount !== 1 ? 's' : ''} vencida${overview.overdueTasksCount !== 1 ? 's' : ''} — revisar prioridades` : null,
+          overview.focusTasks.length > 0 ? `${overview.focusTasks.length} tarea${overview.focusTasks.length !== 1 ? 's' : ''} en cola de foco` : null,
+          counts.inProgress > 0 ? `${counts.inProgress} proyecto${counts.inProgress !== 1 ? 's' : ''} en progreso` : null,
+        ].filter(Boolean) as string[],
+        nextAction: overview.overdueTasksCount > 0
+          ? 'Resolver tareas vencidas primero'
+          : overview.focusTasks.length > 0
+          ? 'Completar las tareas en cola de foco'
+          : 'Todo al dia — crear nuevo contenido',
+      };
+      setAnalysisResult(result);
+    } catch {
+      // silently handle
+    } finally {
+      setAnalyzing(false);
+    }
+  }
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 space-y-6">
@@ -225,28 +227,35 @@ export function DashboardHomeView() {
 
         {/* Right: Sidebar */}
         <aside className="space-y-5">
-          {/* AI Assist — compact */}
+          {/* Workspace analysis */}
           <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <Sparkles className="size-4 text-primary" />
-              <p className="text-sm font-medium">Asistente IA</p>
-            </div>
-            <div className="space-y-1.5">
-              {AI_ACTIONS.map((a) => {
-                const Icon = a.icon;
-                return (
-                  <button
-                    key={a.id}
-                    type="button"
-                    onClick={() => handleAi(a)}
-                    className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-                  >
-                    <Icon className="size-3.5 shrink-0" />
-                    <span>{a.label}</span>
-                  </button>
-                );
-              })}
-            </div>
+            <button
+              type="button"
+              onClick={handleAnalyzeWorkspace}
+              disabled={analyzing || !overview}
+              className="w-full rounded-xl bg-primary py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+            >
+              {analyzing ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+              {analyzing ? 'Analizando...' : 'Analizar workspace'}
+            </button>
+
+            {analysisResult && (
+              <div className="space-y-3 pt-2">
+                <p className="text-sm text-muted-foreground">{analysisResult.summary}</p>
+                {analysisResult.recommendations.length > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Recomendaciones</p>
+                    {analysisResult.recommendations.map((r, i) => (
+                      <p key={i} className="text-xs text-muted-foreground pl-3 border-l-2 border-primary/20">{r}</p>
+                    ))}
+                  </div>
+                )}
+                <div className="rounded-lg bg-primary/5 border border-primary/20 p-2.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-primary mb-1">Siguiente accion</p>
+                  <p className="text-xs text-foreground">{analysisResult.nextAction}</p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Workspace overview — visual analysis */}
@@ -302,8 +311,6 @@ export function DashboardHomeView() {
         </aside>
       </div>
 
-      {/* AI Result Modal */}
-      <AiResultDrawer open={aiOpen} result={aiResult} onClose={() => setAiOpen(false)} />
     </div>
   );
 }

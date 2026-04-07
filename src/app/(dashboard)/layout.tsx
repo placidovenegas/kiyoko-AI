@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import {
   SidebarProvider,
   SidebarInset,
@@ -24,7 +24,7 @@ import { TaskCreatePanel } from '@/components/tasks/TaskCreatePanel';
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   useKeyboardShortcuts();
 
-  const { isOpen, mode, toggleChat } = useAIStore();
+  const { isOpen, mode } = useAIStore();
   const {
     settingsModalOpen,
     openSettingsModal,
@@ -40,9 +40,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const routeSnapshot = `${pathname}?${searchParams.toString()}`;
   const previousRouteRef = useRef(routeSnapshot);
 
-  const handleToggleChat = useCallback(() => {
-    toggleChat();
-  }, [toggleChat]);
+  // Determine whether to show KiyokoPanel based on route
+  const showKiyokoPanel = pathname.match(/^\/project\/[^/]+$/) || (
+    pathname.startsWith('/project/') && (
+      pathname.includes('/video/') ||
+      pathname.includes('/resources/') ||
+      pathname.includes('/publications/')
+    )
+  );
 
   // In fullscreen mode the chat replaces content; otherwise content is visible
   const showContent = !isOpen || mode !== 'fullscreen';
@@ -109,7 +114,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       <SidebarInset className="h-svh! max-h-svh! overflow-hidden">
         <div className="flex flex-1 min-h-0 overflow-hidden relative">
-          {isFullscreen ? (
+          {isFullscreen && showKiyokoPanel ? (
             // Fullscreen: ocultamos navbar + página y dejamos solo el chat.
             <KiyokoPanel />
           ) : (
@@ -119,7 +124,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {/* Header */}
                 <header className="flex shrink-0 items-center gap-2 border-b border-border px-3 bg-card z-30 h-11.75">
                   <div className="flex-1 min-w-0">
-                    <Header onToggleChat={handleToggleChat} chatOpen={isOpen} />
+                    <Header />
                   </div>
                 </header>
 
@@ -138,8 +143,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               {projectCreatePanelOpen && <ProjectCreatePanel />}
               {taskCreatePanelOpen && <TaskCreatePanel />}
 
-              {/* Kiyoko panel — handles sidebar/floating/fullscreen internally */}
-              <KiyokoPanel />
+              {/* Kiyoko panel — only on production pages */}
+              {showKiyokoPanel && <KiyokoPanel />}
             </>
           )}
         </div>

@@ -12,7 +12,6 @@ import {
   FolderKanban,
   Film,
   LayoutGrid,
-  Bot,
 } from 'lucide-react';
 import { Tooltip as HeroTooltip } from '@heroui/react';
 
@@ -22,7 +21,6 @@ import { Button } from '@heroui/react';
 import { cn } from '@/lib/utils/cn';
 import { FeedbackDialog } from '@/components/shared/FeedbackDialog';
 import { NotificationBell } from '@/components/layout/NotificationBell';
-import { useAIStore } from '@/stores/ai-store';
 import { useUIStore } from '@/stores/useUIStore';
 
 function shouldShowBackButton(pathname: string): boolean {
@@ -39,7 +37,6 @@ type HeaderRouteContext = {
   showGlobalTaskAction: boolean;
   showProjectSettings: boolean;
   showVideoSettings: boolean;
-  showAiAction: boolean;
 };
 
 function deriveHeaderRouteContext(pathname: string): HeaderRouteContext {
@@ -68,7 +65,6 @@ function deriveHeaderRouteContext(pathname: string): HeaderRouteContext {
       showGlobalTaskAction: false,
       showProjectSettings: false,
       showVideoSettings: true,
-      showAiAction: true,
     };
   }
 
@@ -93,7 +89,6 @@ function deriveHeaderRouteContext(pathname: string): HeaderRouteContext {
       showGlobalTaskAction: false,
       showProjectSettings: true,
       showVideoSettings: false,
-      showAiAction: true,
     };
   }
 
@@ -114,7 +109,6 @@ function deriveHeaderRouteContext(pathname: string): HeaderRouteContext {
     showGlobalTaskAction: true,
     showProjectSettings: false,
     showVideoSettings: false,
-    showAiAction: true,
   };
 }
 
@@ -122,12 +116,7 @@ function deriveHeaderRouteContext(pathname: string): HeaderRouteContext {
 /*  Header                                                             */
 /* ------------------------------------------------------------------ */
 
-interface HeaderProps {
-  onToggleChat?: () => void;
-  chatOpen?: boolean;
-}
-
-export function Header({ onToggleChat, chatOpen }: HeaderProps) {
+export function Header() {
   const router = useRouter();
   const pathname = usePathname();
   const t = useTranslations();
@@ -137,8 +126,6 @@ export function Header({ onToggleChat, chatOpen }: HeaderProps) {
   const openProjectSettingsModal = useUIStore((s) => s.openProjectSettingsModal);
   const openVideoSettingsModal = useUIStore((s) => s.openVideoSettingsModal);
   const pageHeaderContext = useUIStore((s) => s.pageHeaderContext);
-  const openChat = useAIStore((s) => s.openChat);
-  const setActiveAgent = useAIStore((s) => s.setActiveAgent);
 
   // Feedback
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -149,11 +136,6 @@ export function Header({ onToggleChat, chatOpen }: HeaderProps) {
 
   const chromeButtonClassName = 'flex items-center justify-center size-8 rounded-md border border-foreground/8 bg-background text-foreground/45 hover:bg-foreground/4 hover:text-foreground/75 transition-all duration-150';
   const chromeTextButtonClassName = 'shrink-0 rounded-md border border-foreground/8 bg-background px-2.5 py-1 text-[12px] text-foreground/45 hover:bg-foreground/4 hover:text-foreground/75 transition-all duration-150';
-
-  function handleOpenAiContext() {
-    setActiveAgent(routeContext.scope === 'video' ? 'editor' : 'project');
-    openChat('sidebar');
-  }
 
   function handleGoBack() {
     if (pageHeaderContext?.backHref) {
@@ -289,25 +271,6 @@ export function Header({ onToggleChat, chatOpen }: HeaderProps) {
 
         {/* Notifications */}
         <NotificationBell />
-
-        {/* Chat */}
-        {onToggleChat && routeContext.showAiAction && (
-          <Tooltip content={routeContext.scope === 'dashboard' ? 'Kiyoko IA' : 'Asistente contextual'} placement="bottom">
-            <button
-              type="button"
-              onClick={routeContext.scope === 'dashboard' ? onToggleChat : handleOpenAiContext}
-              className={cn(
-                'flex items-center justify-center size-8 rounded-md border transition-all duration-150',
-                chatOpen
-                  ? 'border-primary/30 text-primary bg-primary/10 shadow-[0_0_0_1px_rgba(0,111,238,0.12)]'
-                  : 'border-foreground/8 bg-background text-foreground/45 hover:text-foreground/75 hover:bg-foreground/4',
-              )}
-              aria-label="Chat IA"
-            >
-              <Bot size={14} />
-            </button>
-          </Tooltip>
-        )}
       </div>
 
       {/* Feedback Dialog */}
