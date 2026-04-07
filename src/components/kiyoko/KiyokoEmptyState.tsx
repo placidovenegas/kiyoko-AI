@@ -284,41 +284,23 @@ export function KiyokoEmptyState({
             </p>
           </motion.div>
 
-          {/* Prompt previews */}
-          {sceneImagePrompt && (
-            <motion.div variants={item} className="w-full max-w-sm mt-2 text-left">
-              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
-                Prompt imagen
-              </p>
-              <p className="font-mono text-[11px] line-clamp-2 bg-background rounded-lg px-2.5 py-2 border border-border text-muted-foreground">
-                {sceneImagePrompt}
-              </p>
-            </motion.div>
-          )}
-
-          {sceneVideoPrompt && (
-            <motion.div variants={item} className="w-full max-w-sm mt-2 text-left">
-              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
-                Prompt video
-              </p>
-              <p className="font-mono text-[11px] line-clamp-2 bg-background rounded-lg px-2.5 py-2 border border-border text-muted-foreground">
-                {sceneVideoPrompt}
-              </p>
-            </motion.div>
-          )}
-
-          {/* Characters & Background */}
-          <motion.div variants={item} className="flex items-center gap-3 mt-2 text-[11px] text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <Users size={12} className="shrink-0" />
+          {/* Scene status badges */}
+          <motion.div variants={item} className="flex flex-wrap items-center justify-center gap-2 mt-2 text-[11px] text-muted-foreground">
+            <span className="flex items-center gap-1 rounded-md bg-card border border-border px-2 py-0.5">
+              <Users size={11} className="shrink-0" />
               {sceneCharacters && sceneCharacters.length > 0
                 ? sceneCharacters.join(', ')
                 : 'Sin personajes'}
             </span>
-            <span className="flex items-center gap-1">
-              <Image size={12} className="shrink-0" />
+            <span className="flex items-center gap-1 rounded-md bg-card border border-border px-2 py-0.5">
+              <Image size={11} className="shrink-0" />
               {sceneBackground || 'Sin fondo'}
             </span>
+            {sceneHasPrompts && (
+              <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-2 py-0.5">
+                Prompts listos
+              </span>
+            )}
           </motion.div>
 
           <motion.p variants={item} className="text-[11px] text-muted-foreground mt-3 mb-3">
