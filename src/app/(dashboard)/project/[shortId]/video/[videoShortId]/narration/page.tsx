@@ -149,6 +149,9 @@ export default function NarrationPage() {
   const supabase = createClient();
   const queryClient = useQueryClient();
 
+  // TTS provider toggle
+  const [ttsProvider, setTtsProvider] = useState<'elevenlabs' | 'voxtral'>('elevenlabs');
+
   // Narration mode toggle
   const [narrationMode, setNarrationMode] = useState<'scenes' | 'continuous'>('scenes');
 
@@ -273,6 +276,7 @@ export default function NarrationPage() {
           voice: narration?.voice_id ?? undefined,
           language: 'es',
           speed,
+          provider: ttsProvider,
         }),
       });
 
@@ -635,7 +639,38 @@ export default function NarrationPage() {
               </div>
             )}
 
-            <div className="mt-4 flex items-center gap-3">
+            <div className="mt-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-muted-foreground">Proveedor TTS:</span>
+                <div className="flex rounded-lg border border-border p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setTtsProvider('elevenlabs')}
+                    className={cn(
+                      'px-2 py-1 rounded-md text-[10px] font-medium transition',
+                      ttsProvider === 'elevenlabs'
+                        ? 'bg-secondary text-foreground'
+                        : 'text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    ElevenLabs
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTtsProvider('voxtral')}
+                    className={cn(
+                      'px-2 py-1 rounded-md text-[10px] font-medium transition',
+                      ttsProvider === 'voxtral'
+                        ? 'bg-secondary text-foreground'
+                        : 'text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    Voxtral
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={() => generateAudioMutation.mutate()}
@@ -659,6 +694,7 @@ export default function NarrationPage() {
                   Descargar MP3
                 </button>
               )}
+              </div>
             </div>
           </div>
         </div>

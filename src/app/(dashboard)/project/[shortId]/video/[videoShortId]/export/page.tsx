@@ -96,8 +96,8 @@ const EXPORT_OPTIONS: {
     detail: 'Storyboard en PDF con imagenes de cada escena, dialogos y notas de produccion.',
     icon: FileCode2,
     format: 'pdf',
-    ready: false,
-    estimatePerScene: 0,
+    ready: true,
+    estimatePerScene: 3072,
   },
   {
     label: 'MP3 Narracion',
@@ -365,7 +365,22 @@ export default function VideoExportPage() {
         toast.success('HTML exportado correctamente');
       }
 
-      if (!['json', 'md', 'html'].includes(format)) {
+      if (format === 'pdf') {
+        const res = await fetch('/api/export/pdf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ projectId: project.id, videoId: video.id }),
+        });
+        if (!res.ok) throw new Error('PDF export failed');
+        const html = await res.text();
+        const blob = new Blob([html], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        setExported((prev) => new Set(prev).add('pdf'));
+        toast.success('PDF abierto en nueva pestaña — usa Ctrl+P para guardar como PDF');
+      }
+
+      if (!['json', 'md', 'html', 'pdf'].includes(format)) {
         toast.info(`${EXPORT_OPTIONS.find((o) => o.format === format)?.label} -- proximamente`);
       }
     } catch {

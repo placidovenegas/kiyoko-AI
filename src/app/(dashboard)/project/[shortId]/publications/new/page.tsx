@@ -7,8 +7,10 @@ import { createClient } from '@/lib/supabase/client';
 import { useProject } from '@/contexts/ProjectContext';
 import { queryKeys } from '@/lib/query/keys';
 import {
-  Loader2, Plus, CalendarDays, Hash, FileText, Layers, Send,
+  Loader2, Plus, CalendarDays, Hash, FileText, Layers, Send, Sparkles,
 } from 'lucide-react';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils/cn';
 import type { SocialProfile } from '@/types';
 
 function generateShortId(): string {
@@ -72,6 +74,31 @@ export default function NewPublicationPage() {
       void queryClient.invalidateQueries({ queryKey: queryKeys.publications.byProject(project?.id ?? '') });
       router.push(`/project/${shortId}/publications/${pubShortId}`);
     },
+  });
+
+  // AI content generation
+  const generateContent = useMutation({
+    mutationFn: async () => {
+      if (!project?.id) throw new Error('No project');
+      const selectedProfile = profiles.find((p) => p.id === profileId);
+      const res = await fetch('/api/ai/generate-publication-content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: project.id,
+          platform: selectedProfile?.platform ?? 'instagram',
+          publicationType: pubType,
+        }),
+      });
+      if (!res.ok) throw new Error('API error');
+      return res.json() as Promise<{ caption?: string; hashtags?: string[] }>;
+    },
+    onSuccess: (data) => {
+      if (data.caption) setCaption(data.caption);
+      if (data.hashtags?.length) setHashtags(data.hashtags.join(', '));
+      toast.success('Contenido generado con IA');
+    },
+    onError: () => toast.error('Error al generar contenido'),
   });
 
   if (profilesLoading) {
@@ -158,10 +185,28 @@ export default function NewPublicationPage() {
 
         {/* Caption */}
         <div className="rounded-xl border border-border bg-card p-5">
-          <label className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
-            <FileText className="h-4 w-4 text-primary" />
-            Caption
-          </label>
+          <div className="mb-2 flex items-center justify-between">
+            <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <FileText className="h-4 w-4 text-primary" />
+              Caption
+            </label>
+            <button
+              type="button"
+              onClick={() => generateContent.mutate()}
+              disabled={generateContent.isPending}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition',
+                'bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-50',
+              )}
+            >
+              {generateContent.isPending ? (
+                <Loader2 className="size-3 animate-spin" />
+              ) : (
+                <Sparkles className="size-3" />
+              )}
+              Generar con IA
+            </button>
+          </div>
           <textarea
             value={caption}
             onChange={(e) => setCaption(e.target.value)}

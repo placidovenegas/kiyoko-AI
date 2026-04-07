@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useProject } from '@/contexts/ProjectContext';
 import { createClient } from '@/lib/supabase/client';
@@ -15,6 +16,52 @@ import {
   Globe,
 } from 'lucide-react';
 import type { Publication } from '@/types';
+
+/* ── Platform mockup preview ── */
+function PlatformMockup({ platform, title, caption }: { platform: string; title: string; caption: string }) {
+  if (platform === 'instagram') {
+    return (
+      <div className="rounded-lg border border-border bg-background p-2 mt-2">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="size-6 rounded-full bg-primary/20" />
+          <span className="text-[10px] font-medium text-foreground">kiyoko.ai</span>
+        </div>
+        <div className="aspect-square bg-muted rounded-md mb-2 flex items-center justify-center">
+          <span className="text-xs text-muted-foreground/40">Imagen</span>
+        </div>
+        <p className="text-[10px] text-muted-foreground line-clamp-2">{caption}</p>
+      </div>
+    );
+  }
+  if (platform === 'tiktok') {
+    return (
+      <div className="rounded-lg border border-border bg-background p-2 mt-2">
+        <div className="aspect-[9/16] max-h-32 bg-muted rounded-md mb-2 flex items-center justify-center relative">
+          <span className="text-xs text-muted-foreground/40">Video 9:16</span>
+          <div className="absolute bottom-1 left-1 right-1">
+            <p className="text-[8px] text-white bg-black/50 rounded px-1 py-0.5 line-clamp-1">{caption}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="size-5 rounded-full bg-primary/20" />
+          <span className="text-[10px] font-medium text-foreground">@kiyoko.ai</span>
+        </div>
+      </div>
+    );
+  }
+  if (platform === 'youtube') {
+    return (
+      <div className="rounded-lg border border-border bg-background p-2 mt-2">
+        <div className="aspect-video bg-muted rounded-md mb-2 flex items-center justify-center">
+          <span className="text-xs text-muted-foreground/40">Video 16:9</span>
+        </div>
+        <p className="text-[10px] font-medium text-foreground line-clamp-1">{title}</p>
+        <p className="text-[9px] text-muted-foreground mt-0.5">kiyoko.ai &middot; 0 visualizaciones</p>
+      </div>
+    );
+  }
+  return null;
+}
 
 /* ── Platform config ── */
 const PLATFORM_BADGE: Record<string, { label: string; className: string }> = {
@@ -55,6 +102,7 @@ export default function PublicationsPage() {
   const { project, loading: projectLoading } = useProject();
   const params = useParams();
   const shortId = params.shortId as string;
+  const [showPreview, setShowPreview] = useState<string | null>(null);
 
   const { data: publications = [], isLoading } = useQuery({
     queryKey: queryKeys.publications.byProject(project?.id ?? ''),
@@ -189,6 +237,30 @@ export default function PublicationsPage() {
                     ))}
                     {pub.hashtags.length > 3 && (
                       <span className="text-[10px] text-muted-foreground">+{pub.hashtags.length - 3}</span>
+                    )}
+                  </div>
+                )}
+
+                {/* Preview toggle */}
+                {platformBadge && (
+                  <div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setShowPreview(showPreview === pub.id ? null : pub.id);
+                      }}
+                      className="text-[10px] text-primary hover:text-primary/80 transition-colors"
+                    >
+                      {showPreview === pub.id ? 'Ocultar preview' : 'Ver preview'}
+                    </button>
+                    {showPreview === pub.id && (
+                      <PlatformMockup
+                        platform={(pub.platform ?? '').toLowerCase()}
+                        title={pub.title}
+                        caption={pub.caption ?? pub.description ?? ''}
+                      />
                     )}
                   </div>
                 )}

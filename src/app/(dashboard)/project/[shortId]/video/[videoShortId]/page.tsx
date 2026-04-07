@@ -17,7 +17,7 @@ import {
   Film, Clock, Monitor, Mic, FileOutput, Music, Image as ImageIcon,
   Video, Loader2, BarChart3, Layers, CheckCircle2, Target,
   Settings2, Copy, Sparkles, ExternalLink, MoreHorizontal,
-  Eye, Pencil, Camera, Clapperboard, Plus, Trash2, ArrowRight, MessageCircle, Clock3,
+  Eye, Pencil, Camera, Clapperboard, Plus, Trash2, ArrowRight, MessageCircle, Clock3, GripVertical,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -218,6 +218,7 @@ function StoryboardCard({
   timelineEntry,
   onGeneratePrompts,
   onEditScene,
+  onReorderScene,
   isGenerating,
 }: {
   scene: Scene;
@@ -232,6 +233,7 @@ function StoryboardCard({
   timelineEntry: TimelineEntryRow | undefined;
   onGeneratePrompts: () => void;
   onEditScene: () => void;
+  onReorderScene: (draggedId: string, targetId: string) => void;
   isGenerating: boolean;
 }) {
   const sceneLink = scene.short_id
@@ -248,10 +250,25 @@ function StoryboardCard({
   const thumbUrl = thumbnail?.thumbnail_url ?? thumbnail?.file_url;
 
   return (
-    <div className="rounded-xl border border-border bg-card p-4 space-y-3 transition-colors hover:border-primary/20">
+    <div
+      className="group rounded-xl border border-border bg-card p-4 space-y-3 transition-colors hover:border-primary/20 cursor-grab active:cursor-grabbing"
+      draggable
+      onDragStart={(e) => e.dataTransfer.setData('sceneId', scene.id)}
+      onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-primary'); }}
+      onDragLeave={(e) => e.currentTarget.classList.remove('border-primary')}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.currentTarget.classList.remove('border-primary');
+        const draggedId = e.dataTransfer.getData('sceneId');
+        if (draggedId && draggedId !== scene.id) {
+          onReorderScene(draggedId, scene.id);
+        }
+      }}
+    >
       {/* ── Top row: number, title, phase, duration, status ── */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
+          <GripVertical className="size-4 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors cursor-grab shrink-0" />
           <span className="shrink-0 text-sm font-bold text-muted-foreground">#{scene.scene_number}</span>
           <h4 className="text-sm font-medium text-foreground truncate">{scene.title}</h4>
         </div>
@@ -586,6 +603,27 @@ export default function VideoOverviewPage() {
     } finally {
       setGeneratingAll(false);
     }
+  }
+
+  async function handleReorderScene(draggedId: string, targetId: string) {
+    const dragIdx = scenes.findIndex((s) => s.id === draggedId);
+    const targetIdx = scenes.findIndex((s) => s.id === targetId);
+    if (dragIdx === -1 || targetIdx === -1) return;
+
+    const reordered = [...scenes];
+    const [moved] = reordered.splice(dragIdx, 1);
+    reordered.splice(targetIdx, 0, moved);
+
+    const supabase = createClient();
+    for (let i = 0; i < reordered.length; i++) {
+      await supabase
+        .from('scenes')
+        .update({ sort_order: i, scene_number: i + 1 })
+        .eq('id', reordered[i].id);
+    }
+
+    toast.success('Escenas reordenadas');
+    queryClient.invalidateQueries({ queryKey: ['video'] });
   }
 
   // Fetch narrative arcs
@@ -977,6 +1015,7 @@ export default function VideoOverviewPage() {
                   timelineEntry={timelineEntries.find((t) => t.scene_id === scene.id)}
                   onGeneratePrompts={() => handleGeneratePrompts(scene.id)}
                   onEditScene={() => handleEditSceneWithAI(scene)}
+                  onReorderScene={handleReorderScene}
                   isGenerating={generatingSceneId === scene.id}
                 />
               );
