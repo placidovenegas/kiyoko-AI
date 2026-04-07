@@ -3,6 +3,23 @@ import type { DashboardContextStatsLite } from '@/lib/chat/fetch-dashboard-conte
 import type { ProfileCreativeContextLite } from '@/lib/chat/fetch-profile-creative-context';
 import type { ProjectContextStatsLite } from '@/lib/chat/fetch-project-context-stats';
 
+export interface SceneContextDetail {
+  description?: string | null;
+  dialogue?: string | null;
+  directorNotes?: string | null;
+  cameraAngle?: string | null;
+  cameraMovement?: string | null;
+  lighting?: string | null;
+  mood?: string | null;
+  audioConfig?: Record<string, boolean> | null;
+  imagePrompt?: string | null;
+  videoPrompt?: string | null;
+  assignedCharacters?: string[];
+  assignedBackground?: string | null;
+  durationSeconds?: number | null;
+  arcPhase?: string | null;
+}
+
 export interface ContextClientHintParams {
   contextLevel: ContextLevel;
   projectTitle: string | null;
@@ -20,6 +37,8 @@ export interface ContextClientHintParams {
   activeUserApiKeyCount?: number | null;
   /** Preferencias creativas del perfil (tipos de vídeo, propósito) */
   profileCreative?: ProfileCreativeContextLite | null;
+  /** Datos completos de la escena activa (cuando nivel = scene) */
+  sceneDetail?: SceneContextDetail | null;
 }
 
 const LEVEL_ES: Record<ContextLevel, string> = {
@@ -82,6 +101,30 @@ export function buildContextClientHint(p: ContextClientHintParams): string {
     lines.push(
       'Alcance (vídeo): puedes proponer ideas y mejoras para este vídeo; usa escenas y recursos del proyecto cuando el resumen lo incluya.',
     );
+  }
+
+  // Scene-level detail (when viewing a specific scene)
+  if (p.contextLevel === 'scene' && p.sceneDetail) {
+    const sd = p.sceneDetail;
+    lines.push('--- DETALLE DE LA ESCENA ACTIVA ---');
+    if (sd.description) lines.push(`Descripción: ${sd.description}`);
+    if (sd.durationSeconds) lines.push(`Duración: ${sd.durationSeconds}s`);
+    if (sd.arcPhase) lines.push(`Fase: ${sd.arcPhase}`);
+    if (sd.cameraAngle || sd.cameraMovement) lines.push(`Cámara: ${sd.cameraAngle ?? 'auto'} · ${sd.cameraMovement ?? 'auto'}`);
+    if (sd.lighting) lines.push(`Iluminación: ${sd.lighting}`);
+    if (sd.mood) lines.push(`Mood: ${sd.mood}`);
+    if (sd.audioConfig) {
+      const audio = Object.entries(sd.audioConfig).filter(([, v]) => v).map(([k]) => k).join(', ');
+      lines.push(`Audio: ${audio || 'sin configurar'}`);
+    }
+    if (sd.assignedCharacters?.length) lines.push(`Personajes: ${sd.assignedCharacters.join(', ')}`);
+    if (sd.assignedBackground) lines.push(`Fondo: ${sd.assignedBackground}`);
+    if (sd.dialogue) lines.push(`Diálogo: "${sd.dialogue}"`);
+    if (sd.directorNotes) lines.push(`Notas director: ${sd.directorNotes}`);
+    if (sd.imagePrompt) lines.push(`Prompt imagen actual: ${sd.imagePrompt.slice(0, 200)}...`);
+    if (sd.videoPrompt) lines.push(`Prompt video actual: ${sd.videoPrompt.slice(0, 200)}...`);
+    lines.push('--- FIN DETALLE ESCENA ---');
+    lines.push('Tienes acceso completo a los datos de esta escena. Puedes sugerir cambios de cámara, mejorar prompts, extender la escena, o modificar cualquier campo. Usa [ACTION_PLAN] para cambios y [PROMPT_PREVIEW] para mostrar prompts nuevos.');
   }
 
   if (p.activeUserApiKeyCount != null) {
