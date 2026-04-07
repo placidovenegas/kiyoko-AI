@@ -28,11 +28,19 @@ interface GeneratedScene {
   has_sfx?: boolean;
 }
 
+interface ActionButton {
+  label: string;
+  variant: 'primary' | 'ghost' | 'danger';
+  action: string;
+}
+
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   scenes?: GeneratedScene[];
+  actions?: ActionButton[];
+  isTyping?: boolean;
 }
 
 interface Props {
@@ -101,6 +109,77 @@ function CopyButton({ text }: { text: string }) {
       {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
       {copied ? 'Copiado' : 'Copiar'}
     </button>
+  );
+}
+
+/* ── Simple markdown renderer ──────────────────────────── */
+
+function MarkdownText({ text }: { text: string }) {
+  const lines = text.split('\n');
+  return (
+    <div className="space-y-1.5">
+      {lines.map((line, i) => {
+        if (!line.trim()) return <div key={i} className="h-1" />;
+        const parts = line.split(/(\*\*.*?\*\*)/g).map((part, j) => {
+          if (part.startsWith('**') && part.endsWith('**'))
+            return <strong key={j} className="font-semibold text-foreground">{part.slice(2, -2)}</strong>;
+          return <span key={j}>{part}</span>;
+        });
+        if (line.startsWith('• ') || line.startsWith('- '))
+          return <p key={i} className="pl-3 text-sm text-muted-foreground leading-relaxed flex gap-1.5"><span className="text-primary shrink-0">•</span><span>{parts.slice(0)}</span></p>;
+        if (line.match(/^[📷🎬🖼️🎥📋📝🎵⚠️✨🎙️]/))
+          return <p key={i} className="text-sm text-foreground leading-relaxed mt-2">{parts}</p>;
+        return <p key={i} className="text-sm text-muted-foreground leading-relaxed">{parts}</p>;
+      })}
+    </div>
+  );
+}
+
+/* ── Typing animation ──────────────────────────────────── */
+
+function TypingMessage({ content, actions, onFinished, onAction }: { content: string; actions?: ActionButton[]; onFinished: () => void; onAction?: (id: string) => void }) {
+  const [displayed, setDisplayed] = useState('');
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    let i = 0;
+    const words = content.split(' ');
+    const interval = setInterval(() => {
+      i++;
+      setDisplayed(words.slice(0, i).join(' '));
+      if (i >= words.length) {
+        clearInterval(interval);
+        setDone(true);
+        onFinished();
+      }
+    }, 30);
+    return () => clearInterval(interval);
+  }, [content, onFinished]);
+
+  return (
+    <div>
+      <MarkdownText text={displayed} />
+      {!done && <span className="inline-block w-1.5 h-4 bg-primary/60 animate-pulse ml-0.5 align-middle" />}
+      {done && actions && actions.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-border/50">
+          {actions.map(a => (
+            <button
+              key={a.label}
+              type="button"
+              className={cn(
+                'rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
+                a.variant === 'primary' ? 'bg-primary text-primary-foreground hover:bg-primary/90' :
+                a.variant === 'danger' ? 'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20' :
+                'border border-border text-muted-foreground hover:bg-accent hover:text-foreground',
+              )}
+              onClick={() => onAction?.(a.action)}
+            >
+              {a.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -222,6 +301,8 @@ export function SceneGeneratorModal({
   const [expandedScene, setExpandedScene] = useState<number | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [reviewMode, setReviewMode] = useState<'all' | 'one-by-one' | null>(null);
+  const [currentReviewIndex, setCurrentReviewIndex] = useState(0);
 
   // Config state
   const [selectedDuration, setSelectedDuration] = useState<number>(videoDuration);
@@ -287,33 +368,131 @@ export function SceneGeneratorModal({
 
     const mockScenes = generateMockScenes(text, activeDuration, selectedType, style);
     setGeneratedScenes(mockScenes);
+    setReviewMode(null);
+    setCurrentReviewIndex(0);
 
     const totalDur = mockScenes.reduce((s, sc) => s + sc.duration_seconds, 0);
     const typeLabel = VIDEO_TYPES.find(t => t.value === selectedType)?.label ?? selectedType;
 
-    // Build detailed chat message
-    let chatContent = `He creado ${mockScenes.length} escenas para tu ${typeLabel.toLowerCase()} de ${totalDur} segundos:\n\n`;
-    mockScenes.forEach((sc, i) => {
-      chatContent += `${i + 1}. **${sc.title}** (${sc.duration_seconds}s) — ${sc.description}\n`;
-      chatContent += `   Camara: ${sc.camera_angle.replace('_', ' ')} con ${sc.camera_movement.replace('_', ' ')}.`;
-      chatContent += sc.has_music !== false ? ' Musica: si.' : '';
-      chatContent += sc.has_dialogue ? ' Dialogo: si.' : '';
-      chatContent += sc.narration_text ? ` Narracion: "${sc.narration_text}"` : ' Sin narracion.';
-      chatContent += '\n\n';
-    });
-    chatContent += `Quieres cambiar algo? Puedes decirme:\n`;
-    chatContent += `- "Hazla mas corta la primera"\n`;
-    chatContent += `- "Cambia el angulo de la segunda a cenital"\n`;
-    chatContent += `- "Anade una escena de cierre con logo"`;
-
     const assistantMsg: Message = {
       id: `a-${Date.now()}`,
       role: 'assistant',
-      content: chatContent,
-      scenes: mockScenes,
+      content: `He planificado ${mockScenes.length} escenas (${totalDur}s total) para tu ${typeLabel.toLowerCase()}.\n\n¿Como quieres revisarlas?`,
+      actions: [
+        { label: 'Ver todas de golpe', variant: 'primary', action: 'review_all' },
+        { label: 'Revisar una por una', variant: 'ghost', action: 'review_one' },
+      ],
     };
     setMessages(prev => [...prev, assistantMsg]);
     setIsGenerating(false);
+  }
+
+  /* ── Review helpers ─────────────────────────────────── */
+
+  function buildScenesSummary(scenes: GeneratedScene[]): string {
+    const totalDur = scenes.reduce((s, sc) => s + sc.duration_seconds, 0);
+    let content = `${scenes.length} escenas (${totalDur}s total):\n\n`;
+    scenes.forEach((sc, i) => {
+      content += `${i + 1}. **${sc.title}** (${sc.duration_seconds}s) — ${sc.description}\n`;
+      content += `   📷 ${sc.camera_angle.replace('_', ' ')} · ${sc.camera_movement.replace('_', ' ')}`;
+      content += sc.has_music !== false ? ' · 🎵 Musica' : '';
+      content += sc.narration_text ? ` · 🎙️ "${sc.narration_text}"` : '';
+      content += '\n\n';
+    });
+    return content;
+  }
+
+  function handleReviewChoice(action: string) {
+    if (action === 'review_all') {
+      setReviewMode('all');
+      const chatContent = buildScenesSummary(generatedScenes);
+      setMessages(prev => [...prev, {
+        id: `a-${Date.now()}`,
+        role: 'assistant',
+        content: chatContent,
+        isTyping: true,
+      }]);
+    } else if (action === 'review_one') {
+      setReviewMode('one-by-one');
+      setCurrentReviewIndex(0);
+      showSceneForReview(0);
+    }
+  }
+
+  function showSceneForReview(index: number) {
+    const scene = generatedScenes[index];
+    if (!scene) return;
+
+    const content = `**Escena ${index + 1} de ${generatedScenes.length}**\n\n` +
+      `**${scene.title}** · ${scene.duration_seconds}s · ${scene.arc_phase}\n\n` +
+      `📝 ${scene.description}\n\n` +
+      `📷 Camara: ${scene.camera_angle.replace('_', ' ')} · ${scene.camera_movement.replace('_', ' ')}\n` +
+      (scene.has_music !== false ? '🎵 Musica: si\n' : '') +
+      (scene.narration_text ? `🎙️ "${scene.narration_text}"\n` : '') +
+      `\n¿Que quieres hacer con esta escena?`;
+
+    const isLast = index === generatedScenes.length - 1;
+    const actions: ActionButton[] = isLast
+      ? [
+          { label: 'Guardar todas', variant: 'primary', action: 'save_all_reviewed' },
+          { label: 'Cambiar algo', variant: 'ghost', action: `edit_scene_${index}` },
+        ]
+      : [
+          { label: 'OK, siguiente', variant: 'primary', action: `next_scene_${index}` },
+          { label: 'Cambiar algo', variant: 'ghost', action: `edit_scene_${index}` },
+          { label: 'Ver todas las restantes', variant: 'ghost', action: 'skip_to_all' },
+        ];
+
+    setMessages(prev => [...prev, {
+      id: `a-${Date.now()}`,
+      role: 'assistant',
+      content,
+      actions,
+      isTyping: true,
+    }]);
+  }
+
+  function handleActionButton(action: string) {
+    if (action === 'review_all') {
+      handleReviewChoice('review_all');
+      return;
+    }
+    if (action === 'review_one') {
+      handleReviewChoice('review_one');
+      return;
+    }
+    if (action.startsWith('next_scene_')) {
+      const idx = parseInt(action.split('_')[2], 10) + 1;
+      setCurrentReviewIndex(idx);
+      showSceneForReview(idx);
+      return;
+    }
+    if (action.startsWith('edit_scene_')) {
+      const idx = parseInt(action.split('_')[2], 10);
+      setMessages(prev => [...prev, {
+        id: `a-${Date.now()}`,
+        role: 'assistant',
+        content: `¿Que quieres cambiar de la escena "${generatedScenes[idx]?.title}"?\n\nPuedes decirme cosas como:\n- "Hazla mas corta"\n- "Cambia la camara a close-up"\n- "Anade dialogo"`,
+      }]);
+      return;
+    }
+    if (action === 'skip_to_all') {
+      setReviewMode('all');
+      const remaining = generatedScenes.slice(currentReviewIndex);
+      const content = `Aqui tienes las ${remaining.length} escenas restantes:\n\n` +
+        remaining.map((sc, i) => `${currentReviewIndex + i + 1}. **${sc.title}** (${sc.duration_seconds}s) — ${sc.description}`).join('\n\n');
+      setMessages(prev => [...prev, {
+        id: `a-${Date.now()}`,
+        role: 'assistant',
+        content,
+        isTyping: true,
+      }]);
+      return;
+    }
+    if (action === 'save_all_reviewed') {
+      handleSaveScenes();
+      return;
+    }
   }
 
   /* ── Save selected scenes to DB ─────────────────────── */
@@ -384,6 +563,8 @@ export function SceneGeneratorModal({
     setMessages([]);
     setSelectedScenes(new Set());
     setExpandedScene(null);
+    setReviewMode(null);
+    setCurrentReviewIndex(0);
   }
 
   if (!open) return null;
@@ -491,12 +672,46 @@ export function SceneGeneratorModal({
                     </div>
                   )}
                   <div className={cn(
-                    'rounded-xl px-3.5 py-2.5 text-sm max-w-[85%] whitespace-pre-line leading-relaxed',
+                    'rounded-xl px-3.5 py-2.5 text-sm max-w-[85%] leading-relaxed',
                     msg.role === 'user'
-                      ? 'bg-primary text-primary-foreground'
+                      ? 'bg-primary text-primary-foreground whitespace-pre-line'
                       : 'bg-background border border-border text-foreground',
                   )}>
-                    {msg.content}
+                    {msg.role === 'assistant' && msg.isTyping ? (
+                      <TypingMessage
+                        content={msg.content}
+                        actions={msg.actions}
+                        onFinished={() => {
+                          setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, isTyping: false } : m));
+                        }}
+                        onAction={handleActionButton}
+                      />
+                    ) : msg.role === 'assistant' ? (
+                      <div>
+                        <MarkdownText text={msg.content} />
+                        {msg.actions && msg.actions.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-border/50">
+                            {msg.actions.map(a => (
+                              <button
+                                key={a.label}
+                                type="button"
+                                className={cn(
+                                  'rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
+                                  a.variant === 'primary' ? 'bg-primary text-primary-foreground hover:bg-primary/90' :
+                                  a.variant === 'danger' ? 'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20' :
+                                  'border border-border text-muted-foreground hover:bg-accent hover:text-foreground',
+                                )}
+                                onClick={() => handleActionButton(a.action)}
+                              >
+                                {a.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="whitespace-pre-line">{msg.content}</span>
+                    )}
                   </div>
                 </div>
               ))}
