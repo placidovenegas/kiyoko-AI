@@ -11,7 +11,7 @@ import { useUIStore } from '@/stores/useUIStore';
 import { useAIStore } from '@/stores/ai-store';
 import { ArcBar } from '@/components/video/ArcBar';
 import { SceneGeneratorModal } from '@/components/modals/scene/SceneGeneratorModal';
-import { SceneEditorModal } from '@/components/modals/scene/SceneEditorModal';
+// SceneWorkModal replaces both SceneCreateModal and SceneEditorModal
 import { toast } from 'sonner';
 import {
   Film, Clock, Monitor, Mic, FileOutput, Music, Image as ImageIcon,
@@ -45,7 +45,7 @@ function ExpandablePrompt({ text, fallback }: { text?: string | null; fallback: 
   );
 }
 import { useState } from 'react';
-import { SceneCreateModal } from '@/components/modals';
+import { SceneWorkModal } from '@/components/modals';
 import type { NarrativeArc, Scene, ScenePrompt, SceneMedia } from '@/types';
 
 /* ------------------------------------------------------------------ */
@@ -1164,31 +1164,24 @@ export default function VideoOverviewPage() {
         </div>
       )}
 
-      {/* ── Create scene modal ──────────────────────────────── */}
-      <SceneCreateModal
-        open={showCreateScene}
-        onOpenChange={setShowCreateScene}
+      {/* ── Create/Edit scene modal ──────────────────────────── */}
+      <SceneWorkModal
+        open={showCreateScene || !!editingScene}
+        onOpenChange={(open) => {
+          if (!open) { setShowCreateScene(false); setEditingScene(null); }
+        }}
         videoId={video.id}
         projectId={project.id}
         nextSceneNumber={scenes.length + 1}
-        onSuccess={() => {
+        scene={editingScene}
+        allScenes={scenes}
+        imagePrompt={editingScene ? scenePrompts.find(p => p.scene_id === editingScene.id && p.prompt_type === 'image')?.prompt_text : undefined}
+        videoPrompt={editingScene ? scenePrompts.find(p => p.scene_id === editingScene.id && p.prompt_type === 'video')?.prompt_text : undefined}
+        onUpdate={() => {
           queryClient.invalidateQueries({ queryKey: ['scene-prompts', video.id] });
+          queryClient.invalidateQueries({ queryKey: ['video'] });
         }}
       />
-
-      {editingScene && (
-        <SceneEditorModal
-          open={!!editingScene}
-          onOpenChange={(open) => { if (!open) setEditingScene(null); }}
-          scene={editingScene}
-          allScenes={scenes}
-          imagePrompt={scenePrompts.find(p => p.scene_id === editingScene.id && p.prompt_type === 'image')?.prompt_text}
-          videoPrompt={scenePrompts.find(p => p.scene_id === editingScene.id && p.prompt_type === 'video')?.prompt_text}
-          onUpdate={() => {
-            queryClient.invalidateQueries({ queryKey: ['scene-prompts', video.id] });
-          }}
-        />
-      )}
 
       <SceneGeneratorModal
         open={showSceneGenerator}

@@ -6,6 +6,7 @@ export { BackgroundPickerModal } from './background/BackgroundPickerModal';
 export { VideoCreateModal } from './video/VideoCreateModal';
 export { TaskCreateModal } from './task/TaskCreateModal';
 export { SceneCreateModal } from './scene/SceneCreateModal';
+export { SceneWorkModal } from './scene/SceneWorkModal';
 
 // Types
 export type { ModalProps } from './shared/types';
