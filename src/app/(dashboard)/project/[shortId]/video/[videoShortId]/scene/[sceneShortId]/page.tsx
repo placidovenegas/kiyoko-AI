@@ -173,6 +173,8 @@ export default function SceneDetailPage() {
   const queryClient = useQueryClient();
 
   const [imageVersionIndex, setImageVersionIndex] = useState(0);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [showCharacterPicker, setShowCharacterPicker] = useState(false);
   const [showBackgroundPicker, setShowBackgroundPicker] = useState(false);
   const { openChat, setActiveAgent } = useAIStore();
@@ -316,6 +318,55 @@ export default function SceneDetailPage() {
     const next = { ...audio, [key]: !audio[key] };
     updateScene.mutate({ audio_config: next });
   };
+
+  // ---- Image upload ----
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !scene) return;
+
+    setUploading(true);
+    try {
+      const ext = file.name.split('.').pop() ?? 'png';
+      const path = `scenes/${scene.id}/${Date.now()}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('project-assets')
+        .upload(path, file, { contentType: file.type, upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage.from('project-assets').getPublicUrl(path);
+
+      // Mark existing images as not current
+      await supabase
+        .from('scene_media')
+        .update({ is_current: false })
+        .eq('scene_id', scene.id)
+        .eq('media_type', 'image');
+
+      // Insert new image record
+      await supabase.from('scene_media').insert({
+        scene_id: scene.id,
+        media_type: 'image',
+        file_url: urlData.publicUrl,
+        file_path: path,
+        thumbnail_url: urlData.publicUrl,
+        is_current: true,
+        status: 'uploaded',
+        version: 1,
+      });
+
+      toast.success('Imagen subida');
+      queryClient.invalidateQueries({ queryKey: queryKeys.scenes.detail(sceneShortId) });
+    } catch {
+      toast.error('Error al subir imagen');
+    } finally {
+      setUploading(false);
+      // Reset file input so same file can be re-selected
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -628,7 +679,24 @@ export default function SceneDetailPage() {
                 </div>
               )}
               <div className="flex items-center gap-2 mt-3">
-                <button type="button" className={btnGhost}><span className="flex items-center gap-1"><Upload className="h-3 w-3" />Subir imagen</span></button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className={btnGhost}
+                >
+                  <span className="flex items-center gap-1">
+                    {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                    {uploading ? 'Subiendo...' : 'Subir imagen'}
+                  </span>
+                </button>
                 <button type="button" className={btnGhost}><span className="flex items-center gap-1"><RefreshCw className="h-3 w-3" />Regenerar</span></button>
               </div>
             </div>
