@@ -43,7 +43,7 @@ function SectionCard({
   summary: string;
 }) {
   return (
-    <Link href={href} className="group rounded-3xl border border-border bg-card p-6 shadow-sm transition-all hover:border-primary/20 hover:shadow-md">
+    <Link href={href} className="group rounded-xl border border-border bg-card p-6 shadow-sm transition-all hover:border-primary/20 hover:shadow-md">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border bg-background text-primary">
@@ -85,9 +85,9 @@ export default function ProjectResourcesPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-7xl p-6">
-        <div className="h-40 animate-pulse rounded-3xl border border-border bg-card" />
-        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mx-auto max-w-7xl px-4 py-6 space-y-6">
+        <div className="h-40 animate-pulse rounded-xl border border-border bg-card" />
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {Array.from({ length: 4 }).map((_, index) => (
             <div key={index} className="h-28 animate-pulse rounded-2xl border border-border bg-card" />
           ))}
@@ -98,8 +98,8 @@ export default function ProjectResourcesPage() {
 
   if (!project) {
     return (
-      <div className="mx-auto max-w-7xl p-6">
-        <section className="flex flex-col items-center justify-center rounded-3xl border border-border bg-card px-6 py-20 text-center shadow-sm">
+      <div className="mx-auto max-w-7xl px-4 py-6 space-y-6">
+        <section className="flex flex-col items-center justify-center rounded-xl border border-border bg-card px-6 py-20 text-center shadow-sm">
           <FolderKanban className="h-12 w-12 text-muted-foreground/30" />
           <h1 className="mt-4 text-2xl font-semibold tracking-tight text-foreground">Recursos no disponibles</h1>
           <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">No se pudo cargar la biblioteca del proyecto.</p>
@@ -122,9 +122,9 @@ export default function ProjectResourcesPage() {
     : 'No hay plantillas creadas';
 
   return (
-    <div className="mx-auto max-w-7xl p-6">
+    <div className="mx-auto max-w-7xl px-4 py-6 space-y-6">
       {/* Hero section */}
-      <section className="rounded-3xl border border-border bg-card p-6 shadow-sm">
+      <section className="rounded-xl border border-border bg-card p-6 shadow-sm">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground/70">Biblioteca creativa</p>
@@ -151,7 +151,7 @@ export default function ProjectResourcesPage() {
       </section>
 
       {/* Stat cards */}
-      <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Personajes" value={characters.length} description="Entidades visuales listas para escenas" />
         <StatCard label="Fondos" value={backgrounds.length} description="Locaciones y atmosferas reutilizables" />
         <StatCard label="Estilos" value={stylePresets.length} description="Presets visuales y direccion artistica" />
@@ -159,7 +159,7 @@ export default function ProjectResourcesPage() {
       </div>
 
       {/* Section cards */}
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-2">
         <SectionCard
           href={`/project/${project.short_id}/resources/characters`}
           icon={Users}
@@ -195,7 +195,7 @@ export default function ProjectResourcesPage() {
       </div>
 
       {/* Coverage section */}
-      <section className="mt-6 rounded-3xl border border-border bg-card p-6 shadow-sm">
+      <section className="rounded-xl border border-border bg-card p-6 shadow-sm">
         <div className="flex items-start gap-3">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border bg-background text-primary">
             <Sparkles className="h-5 w-5" />

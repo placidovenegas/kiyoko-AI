@@ -59,17 +59,17 @@ export default function TemplatesPage() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-7xl p-6">
+      <div className="mx-auto max-w-7xl px-4 py-6 space-y-6">
         <div className="h-10 w-56 animate-pulse rounded-xl bg-muted" />
-        <div className="mt-6 h-96 animate-pulse rounded-3xl border border-border bg-card" />
+        <div className="mt-6 h-96 animate-pulse rounded-xl border border-border bg-card" />
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-7xl p-6">
+    <div className="mx-auto max-w-7xl px-4 py-6 space-y-6">
       {/* Header section */}
-      <section className="rounded-3xl border border-border bg-card p-6 shadow-sm">
+      <section className="rounded-xl border border-border bg-card p-6 shadow-sm">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-foreground">Plantillas de prompts</h1>
@@ -96,7 +96,7 @@ export default function TemplatesPage() {
       </section>
 
       {/* Content section */}
-      <section className="mt-6 overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
+      <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
         {templates.length === 0 ? (
           <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
             <FileCode className="h-12 w-12 text-muted-foreground/30" />

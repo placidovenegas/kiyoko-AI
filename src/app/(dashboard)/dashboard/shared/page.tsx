@@ -45,11 +45,11 @@ export default function SharedProjectsPage() {
   }
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto bg-background p-6">
+    <div className="mx-auto max-w-7xl px-4 py-6 space-y-6">
       {/* Header */}
-      <div className="mb-6 flex items-center gap-3">
+      <div className="flex items-center gap-3">
         <Share2 className="h-5 w-5 text-primary" />
-        <h1 className="text-lg font-semibold text-foreground">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
           Proyectos compartidos{' '}
           <span className="font-normal text-muted-foreground">({shares.length})</span>
         </h1>

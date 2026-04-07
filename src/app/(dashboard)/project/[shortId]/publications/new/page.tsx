@@ -6,7 +6,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useProject } from '@/contexts/ProjectContext';
 import { queryKeys } from '@/lib/query/keys';
-import { Button } from '@heroui/react';
 import {
   Loader2, Plus, CalendarDays, Hash, FileText, Layers, Send,
 } from 'lucide-react';
@@ -86,11 +85,11 @@ export default function NewPublicationPage() {
   const canSubmit = !!profileId && !!title.trim();
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto bg-background p-6">
+    <div className="mx-auto max-w-5xl px-4 py-6 space-y-6">
       {/* Header */}
-      <div className="mb-8 flex items-center gap-3">
+      <div className="flex items-center gap-3">
         <Plus className="h-5 w-5 text-primary" />
-        <h1 className="text-lg font-semibold text-foreground">Nueva publicacion</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Nueva publicacion</h1>
       </div>
 
       <div className="mx-auto w-full max-w-2xl space-y-6">
@@ -204,24 +203,22 @@ export default function NewPublicationPage() {
 
         {/* Submit */}
         <div className="flex justify-end gap-3 pt-2">
-          <Button
-            variant="ghost"
-            size="md"
+          <button
+            type="button"
             onClick={() => router.back()}
-            className="rounded-md"
+            className="inline-flex h-10 items-center justify-center rounded-xl border border-border bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
             Cancelar
-          </Button>
-          <Button
-            variant="primary"
-            size="md"
+          </button>
+          <button
+            type="button"
             onClick={() => createPub.mutate()}
             disabled={!canSubmit || createPub.isPending}
-            className="rounded-md"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none"
           >
-            <Send className="h-4 w-4 mr-2" />
+            <Send className="h-4 w-4" />
             {createPub.isPending ? 'Creando...' : 'Crear publicacion'}
-          </Button>
+          </button>
         </div>
 
         {createPub.isError && (
