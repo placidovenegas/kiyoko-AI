@@ -73,6 +73,16 @@ export function KiyokoChat({ mode, onClose, projectSlug: projectSlugProp }: Kiyo
   const [projectTitle, setProjectTitle] = useState<string | null>(null);
   const [videoTitle, setVideoTitle] = useState<string | null>(null);
   const [sceneLabel, setSceneLabel] = useState<string | null>(null);
+  const [sceneDetail, setSceneDetail] = useState<{
+    title?: string;
+    sceneNumber?: number;
+    duration?: number;
+    arcPhase?: string;
+    imagePrompt?: string;
+    videoPrompt?: string;
+    characters?: string[];
+    background?: string;
+  } | null>(null);
   const [projectStats, setProjectStats] = useState<ProjectContextStatsLite | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [userApiKeyCount, setUserApiKeyCount] = useState<number | null>(null);
@@ -488,22 +498,61 @@ export function KiyokoChat({ mode, onClose, projectSlug: projectSlugProp }: Kiyo
   useEffect(() => {
     if (!sceneShortId) {
       setSceneLabel(null);
+      setSceneDetail(null);
       return;
     }
     const supabase = createClient();
     void supabase
       .from('scenes')
-      .select('scene_number, title')
+      .select(`scene_number, title, description, duration_seconds, arc_phase,
+        scene_prompts(prompt_type, prompt_text, is_current),
+        scene_characters(characters(name)),
+        scene_backgrounds(backgrounds(name))`)
       .eq('short_id', sceneShortId)
       .single()
       .then(({ data, error }) => {
         if (error || !data) {
           setSceneLabel(null);
+          setSceneDetail(null);
           return;
         }
         const num = data.scene_number ?? '?';
         const t = (data.title as string)?.trim();
         setSceneLabel(`#${num}${t ? ` · ${t}` : ''}`);
+
+        // Extract prompts
+        const prompts = (data.scene_prompts ?? []) as Array<{
+          prompt_type: string;
+          prompt_text: string | null;
+          is_current: boolean;
+        }>;
+        const currentImage = prompts.find((p) => p.prompt_type === 'image' && p.is_current);
+        const currentVideo = prompts.find((p) => p.prompt_type === 'video' && p.is_current);
+
+        // Extract characters
+        const chars = (data.scene_characters ?? []) as Array<{
+          characters: { name: string } | null;
+        }>;
+        const charNames = chars
+          .map((c) => c.characters?.name)
+          .filter((n): n is string => !!n);
+
+        // Extract background
+        const bgs = (data.scene_backgrounds ?? []) as Array<{
+          backgrounds: { name: string } | null;
+        }>;
+        const bgName = bgs[0]?.backgrounds?.name ?? undefined;
+
+        setSceneDetail({
+          title: t || undefined,
+          sceneNumber: typeof data.scene_number === 'number' ? data.scene_number : undefined,
+          duration: typeof data.duration_seconds === 'number' ? data.duration_seconds : undefined,
+          arcPhase: (data.arc_phase as string) || undefined,
+          imagePrompt: currentImage?.prompt_text || undefined,
+          videoPrompt: currentVideo?.prompt_text || undefined,
+          characters: charNames.length > 0 ? charNames : undefined,
+          background: bgName,
+        });
       });
   }, [sceneShortId]);
 
@@ -522,6 +571,20 @@ export function KiyokoChat({ mode, onClose, projectSlug: projectSlugProp }: Kiyo
       userApiKeyLoading={userApiKeyLoading}
     />
   );
+
+  // ---- Context bar text (always-visible strip below header) ----
+  const contextBarText = useMemo(() => {
+    if (chatContextLevel === 'scene' && sceneLabel) return sceneLabel;
+    if (chatContextLevel === 'video' && videoTitle) {
+      const count = projectStats?.scenesInCurrentVideo;
+      return count != null ? `${videoTitle} · ${count} escenas` : videoTitle;
+    }
+    if (chatContextLevel === 'project' && projectTitle) {
+      const count = projectStats?.videoCount;
+      return count != null ? `${projectTitle} · ${count} videos` : projectTitle;
+    }
+    return null;
+  }, [chatContextLevel, sceneLabel, videoTitle, projectTitle, projectStats]);
 
   // ---- Persist historyWidth ----
   useEffect(() => {
@@ -1061,6 +1124,13 @@ export function KiyokoChat({ mode, onClose, projectSlug: projectSlugProp }: Kiyo
               contextStrip={contextStrip}
               activeProvider={activeProvider}
             />
+            {/* Context bar — always visible below header */}
+            {contextBarText && (
+              <div className="flex items-center gap-2 px-4 py-1.5 border-b border-border bg-card/50 text-[11px] text-muted-foreground shrink-0">
+                <span className="size-1.5 rounded-full bg-primary shrink-0" />
+                <span className="truncate">{contextBarText}</span>
+              </div>
+            )}
             <ChatBody
               messages={messages}
               suggestions={suggestions}
@@ -1095,6 +1165,7 @@ export function KiyokoChat({ mode, onClose, projectSlug: projectSlugProp }: Kiyo
               onActiveCreationCreated={handleActiveCreationCreated}
               onPostCreationStep={handlePostCreationStep}
               contextChangeNote={contextChangeNote}
+              sceneDetail={sceneDetail}
             />
           </div>
 
@@ -1141,6 +1212,13 @@ export function KiyokoChat({ mode, onClose, projectSlug: projectSlugProp }: Kiyo
               contextStrip={contextStrip}
               activeProvider={activeProvider}
             />
+            {/* Context bar — always visible below header */}
+            {contextBarText && (
+              <div className="flex items-center gap-2 px-4 py-1.5 border-b border-border bg-card/50 text-[11px] text-muted-foreground shrink-0">
+                <span className="size-1.5 rounded-full bg-primary shrink-0" />
+                <span className="truncate">{contextBarText}</span>
+              </div>
+            )}
             <ChatBody
               messages={messages}
               suggestions={suggestions}
@@ -1174,6 +1252,7 @@ export function KiyokoChat({ mode, onClose, projectSlug: projectSlugProp }: Kiyo
               onActiveCreationCreated={handleActiveCreationCreated}
               onPostCreationStep={handlePostCreationStep}
               contextChangeNote={contextChangeNote}
+              sceneDetail={sceneDetail}
             />
           </div>
         </div>
@@ -1237,6 +1316,16 @@ interface ChatBodyProps {
   onActiveCreationCreated?: (msg: string, ctx?: CreationSaveContext) => void;
   onPostCreationStep?: (label: string, message: KiyokoMessage) => void;
   contextChangeNote?: string | null;
+  sceneDetail?: {
+    title?: string;
+    sceneNumber?: number;
+    duration?: number;
+    arcPhase?: string;
+    imagePrompt?: string;
+    videoPrompt?: string;
+    characters?: string[];
+    background?: string;
+  } | null;
 }
 
 function ChatBody({
@@ -1272,6 +1361,7 @@ function ChatBody({
   onActiveCreationCreated,
   onPostCreationStep,
   contextChangeNote = null,
+  sceneDetail = null,
 }: ChatBodyProps) {
   const { isCreating, creatingLabel } = useAIStore();
   const inputPlaceholder =
@@ -1304,6 +1394,14 @@ function ChatBody({
             contextLevel={contextType}
             contextLabel={contextLabel}
             onQuickAction={handleQuickAction}
+            sceneTitle={sceneDetail?.title}
+            sceneNumber={sceneDetail?.sceneNumber}
+            sceneDuration={sceneDetail?.duration}
+            scenePhase={sceneDetail?.arcPhase}
+            sceneImagePrompt={sceneDetail?.imagePrompt}
+            sceneVideoPrompt={sceneDetail?.videoPrompt}
+            sceneCharacters={sceneDetail?.characters}
+            sceneBackground={sceneDetail?.background}
           />
         )}
 
