@@ -5,14 +5,15 @@ import { useRouter } from 'next/navigation';
 import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  Bot,
   Brain,
   ChevronRight,
   Film,
   FolderKanban,
   Image as ImageIcon,
   Layers3,
+  Plus,
   Settings,
+  Sparkles,
   UserRound,
   Video as VideoIcon,
   type LucideIcon,
@@ -28,7 +29,6 @@ import { useProject } from '@/contexts/ProjectContext';
 import { createClient } from '@/lib/supabase/client';
 import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils/cn';
-import { useAIStore } from '@/stores/ai-store';
 import { useUIStore } from '@/stores/useUIStore';
 import type { Video } from '@/types';
 
@@ -132,7 +132,7 @@ function VideoRow({
   projectId: string;
   projectShortId: string;
   video: Video;
-  counts: { total: number; approved: number };
+  counts: { total: number; withPrompts: number };
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -178,8 +178,15 @@ function VideoRow({
       </span>
 
       <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">
-        {counts.total} escenas
+        {counts.withPrompts}/{counts.total} escenas
       </span>
+      {counts.total > 0 && (
+        <div className="hidden w-16 shrink-0 sm:block">
+          <div className="h-1 rounded-full bg-muted">
+            <div className="h-1 rounded-full bg-primary transition-all" style={{ width: `${Math.round((counts.withPrompts / counts.total) * 100)}%` }} />
+          </div>
+        </div>
+      )}
 
       <span className="hidden shrink-0 text-xs text-muted-foreground md:inline">
         {formatDuration(video.target_duration_seconds)}
@@ -211,8 +218,6 @@ function VideoRow({
 
 export default function ProjectOverviewPage() {
   const { project, videos, characters, backgrounds, stylePresets, loading } = useProject();
-  const openChat = useAIStore((s) => s.openChat);
-  const setActiveAgent = useAIStore((s) => s.setActiveAgent);
   const openProjectSettingsModal = useUIStore((s) => s.openProjectSettingsModal);
 
   /* ── Queries ─────────────────────────────────────────── */
@@ -221,28 +226,51 @@ export default function ProjectOverviewPage() {
     queryKey: project?.id ? [...queryKeys.projects.detail(project.short_id), 'scene-metrics'] : ['noop'],
     queryFn: async () => {
       const supabase = createClient();
-      const { data, error } = await supabase.from('scenes').select('video_id, status').eq('project_id', project!.id);
+      const { data, error } = await supabase.from('scenes').select('id, video_id, status').eq('project_id', project!.id);
       if (error) throw error;
 
-      const byVideo: Record<string, { total: number; approved: number }> = {};
+      // Also check which scenes have prompts
+      const sceneIds = (data ?? []).map(s => s.id);
+      let withPrompts = 0;
+      if (sceneIds.length > 0) {
+        const { data: prompts } = await supabase
+          .from('scene_prompts')
+          .select('scene_id')
+          .in('scene_id', sceneIds)
+          .eq('is_current', true)
+          .eq('prompt_type', 'image');
+        const promptSet = new Set((prompts ?? []).map(p => p.scene_id));
+        withPrompts = promptSet.size;
+      }
+
+      const byVideo: Record<string, { total: number; withPrompts: number }> = {};
       let total = 0;
-      let approved = 0;
       for (const s of data ?? []) {
         total += 1;
-        if (!byVideo[s.video_id]) byVideo[s.video_id] = { total: 0, approved: 0 };
+        if (!byVideo[s.video_id]) byVideo[s.video_id] = { total: 0, withPrompts: 0 };
         byVideo[s.video_id].total += 1;
-        if (s.status === 'approved') {
-          approved += 1;
-          byVideo[s.video_id].approved += 1;
+      }
+      // Distribute prompt counts by video
+      if (sceneIds.length > 0) {
+        const { data: promptsByScene } = await supabase
+          .from('scene_prompts')
+          .select('scene_id')
+          .in('scene_id', sceneIds)
+          .eq('is_current', true)
+          .eq('prompt_type', 'image');
+        for (const p of promptsByScene ?? []) {
+          const scene = (data ?? []).find(s => s.id === p.scene_id);
+          if (scene && byVideo[scene.video_id]) byVideo[scene.video_id].withPrompts += 1;
         }
       }
-      return { total, approved, byVideo };
+
+      return { total, withPrompts, byVideo };
     },
     enabled: Boolean(project?.id),
     staleTime: 60_000,
   });
 
-  const sceneMetrics = scenesQuery.data ?? { total: 0, approved: 0, byVideo: {} as Record<string, { total: number; approved: number }> };
+  const sceneMetrics = scenesQuery.data ?? { total: 0, withPrompts: 0, byVideo: {} as Record<string, { total: number; withPrompts: number }> };
 
   /* ── AI readiness ────────────────────────────────────── */
 
@@ -315,7 +343,7 @@ export default function ProjectOverviewPage() {
       {/* ── Stats row ───────────────────────────────────── */}
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat icon={VideoIcon} label="Videos" value={videos.length} />
-        <Stat icon={Film} label="Escenas" value={sceneMetrics.total} sub={`${sceneMetrics.total > 0 ? Math.round((sceneMetrics.approved / sceneMetrics.total) * 100) : 0}% aprobadas`} />
+        <Stat icon={Film} label="Escenas" value={sceneMetrics.total} sub={`${sceneMetrics.withPrompts} con prompts`} />
         <Stat icon={UserRound} label="Personajes" value={characters.length} />
         <Stat icon={ImageIcon} label="Fondos" value={backgrounds.length} />
       </section>
@@ -410,29 +438,27 @@ export default function ProjectOverviewPage() {
               <p className="mt-1.5 text-xs text-muted-foreground">Personajes, fondos, estilos y plantillas.</p>
             </Link>
 
-            <button
-              type="button"
-              onClick={() => { setActiveAgent('project'); openChat('sidebar'); }}
-              className="rounded-xl border border-border bg-card p-4 text-left transition-colors hover:border-primary/20"
+            <Link
+              href={`/project/${sid}/videos`}
+              className="rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/20"
             >
               <div className="flex items-center gap-2">
-                <Bot className="size-4 text-primary" />
-                <span className="text-sm font-medium text-foreground">Asistente IA</span>
+                <Plus className="size-4 text-primary" />
+                <span className="text-sm font-medium text-foreground">Crear video</span>
               </div>
-              <p className="mt-1.5 text-xs text-muted-foreground">Ayuda contextual para planificar y revisar.</p>
-            </button>
+              <p className="mt-1.5 text-xs text-muted-foreground">Nuevo video con escenas y prompts.</p>
+            </Link>
 
-            <button
-              type="button"
-              onClick={() => openProjectSettingsModal('ia')}
-              className="rounded-xl border border-border bg-card p-4 text-left transition-colors hover:border-primary/20"
+            <Link
+              href={`/project/${sid}/publications`}
+              className="rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/20"
             >
               <div className="flex items-center gap-2">
-                <Settings className="size-4 text-primary" />
-                <span className="text-sm font-medium text-foreground">Configuracion IA</span>
+                <Sparkles className="size-4 text-primary" />
+                <span className="text-sm font-medium text-foreground">Publicaciones</span>
               </div>
-              <p className="mt-1.5 text-xs text-muted-foreground">Briefing, reglas y proveedores del proyecto.</p>
-            </button>
+              <p className="mt-1.5 text-xs text-muted-foreground">Planificar y organizar contenido para redes.</p>
+            </Link>
           </div>
         </div>
       </section>

@@ -40,13 +40,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const routeSnapshot = `${pathname}?${searchParams.toString()}`;
   const previousRouteRef = useRef(routeSnapshot);
 
-  // Determine whether to show KiyokoPanel based on route
-  const showKiyokoPanel = pathname.match(/^\/project\/[^/]+$/) || (
-    pathname.startsWith('/project/') && (
-      pathname.includes('/video/') ||
-      pathname.includes('/resources/') ||
-      pathname.includes('/publications/')
-    )
+  // KiyokoPanel only on production pages (video, resources, publications)
+  const showKiyokoPanel = pathname.startsWith('/project/') && (
+    pathname.includes('/video/') ||
+    pathname.includes('/resources/') ||
+    pathname.includes('/publications/')
   );
 
   // In fullscreen mode the chat replaces content; otherwise content is visible
