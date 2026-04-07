@@ -348,31 +348,42 @@ export async function POST(request: Request) {
     const IMAGE_URL_REGEX = /\[Imagenes adjuntas: ([^\]]+)\]/;
     let hasImages = false;
 
+    type MultimodalPart = { type: 'text'; text: string } | { type: 'image'; image: string };
+
     const aiMessages = messages.map((m) => {
       const imageMatch = m.content.match(IMAGE_URL_REGEX);
-      if (!imageMatch) return m;
+      if (!imageMatch) return { role: m.role, content: m.content } as const;
 
       hasImages = true;
       const urls = imageMatch[1].split(', ').map((u) => u.trim()).filter(Boolean);
       const textWithoutImages = m.content.replace(IMAGE_URL_REGEX, '').trim();
 
-      // Build multimodal content array for AI SDK
-      const content: Array<{ type: 'text'; text: string } | { type: 'image'; image: string }> = [];
-      if (textWithoutImages) content.push({ type: 'text', text: textWithoutImages });
+      // Build multimodal content array for AI SDK (new object, never mutate original)
+      const parts: MultimodalPart[] = [];
+      if (textWithoutImages) parts.push({ type: 'text' as const, text: textWithoutImages });
       for (const url of urls) {
-        content.push({ type: 'image', image: url });
+        parts.push({ type: 'image' as const, image: url });
       }
 
-      return { ...m, content: content as never };
+      return { role: m.role, content: parts as unknown as string };
     });
 
     // 4. Resolver cadena de proveedores
     let availableModels = getAllAvailableModels();
 
+    // Early check: count user keys to know if we have any providers at all
+    const { data: userKeys } = await supabase.from('user_api_keys')
+      .select('provider, api_key_encrypted')
+      .eq('user_id', user.id).eq('is_active', true);
+
+    if (availableModels.length === 0 && (!userKeys || userKeys.length === 0)) {
+      return apiJson(requestContext, {
+        error: 'No hay proveedores de IA disponibles. Configura una API key en Ajustes > Proveedores de IA.',
+        requestId: requestContext.requestId,
+      }, { status: 503 });
+    }
+
     try {
-      const { data: userKeys } = await supabase.from('user_api_keys')
-        .select('provider, api_key_encrypted')
-        .eq('user_id', user.id).eq('is_active', true);
 
       if (userKeys?.length) {
         const userModels: ResolvedModel[] = [];
@@ -499,7 +510,7 @@ No inventes análisis visual detallado sin visión.
     }
 
     if (!availableModels.length) {
-      return apiJson(requestContext, { error: 'No hay proveedores de IA disponibles.', requestId: requestContext.requestId }, { status: 503 });
+      return apiJson(requestContext, { error: 'No hay proveedores de IA disponibles. Configura una API key en Ajustes > Proveedores de IA.', requestId: requestContext.requestId }, { status: 503 });
     }
 
     // Fix #3: Only add client hint when we don't have full project context loaded

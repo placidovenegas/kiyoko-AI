@@ -17,7 +17,7 @@ import {
   Film, Clock, Monitor, Mic, FileOutput, Music, Image as ImageIcon,
   Video, Loader2, BarChart3, Layers, CheckCircle2, Target,
   Settings2, Copy, Sparkles, ExternalLink, MoreHorizontal,
-  Eye, Pencil, Camera, Clapperboard, Plus, Trash2, ArrowRight, MessageCircle, Clock3, GripVertical,
+  Eye, Pencil, Camera, Clapperboard, Plus, Trash2, ArrowRight, Clock3, GripVertical,
 } from 'lucide-react';
 import {
   DropdownMenu,

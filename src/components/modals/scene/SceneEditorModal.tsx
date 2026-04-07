@@ -5,9 +5,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils/cn';
 import {
   X, Sparkles, Send, Loader2, Copy, Check,
-  Camera, Clock, Music, BookOpen, ArrowRight,
-  Expand, Pencil, Trash2, Wand2, AlertTriangle,
-  ChevronDown, ChevronUp, Zap, MessageCircle,
+  Camera, Expand, Trash2, Wand2,
 } from 'lucide-react';
 import type { Scene } from '@/types';
 

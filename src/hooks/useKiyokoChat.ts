@@ -354,6 +354,8 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
     // 1. Upload images if any
     let imageUrls: string[] = [];
     if (imagesToUpload.length > 0) {
+      // Log for debugging — vision provider availability is checked server-side
+      console.info('[chat] Uploading', imagesToUpload.length, 'images. Vision provider will be checked server-side.');
       const uploadPromises = imagesToUpload.map((img) => uploadImage(img.file, projectId));
       const results = await Promise.all(uploadPromises);
       imageUrls = results.filter((url): url is string => url !== null);
