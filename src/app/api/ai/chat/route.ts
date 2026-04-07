@@ -151,6 +151,23 @@ export async function POST(request: Request) {
             .eq('project_id', projectId),
         ]);
 
+        // Fix #7: Log errors from context queries without blocking
+        if (charsRes.error) {
+          logServerWarning('chat/POST', requestContext, 'Failed to load characters', { error: charsRes.error.message });
+        }
+        if (bgsRes.error) {
+          logServerWarning('chat/POST', requestContext, 'Failed to load backgrounds', { error: bgsRes.error.message });
+        }
+        if (videosRes.error) {
+          logServerWarning('chat/POST', requestContext, 'Failed to load videos', { error: videosRes.error.message });
+        }
+        if (profileRes.error) {
+          logServerWarning('chat/POST', requestContext, 'Failed to load creative profile', { error: profileRes.error.message });
+        }
+        if (taskStatsRes.error) {
+          logServerWarning('chat/POST', requestContext, 'Failed to load task stats', { error: taskStatsRes.error.message });
+        }
+
         characters = (charsRes.data ?? []) as unknown as CharacterContext[];
         backgrounds = (bgsRes.data ?? []) as unknown as BackgroundContext[];
         videos = (videosRes.data ?? []) as unknown as VideoContext[];
@@ -365,7 +382,12 @@ export async function POST(request: Request) {
             try {
               const decrypted = decrypt(row.api_key_encrypted as string);
               userModels.push({ model: createModelWithKey(pid, decrypted), providerId: pid });
-            } catch { /* clave inválida */ }
+            } catch (decryptErr) {
+              logServerWarning('chat/POST', requestContext, `Failed to decrypt API key for ${pid}`, {
+                keyId: row.provider,
+                error: decryptErr instanceof Error ? decryptErr.message : 'unknown',
+              });
+            }
           }
         }
         if (userModels.length > 0) {
@@ -413,7 +435,11 @@ No inventes análisis visual detallado sin visión.
           .trim();
         const hadImage = parts.some((p) => p.type === 'image' && typeof p.image === 'string');
 
-        m.content = (textOnly || '') + (hadImage ? `\n\n${NO_VISION_USER_NOTE}` : '');
+        // Fix #15: Append fallback note instead of replacing original content
+        const originalContent = textOnly || '';
+        m.content = originalContent.trim()
+          ? `${originalContent}\n\n${hadImage ? NO_VISION_USER_NOTE : ''}`
+          : (hadImage ? NO_VISION_USER_NOTE : '');
 
         // Ensure we always pass some content (the assistant must still respond).
         if (typeof m.content !== 'string' || (m.content as string).trim().length === 0) {
@@ -451,6 +477,13 @@ No inventes análisis visual detallado sin visión.
 
     // Mover proveedor preferido del usuario al frente (overrides agent preference)
     if (preferredProvider) {
+      // Fix #9: Validate preferred provider exists in available models
+      const isValid = availableModels.some((m) => m.providerId === preferredProvider);
+      if (!isValid) {
+        logServerWarning('chat/POST', requestContext, `Preferred provider ${preferredProvider} not available`, {
+          available: availableModels.map((m) => m.providerId),
+        });
+      }
       const idx = availableModels.findIndex((m) => m.providerId === preferredProvider);
       if (idx > 0) {
         const [preferred] = availableModels.splice(idx, 1);
@@ -469,7 +502,9 @@ No inventes análisis visual detallado sin visión.
       return apiJson(requestContext, { error: 'No hay proveedores de IA disponibles.', requestId: requestContext.requestId }, { status: 503 });
     }
 
-    if (contextClientHint?.trim()) {
+    // Fix #3: Only add client hint when we don't have full project context loaded
+    // At video/scene level, full data is already in the agent's system prompt
+    if (contextClientHint?.trim() && level === 'dashboard') {
       systemPrompt += `
 
 === CONTEXTO DE PANTALLA (confirmado por el cliente) ===
@@ -551,9 +586,10 @@ ${contextClientHint.trim()}
           throw readError;
         }
 
-        if (firstChunk.done && !firstChunk.value) {
+        // Fix #4: Validate first chunk has actual content
+        if (firstChunk.done || !firstChunk.value || firstChunk.value.trim().length === 0) {
           try { reader.releaseLock(); } catch { /* ignore */ }
-          throw new Error(`Provider ${providerId} returned empty response`);
+          throw new Error(`Provider ${providerId} returned empty/invalid first chunk`);
         }
 
         logServerEvent('chat/POST', requestContext, 'Provider started streaming', {
@@ -570,15 +606,22 @@ ${contextClientHint.trim()}
         const dataStream = new ReadableStream<Uint8Array>({
           async start(controller) {
             const emit = (line: string) => controller.enqueue(encoder.encode(line + '\n'));
+            let accumulated = '';
 
             emit(`f:${JSON.stringify({ messageId })}`);
-            if (firstChunk.value) emit(`0:${JSON.stringify(firstChunk.value)}`);
+            if (firstChunk.value) {
+              accumulated += firstChunk.value;
+              emit(`0:${JSON.stringify(firstChunk.value)}`);
+            }
 
             try {
               while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
-                if (value) emit(`0:${JSON.stringify(value)}`);
+                if (value) {
+                  accumulated += value;
+                  emit(`0:${JSON.stringify(value)}`);
+                }
               }
             } catch (streamErr) {
               logServerWarning('chat/POST', requestContext, 'Mid-stream provider error', {
@@ -586,7 +629,15 @@ ${contextClientHint.trim()}
                 providerId,
                 errorMessage: streamErr instanceof Error ? streamErr.message : String(streamErr),
               });
-              emit(`3:${JSON.stringify(streamErr instanceof Error ? streamErr.message : 'Stream error')}`);
+              // Fix #11: Check if there's substantial accumulated content
+              if (accumulated.length > 20) {
+                // Have substantial content, emit what we have + error note
+                emit(`0:${JSON.stringify('\n\n⚠️ La respuesta fue cortada por un error del proveedor.')}`);
+                emit(`3:${JSON.stringify('Stream interrupted')}`);
+              } else {
+                // Little/no content, emit full error
+                emit(`3:${JSON.stringify(streamErr instanceof Error ? streamErr.message : 'Stream error')}`);
+              }
             }
 
             emit(`d:${JSON.stringify({ finishReason: 'stop' })}`);

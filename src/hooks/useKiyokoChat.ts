@@ -438,6 +438,18 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
       }
     }, thinkMs);
 
+    // Fix #5: Helper to cancel THINK phase on first content arrival
+    const cancelThinkOnFirstContent = () => {
+      if (!thinkDone && accumulated.length > 0) {
+        thinkDone = true;
+        if (activeThinkTimer) {
+          clearTimeout(activeThinkTimer);
+          activeThinkTimer = null;
+        }
+        set({ isThinking: false });
+      }
+    };
+
     try {
       // Read user's preferred provider from Zustand store
       const preferredProvider = useUIStore.getState().preferredAiProvider;
@@ -481,8 +493,19 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
       const decoder = new TextDecoder();
       let buffer = '';
 
+      // Fix #6: Wrap reader.read() in a race with timeout
+      const STREAM_TIMEOUT = 30000; // 30 seconds
+      async function readWithTimeout<T>(r: ReadableStreamDefaultReader<T>): Promise<ReadableStreamReadResult<T>> {
+        return Promise.race([
+          r.read(),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('Stream timeout')), STREAM_TIMEOUT)
+          ),
+        ]);
+      }
+
       while (true) {
-        const { done, value } = await reader.read();
+        const { done, value } = await readWithTimeout(reader);
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
@@ -497,7 +520,11 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
             try {
               const text = JSON.parse(line.slice(2));
               if (typeof text === 'string') accumulated += text;
-            } catch { /* ignore */ }
+            } catch (parseErr) {
+              console.warn('[chat] Malformed stream chunk:', line, parseErr);
+            }
+            // Fix #5: Cancel THINK phase as soon as first content arrives
+            cancelThinkOnFirstContent();
             if (thinkDone) {
               flushAssistantToStore();
               if (accumulated.length > 0) set({ isThinking: false });
@@ -505,14 +532,15 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
             continue;
           }
           if (line.startsWith('3:')) {
-            // Error event
+            // Fix #10: Error event should stop the stream
             try {
               const errorMsg = JSON.parse(line.slice(2));
-              throw new Error(typeof errorMsg === 'string' ? errorMsg : 'AI error');
-            } catch (parseErr) {
-              if (parseErr instanceof Error && parseErr.message !== 'AI error') throw parseErr;
-            }
-            continue;
+              const errStr = typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg);
+              // Add error to accumulated text so user sees it
+              accumulated += `\n\n⚠️ Error: ${errStr}`;
+              flushAssistantToStore();
+            } catch { /* ignore parse error */ }
+            break; // STOP reading, don't continue
           }
           // Skip other events: f: (start), d: (finish), 2: (data), e: (stream error)
           if (/^[a-zA-Z0-9]+:/.test(line)) continue;
@@ -530,10 +558,12 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
             if (typeof parsed.content === 'string') {
               accumulated += parsed.content;
             }
-          } catch {
-            // Non-JSON lines — skip
+          } catch (parseErr) {
+            console.warn('[chat] Malformed stream chunk:', line, parseErr);
           }
 
+          // Fix #5: Cancel THINK phase as soon as first content arrives
+          cancelThinkOnFirstContent();
           if (thinkDone) {
             flushAssistantToStore();
             if (accumulated.length > 0) set({ isThinking: false });
@@ -693,6 +723,11 @@ export const useKiyokoChat = create<KiyokoChatState>((set, get) => ({
         ),
       }));
       toast.error(err instanceof Error ? err.message : 'Error al ejecutar el plan');
+      // Fix #16: Save conversation so error state is preserved
+      const { messages: currentMessages, conversationId: convId } = get();
+      if (convId && currentMessages.length > 0) {
+        saveConversation(get, set, convId, projectId).catch(() => {});
+      }
     }
   },
 
