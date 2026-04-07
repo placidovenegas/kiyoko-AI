@@ -143,6 +143,10 @@ export function KiyokoChat({ mode, onClose, projectSlug: projectSlugProp }: Kiyo
   const [pendingCreation, setPendingCreation] = useState<ActiveCreation | null>(null);
   const dismissedCreationMessageIdsRef = useRef<Set<string>>(new Set());
 
+  // ---- Context change note (scene switch indicator) ----
+  const [contextChangeNote, setContextChangeNote] = useState<string | null>(null);
+  const prevSceneRef = useRef<string | null>(null);
+
   const defaultNextSteps = useCallback((t: CreationType): string[] => {
     switch (t) {
       case 'character':
@@ -587,7 +591,15 @@ export function KiyokoChat({ mode, onClose, projectSlug: projectSlugProp }: Kiyo
             .eq('short_id', sceneShortId)
             .single();
           setContext('scene', videoData.id as string, sceneData?.id as string ?? null);
+
+          // Show context change note when switching scenes
+          if (prevSceneRef.current && prevSceneRef.current !== sceneShortId) {
+            setContextChangeNote('Has cambiado a otra escena');
+            setTimeout(() => setContextChangeNote(null), 5000);
+          }
+          prevSceneRef.current = sceneShortId;
         } else {
+          prevSceneRef.current = null;
           setContext('video', videoData.id as string, null);
         }
       } else if (!projectShortId) {
@@ -1082,6 +1094,7 @@ export function KiyokoChat({ mode, onClose, projectSlug: projectSlugProp }: Kiyo
               onActiveCreationCancel={handleActiveCreationCancel}
               onActiveCreationCreated={handleActiveCreationCreated}
               onPostCreationStep={handlePostCreationStep}
+              contextChangeNote={contextChangeNote}
             />
           </div>
 
@@ -1160,6 +1173,7 @@ export function KiyokoChat({ mode, onClose, projectSlug: projectSlugProp }: Kiyo
               onActiveCreationCancel={handleActiveCreationCancel}
               onActiveCreationCreated={handleActiveCreationCreated}
               onPostCreationStep={handlePostCreationStep}
+              contextChangeNote={contextChangeNote}
             />
           </div>
         </div>
@@ -1222,6 +1236,7 @@ interface ChatBodyProps {
   onActiveCreationCancel?: () => void;
   onActiveCreationCreated?: (msg: string, ctx?: CreationSaveContext) => void;
   onPostCreationStep?: (label: string, message: KiyokoMessage) => void;
+  contextChangeNote?: string | null;
 }
 
 function ChatBody({
@@ -1256,6 +1271,7 @@ function ChatBody({
   onActiveCreationCancel,
   onActiveCreationCreated,
   onPostCreationStep,
+  contextChangeNote = null,
 }: ChatBodyProps) {
   const { isCreating, creatingLabel } = useAIStore();
   const inputPlaceholder =
@@ -1290,6 +1306,23 @@ function ChatBody({
             onQuickAction={handleQuickAction}
           />
         )}
+
+        {/* Context change note */}
+        <AnimatePresence>
+          {contextChangeNote && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="mx-auto px-4 py-2 text-center"
+            >
+              <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs text-primary">
+                <span className="size-1.5 rounded-full bg-primary" />
+                {contextChangeNote}
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Message list */}
         {messages.map((message, idx) => (
