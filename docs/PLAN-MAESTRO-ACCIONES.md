@@ -397,48 +397,240 @@ PASO 9: Exportar
 
 ---
 
-## 11. ORDEN DE EJECUCION SUGERIDO
+## 11. STACK IA — Simplificar a 3 Proveedores (Stack B)
 
-### Fase 1: Fundamentos (3-4 dias)
-1. Extraer constantes duplicadas
-2. Extraer componentes reutilizables
-3. Eliminar codigo muerto
-4. Consistencia de modales
+### Situacion actual
+Ahora mismo hay **8 proveedores de texto** configurados en cadena de fallback:
+```
+Groq → Mistral → Gemini → Cerebras → Grok → DeepSeek → Claude → OpenAI
+```
+Esto es excesivo. Muchos son redundantes y complican el mantenimiento.
+
+### Stack B oficial (el que debemos usar)
+Segun `docs/v6/MY DOCUMENT/guia-director-creativo-stackB.md`:
+
+| Rol | Proveedor | Modelo | Coste | Uso |
+|-----|-----------|--------|-------|-----|
+| **Cerebro** | Qwen via OpenRouter | qwen3.5-flash / qwen3.5-plus | $0.065-0.26/M tokens | Generar escenas, prompts, chat, todo el texto |
+| **Ojos** | Gemini | gemini-2.5-flash | Gratis | Analisis de imagenes (vision), verificar coherencia visual |
+| **Voz** | Voxtral (Mistral) | voxtral-tts-2025-03-26 | $0.016/1K chars | Narracion TTS |
+
+**Coste total por proyecto: ~$0.022** (con 60s de narracion)
+
+### Acciones de limpieza
+
+#### 11.1 Simplificar sdk-router.ts
+- [ ] Cambiar TEXT_CHAIN a: `['openrouter', 'gemini']` (solo 2 proveedores de texto)
+- [ ] Qwen (OpenRouter) como PRIMARIO para todo texto/chat/generacion
+- [ ] Gemini como FALLBACK para texto (ya que es gratis)
+- [ ] Eliminar de la cadena: Groq, Mistral (solo TTS), Cerebras, Grok, DeepSeek
+- [ ] Mantener Claude y OpenAI como opcionales (solo si el usuario pone su API key)
+
+#### 11.2 Archivos de provider a limpiar
+- [ ] `src/lib/ai/providers/groq.ts` → eliminar o marcar como opcional
+- [ ] `src/lib/ai/providers/claude.ts` → mantener solo para API key del usuario
+- [ ] `src/lib/ai/providers/openai.ts` → mantener solo para API key del usuario
+- [ ] `src/lib/ai/providers/stability.ts` → eliminar (no se usa, las imagenes las genera el usuario externamente)
+- [ ] `src/lib/ai/sdk-router.ts` → simplificar la metadata de providers y la cadena
+- [ ] Eliminar env vars innecesarias: `GROQ_API_KEY`, `XAI_API_KEY`, `DEEPSEEK_API_KEY`, `CEREBRAS_API_KEY`
+
+#### 11.3 Configuracion de modelos por tarea
+```
+Generar escenas:           Qwen 3.5 Flash (rapido, barato)
+Generar prompts img/video: Qwen 3.5 Flash (rapido, barato)
+Chat conversacional:       Qwen 3.5 Flash (rapido)
+Insertar escenas complejas: Qwen 3.5 Plus (mas potente)
+Mejorar prompts:           Qwen 3.5 Plus (calidad)
+Analisis de imagenes:      Gemini 2.5 Flash (vision gratis)
+Verificar coherencia:      Gemini 2.5 Flash (vision)
+Narracion TTS:             Voxtral (Mistral TTS)
+```
+
+#### 11.4 Actualizar API routes
+- [ ] `/api/ai/chat` → usar siempre Qwen via OpenRouter (no cadena de fallback larga)
+- [ ] `/api/ai/generate-scenes` → Qwen Flash
+- [ ] `/api/ai/generate-scene-prompts` → Qwen Flash (ya lo usa)
+- [ ] `/api/ai/analyze-image` → Gemini Vision (ya lo usa)
+- [ ] `/api/ai/generate-voice` → Voxtral (ya existe pero verificar que sea el default)
+- [ ] `/api/ai/improve-prompt` → Qwen Plus (calidad)
+- [ ] Eliminar fallback a ElevenLabs en TTS (o mantener como premium del usuario)
+
+#### 11.5 Env vars necesarias (solo 3)
+```
+OPENROUTER_API_KEY    → Qwen (cerebro)
+GOOGLE_AI_API_KEY     → Gemini (ojos)
+MISTRAL_API_KEY       → Voxtral TTS (voz)
+```
+
+#### 11.6 API keys del usuario (opcionales, en settings)
+Si el usuario quiere usar su propia key de Claude/OpenAI, puede configurarla en Settings > API Keys. Pero el sistema funciona completo sin ellas.
+
+---
+
+## 12. BASE DE DATOS — Limpieza de Tablas
+
+### Situacion actual: 41 tablas
+
+### Tablas activas (39) — MANTENER
+Todas las tablas principales estan en uso activo:
+- Proyecto: `projects`, `project_ai_agents`, `project_ai_settings`, `project_favorites`, `project_shares`
+- Video: `videos`, `video_analysis`, `video_derivations`, `video_narrations`
+- Escena: `scenes`, `scene_camera`, `scene_media`, `scene_video_clips`, `scene_prompts`, `scene_annotations`, `scene_backgrounds`, `scene_characters`, `scene_shares`
+- Recursos: `backgrounds`, `characters`, `character_images`, `style_presets`
+- IA: `ai_conversations`, `ai_usage_logs`
+- Publicaciones: `publications`, `publication_items`, `social_profiles`
+- Contenido: `narrative_arcs`, `prompt_templates`, `timeline_entries`
+- Usuario: `profiles`, `notifications`, `user_api_keys`, `user_plans`
+- Sistema: `activity_log`, `entity_snapshots`, `feedback`, `realtime_updates`, `usage_tracking`
+- Tareas: `tasks` (ver seccion 13 para plan de eliminacion)
+
+### Tablas a eliminar/limpiar (2)
+- [ ] `ai_usage_monthly` → vista materializada, nunca consultada desde el app. Eliminar o dejar solo en BD
+- [ ] Verificar `video_derivations` → feature "derive" no implementada en UI. Evaluar si mantener
+
+### Tablas ya eliminadas anteriormente
+Estas ya fueron dropped y no existen en el schema:
+- `time_entries` ✓ eliminada
+- `project_members` ✓ eliminada
+- `billing_events` ✓ eliminada
+- `comments` ✓ eliminada
+- `exports` ✓ eliminada
+
+### Mejoras al schema
+- [ ] Agregar campo `negative_prompt` a `scene_prompts` (para prompts negativos)
+- [ ] Agregar campo `prompt_quality_score` a `scene_prompts` (evaluacion de calidad 1-10)
+- [ ] Agregar campo `target_tool` a `scene_prompts` (grok/midjourney/flux/runway)
+- [ ] Agregar campo `visual_style_notes` a `scene_prompts` (para tracking de estilo entre escenas)
+- [ ] Verificar que `scene_camera.lighting` y `scene_camera.mood` tengan valores estandarizados
+
+---
+
+## 13. TAREAS — Plan de Eliminacion (Defer para Despues)
+
+### Que se elimina
+El modulo de tareas es funcional pero no es core para la creacion de videos. Se puede quitar de la app ahora y reimplementar mejor despues.
+
+### Archivos a eliminar/ocultar
+
+#### Paginas (7 archivos)
+- [ ] `src/app/(dashboard)/dashboard/tasks/page.tsx`
+- [ ] `src/app/(dashboard)/dashboard/tasks/new/page.tsx` (stub)
+- [ ] `src/app/(dashboard)/dashboard/tasks/[taskId]/page.tsx` (stub)
+- [ ] `src/app/tasks/page.tsx`
+- [ ] `src/app/tasks/new/page.tsx`
+- [ ] `src/app/tasks/[taskId]/page.tsx`
+- [ ] `src/app/(dashboard)/project/[shortId]/tasks/page.tsx`
+
+#### Componentes (5 archivos)
+- [ ] `src/components/tasks/TaskCreateModal.tsx`
+- [ ] `src/components/tasks/TaskCreatePanel.tsx`
+- [ ] `src/components/tasks/TaskDocumentEditor.tsx`
+- [ ] `src/components/tasks/TaskIconPickerModal.tsx`
+- [ ] `src/components/tasks/TaskWorkspacePage.tsx`
+
+#### Hooks (2 archivos)
+- [ ] `src/hooks/useTasks.ts`
+- [ ] `src/hooks/useDashboardTasks.ts`
+
+#### Dashboard views (1 archivo)
+- [ ] `src/components/dashboard/DashboardTasksView.tsx`
+
+#### Shared (1 archivo)
+- [ ] `src/components/shared/TaskPreviewCard.tsx`
+
+### Sidebar — Quitar enlace
+- [ ] En `SidebarNavFixed.tsx` o `SidebarNavMain.tsx`: eliminar el item "Tareas" del menu
+- [ ] En `Header.tsx`: eliminar el boton "Global task action" del header
+
+### Layout — Quitar panel
+- [ ] En `src/app/(dashboard)/layout.tsx`: eliminar `TaskCreatePanel` condicional
+- [ ] Eliminar import de `TaskCreatePanel`
+
+### NO eliminar
+- La tabla `tasks` en la BD → dejarla, no hace daño y los datos se conservan
+- El agente `task-agent.ts` → desactivar pero no eliminar
+- Las referencias en el chat → la IA puede mencionar tareas pero no crear/editar
+
+### Total: ~16 archivos eliminados, sidebar + header simplificados
+
+---
+
+## 14. ORDEN DE EJECUCION SUGERIDO (ACTUALIZADO)
+
+### Fase 0: Limpieza Inmediata (1 dia) ← HACER PRIMERO
+1. Eliminar modulo de tareas (16 archivos, sidebar, header)
+2. Simplificar stack IA a 3 proveedores (Qwen + Gemini + Voxtral)
+3. Eliminar 6 API routes muertas
+4. Eliminar archivos legacy (Sidebar.tsx, SceneCreateModal, ChatInputV2)
+
+### Fase 1: Fundamentos (2-3 dias)
+5. Extraer constantes duplicadas (PHASE_STYLES, STATUS_COLORS → un archivo)
+6. Extraer componentes reutilizables (EditableText, ExpandablePrompt, StatusBadge)
+7. Consistencia de modales (migrar los que no usan ModalShell)
+8. Mejorar schema BD (negative_prompt, prompt_quality_score, target_tool)
 
 ### Fase 2: Calidad de Prompts (2-3 dias)
-5. Consistencia entre escenas adyacentes
-6. Estructura estandarizada de prompts
-7. Negative prompts automaticos
-8. Edicion manual de prompts
-9. Prompt builder centralizado
+9. Prompt builder centralizado (`src/lib/ai/prompt-builder.ts`)
+10. Consistencia entre escenas adyacentes (inyectar contexto del prompt previo)
+11. Estructura estandarizada (Subject → Action → Setting → Camera → Lighting → Quality)
+12. Negative prompts automaticos
+13. Edicion manual de prompts en escena detalle
 
 ### Fase 3: UX del Storyboard (2-3 dias)
-10. Header contextual con acciones rapidas
-11. Breadcrumbs
-12. Copiar todos los prompts formateado
-13. Indicador de calidad de prompt
-14. Filtros de escenas
+14. Header contextual con acciones rapidas por pagina
+15. Breadcrumbs (Proyecto > Video > Escena)
+16. Boton "Copiar todos para Grok/Flow" formateado
+17. Indicador de calidad de prompt
+18. Filtros de escenas (sin prompt, aprobadas, etc.)
 
 ### Fase 4: Personajes y Fondos (2 dias)
-15. Edicion post-creacion
-16. Prompt snippet editor con preview
-17. Turnaround de personajes
-18. Variantes de fondos
+19. Edicion post-creacion de personajes y fondos
+20. Prompt snippet editor con preview en tiempo real
+21. Turnaround de personajes (hoja de referencia multi-angulo)
+22. Variantes de fondos (diferentes horas del dia)
 
 ### Fase 5: Export y Publicacion (2 dias)
-19. PDF storyboard funcional
-20. ZIP completo
-21. Formato optimizado para herramientas de IA
-22. Calendario de publicaciones
+23. PDF storyboard funcional
+24. ZIP completo
+25. Formato optimizado para herramientas de IA
+26. Calendario de publicaciones
 
 ### Fase 6: Settings y Mobile (2 dias)
-23. API Keys con test de conexion
-24. Preferencias de IA
-25. Mobile responsivo
-26. Atajos de teclado
+27. API Keys con test de conexion (solo 3: OpenRouter, Gemini, Mistral)
+28. Preferencias de IA (modelo, temperatura, estilo)
+29. Mobile responsivo
+30. Atajos de teclado
 
 ### Fase 7: Polish Final (2 dias)
-27. Loading skeletons
-28. Animaciones
-29. Accesibilidad
-30. Performance (paginacion, lazy loading)
+31. Loading skeletons
+32. Animaciones
+33. Accesibilidad
+34. Performance (paginacion, lazy loading)
+
+---
+
+## 15. RESUMEN DE ARCHIVOS A ELIMINAR
+
+### Por simplificacion de IA (6 archivos)
+- `src/lib/ai/providers/groq.ts` (o marcar opcional)
+- `src/lib/ai/providers/stability.ts`
+- `src/app/api/ai/analyze-project/route.ts`
+- `src/app/api/ai/derive-video/route.ts`
+- `src/app/api/ai/generate-extensions/route.ts`
+- `src/app/api/ai/generate-image/route.ts`
+- `src/app/api/ai/generate-project/route.ts`
+- `src/app/api/ai/voices/route.ts`
+
+### Por eliminacion de tareas (16 archivos)
+- 7 paginas de tareas
+- 5 componentes de tareas
+- 2 hooks de tareas
+- 1 vista de dashboard
+- 1 componente shared
+
+### Por limpieza de legacy (3-4 archivos)
+- `src/components/layout/Sidebar.tsx` (deprecated)
+- `src/components/modals/scene/SceneCreateModal.tsx` (reemplazado por SceneWorkModal)
+- `src/components/chat/ChatInputV2.tsx` (si hay duplicado)
+
+### Total estimado: ~30 archivos eliminados, app mas limpia y mantenible
