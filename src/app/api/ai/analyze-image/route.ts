@@ -100,8 +100,8 @@ Rules:
     : `You are an expert visual analyst for AI image generation. Analyze this location/space reference image and extract detailed environmental attributes. The prompt_description should be in ENGLISH and optimized for recreating this space consistently. Format: "[location_type] with [lighting], [materials], [atmosphere], [key objects]..." If the architectural style is not clear return null. Every field in the schema must be present.`;
 
   try {
-    // Use OpenAI or Gemini for vision (they support image URLs)
-    const { model, providerId } = await getUserModel(user.id, 'openai');
+    // Use Gemini for vision (primary vision provider in Stack B)
+    const { model, providerId } = await getUserModel(user.id, 'gemini');
     const startTime = Date.now();
 
     logServerEvent('analyze-image', requestContext, 'Analyzing reference image', {

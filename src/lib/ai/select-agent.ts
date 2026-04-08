@@ -77,7 +77,7 @@ export function selectAgent(intent: Intent, ctx: AgentContext): SelectedAgent {
           audioConfig: ctx.audioConfig,
         }),
         temperature: 0.7,
-        preferredProviders: ['openrouter', 'gemini', 'claude', 'openai'],
+        preferredProviders: ['openrouter', 'gemini', 'claude'],
       };
 
     // ============ PROMPT GENERATION ============
@@ -95,7 +95,7 @@ export function selectAgent(intent: Intent, ctx: AgentContext): SelectedAgent {
           promptTemplates: ctx.promptTemplates,
         }),
         temperature: 0.8,
-        preferredProviders: ['openrouter', 'gemini', 'claude', 'openai'],
+        preferredProviders: ['openrouter', 'gemini', 'claude'],
       };
 
     // ============ SCENE EDITING ============
@@ -113,7 +113,7 @@ export function selectAgent(intent: Intent, ctx: AgentContext): SelectedAgent {
           activeSceneId: ctx.activeSceneId,
         }),
         temperature: 0.4,
-        preferredProviders: ['openrouter', 'gemini', 'claude', 'openai'],
+        preferredProviders: ['openrouter', 'gemini', 'claude'],
       };
 
     // ============ CHARACTERS ============
@@ -227,7 +227,7 @@ export function selectAgent(intent: Intent, ctx: AgentContext): SelectedAgent {
           activeSceneId: ctx.activeSceneId,
         }),
         temperature: 0.4,
-        preferredProviders: ['openrouter', 'gemini', 'openai'],
+        preferredProviders: ['openrouter', 'gemini'],
       };
 
     // ============ NARRATION ============
@@ -245,7 +245,7 @@ export function selectAgent(intent: Intent, ctx: AgentContext): SelectedAgent {
           promptTemplates: ctx.promptTemplates,
         }),
         temperature: 0.7,
-        preferredProviders: ['openrouter', 'gemini', 'claude', 'openai'],
+        preferredProviders: ['openrouter', 'gemini', 'claude'],
       };
 
     // ============ DELETE ============

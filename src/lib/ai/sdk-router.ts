@@ -13,7 +13,7 @@ import type { LanguageModel } from 'ai';
 // Types
 // ---------------------------------------------------------------------------
 
-export type ProviderId = 'openrouter' | 'gemini' | 'claude' | 'openai';
+export type ProviderId = 'openrouter' | 'gemini' | 'claude';
 
 export interface ResolvedModel {
   model: LanguageModel;
@@ -73,15 +73,6 @@ export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
     description: 'Premium — mejor calidad de personajes (requiere API key)',
     signupUrl: 'https://console.anthropic.com',
   },
-  openai: {
-    id: 'openai',
-    name: 'GPT-4o Mini',
-    isFree: false,
-    defaultModel: 'gpt-4o-mini',
-    envKey: 'OPENAI_API_KEY',
-    description: 'Premium — fiable y versatil (requiere API key)',
-    signupUrl: 'https://platform.openai.com',
-  },
 };
 
 // ---------------------------------------------------------------------------
@@ -104,20 +95,16 @@ const MODELS: Record<ProviderId, () => LanguageModel> = {
     const a = createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     return a('claude-sonnet-4-20250514');
   },
-  openai: () => {
-    const oai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    return oai('gpt-4o-mini');
-  },
 };
 
 // ---------------------------------------------------------------------------
-// Fallback chain — Stack B optimized
+// Fallback chain — Stack B
 // ---------------------------------------------------------------------------
 
 // Primary: Qwen via OpenRouter (fast, cheap, good quality)
 // Fallback: Gemini (free, versatile)
-// Premium: Claude, OpenAI (only if user has API key)
-const TEXT_CHAIN: ProviderId[] = ['openrouter', 'gemini', 'claude', 'openai'];
+// Premium: Claude (only if user has API key)
+const TEXT_CHAIN: ProviderId[] = ['openrouter', 'gemini', 'claude'];
 
 // ---------------------------------------------------------------------------
 // Cooldown tracking
@@ -247,10 +234,6 @@ export function createModelWithKey(providerId: ProviderId, apiKey: string): Lang
     case 'claude': {
       const a = createAnthropic({ apiKey });
       return a('claude-sonnet-4-20250514');
-    }
-    case 'openai': {
-      const oai = createOpenAI({ apiKey });
-      return oai('gpt-4o-mini');
     }
     default: throw new Error(`Unknown provider: ${providerId}`);
   }

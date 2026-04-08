@@ -1,6 +1,6 @@
 // ============================================================
 // Agent: EDITOR DE ESCENAS — Modifica escenas existentes
-// Modelo: openai('gpt-4o-mini') · Temp: 0.4
+// Modelo: Qwen 3.5 Flash (OpenRouter) · Temp: 0.4
 // Trabajo: editar escenas, cámara, personajes, fondos, reordenar
 // Basado en KIYOKO_DEFINITIVO sección 19.4
 // ============================================================

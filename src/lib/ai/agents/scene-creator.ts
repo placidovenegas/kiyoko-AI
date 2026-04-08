@@ -1,6 +1,6 @@
 // ============================================================
 // Agent: DIRECTOR DE ESCENAS — Planifica y crea escenas
-// Modelo: openai('gpt-4o') · Temp: 0.7
+// Modelo: Qwen 3.5 Flash (OpenRouter) · Temp: 0.7
 // Trabajo: plan de escenas con arco narrativo, asignar
 //          personajes y fondos
 // Basado en KIYOKO_DEFINITIVO sección 19.2

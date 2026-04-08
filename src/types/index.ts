@@ -207,7 +207,7 @@ export interface UserPreferences {
 }
 
 // Tipos para IA (proveedores, router — no están en DB)
-export type AiProviderId = 'openrouter' | 'gemini' | 'claude' | 'openai';
+export type AiProviderId = 'openrouter' | 'gemini' | 'mistral' | 'claude';
 export type AiProviderType = 'text' | 'image' | 'both';
 export type AiTask = 'text_generation' | 'image_generation' | 'chat' | 'analysis';
 

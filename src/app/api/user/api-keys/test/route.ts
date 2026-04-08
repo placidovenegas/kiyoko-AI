@@ -87,17 +87,6 @@ export async function POST(request: NextRequest) {
           break;
         }
 
-        case 'openai': {
-          const response = await fetch('https://api.openai.com/v1/models', {
-            headers: { Authorization: `Bearer ${apiKey}` },
-          });
-          isValid = response.ok;
-          if (!response.ok) {
-            errorMessage = `OpenAI API returned status ${response.status}`;
-          }
-          break;
-        }
-
         case 'openrouter': {
           const response = await fetch('https://openrouter.ai/api/v1/models', {
             headers: { Authorization: `Bearer ${apiKey}` },
@@ -105,6 +94,17 @@ export async function POST(request: NextRequest) {
           isValid = response.ok;
           if (!response.ok) {
             errorMessage = `OpenRouter API returned status ${response.status}`;
+          }
+          break;
+        }
+
+        case 'mistral': {
+          const response = await fetch('https://api.mistral.ai/v1/models', {
+            headers: { Authorization: `Bearer ${apiKey}` },
+          });
+          isValid = response.ok;
+          if (!response.ok) {
+            errorMessage = `Mistral API returned status ${response.status}`;
           }
           break;
         }

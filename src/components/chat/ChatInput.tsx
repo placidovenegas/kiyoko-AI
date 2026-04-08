@@ -76,16 +76,12 @@ interface ChatInputProps {
 
 // Provider preference now managed by useUIStore.preferredAiProvider
 
+// Stack B: only show relevant models
 const MODEL_SHORT: Record<string, string> = {
-  'llama-3.3-70b-versatile': 'LLaMA 3.3',
-  'gemini-2.0-flash': 'Flash 2.0',
-  'mistral-large-latest': 'Mistral L',
-  'llama3.1-8b': 'Llama 3.1',
-  'grok-3-fast': 'Grok 3',
-  'deepseek-chat': 'DeepSeek',
-  'claude-sonnet-4-20250514': 'Sonnet 4',
-  'gpt-4o': 'GPT-4o',
-  'gpt-4o-mini': 'GPT-4o Mini',
+  'qwen/qwen3.5-flash-02-23': 'Qwen Flash',
+  'qwen/qwen3.5-plus-02-15': 'Qwen Plus',
+  'gemini-2.0-flash': 'Gemini Flash',
+  'claude-sonnet-4-20250514': 'Claude 4',
 };
 
 const CONTEXT_ICON: Record<ChatContextType, React.ElementType> = {

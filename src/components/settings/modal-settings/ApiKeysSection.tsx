@@ -8,11 +8,12 @@ import { toast } from 'sonner';
 import { Loader2, Plus, Trash2, Eye, EyeOff, ExternalLink, Check, Shield } from 'lucide-react';
 import { SectionTitle, SectionDescription, SettingsCard, SectionLoading } from './shared';
 
-const TEXT_PROVIDERS = [
-  { id: 'openrouter', name: 'OpenRouter (Qwen)', description: 'Qwen 3.5 Flash — Cerebro principal, genera escenas y prompts', isFree: true, signupUrl: 'https://openrouter.ai/keys', placeholder: 'sk-or-...' },
-  { id: 'gemini', name: 'Gemini', description: 'Gemini 2.0 Flash — Vision + fallback de texto', isFree: true, signupUrl: 'https://aistudio.google.com/apikey', placeholder: 'AIza...' },
-  { id: 'claude', name: 'Claude', description: 'Claude Sonnet 4 — Premium, mejor calidad (opcional)', isFree: false, signupUrl: 'https://console.anthropic.com', placeholder: 'sk-ant-...' },
-  { id: 'openai', name: 'OpenAI', description: 'GPT-4o Mini — Premium, fiable (opcional)', isFree: false, signupUrl: 'https://platform.openai.com', placeholder: 'sk-proj-...' },
+// Stack B: 3 proveedores esenciales + 1 premium opcional
+const PROVIDERS = [
+  { id: 'openrouter', name: 'OpenRouter (Qwen)', description: 'Cerebro — genera escenas, prompts, chat, todo el texto', isFree: true, signupUrl: 'https://openrouter.ai/keys', placeholder: 'sk-or-...', category: 'essential' as const },
+  { id: 'gemini', name: 'Gemini Flash', description: 'Ojos — analisis de imagenes, vision, fallback de texto', isFree: true, signupUrl: 'https://aistudio.google.com/apikey', placeholder: 'AIza...', category: 'essential' as const },
+  { id: 'mistral', name: 'Mistral (Voxtral TTS)', description: 'Voz — narracion y sintesis de voz con Voxtral', isFree: true, signupUrl: 'https://console.mistral.ai', placeholder: 'Tu API key de Mistral', category: 'essential' as const },
+  { id: 'claude', name: 'Claude Sonnet 4', description: 'Premium — mejor calidad de personajes y narrativa (opcional)', isFree: false, signupUrl: 'https://console.anthropic.com', placeholder: 'sk-ant-...', category: 'premium' as const },
 ];
 
 interface UserKey {
@@ -74,8 +75,10 @@ export function ApiKeysSection() {
           : 'Añade tus API keys para usar proveedores premium. Los gratuitos ya están activos.'}
       </SectionDescription>
 
+      {/* Essential providers */}
+      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mt-4 mb-2">Esenciales (Stack B)</p>
       <div className="space-y-1.5">
-        {TEXT_PROVIDERS.map((provider) => {
+        {PROVIDERS.filter(p => p.category === 'essential').map((provider) => {
           const userKey = getUserKey(provider.id);
           const isAdding = addingProvider === provider.id;
           return (
@@ -112,6 +115,65 @@ export function ApiKeysSection() {
                     >
                       <Plus size={11} className="mr-1" />
                       {isAdding ? 'Cancelar' : 'Añadir'}
+                    </Button>
+                  )}
+                  <a href={provider.signupUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center size-7 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+                    <ExternalLink size={13} />
+                  </a>
+                </div>
+              </div>
+              {isAdding && (
+                <div className="px-3.5 pb-2.5 pt-2 border-t border-border bg-muted/20">
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <TextField variant="secondary" type={showKey ? 'text' : 'password'} value={newKeyValue} onChange={setNewKeyValue} autoFocus>
+                        <Input placeholder={provider.placeholder} className="font-mono pr-8" />
+                      </TextField>
+                      <Button variant="ghost" size="sm" isIconOnly onPress={() => setShowKey(!showKey)} className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                        {showKey ? <EyeOff size={13} /> : <Eye size={13} />}
+                      </Button>
+                    </div>
+                    <Button variant="primary" size="sm" onPress={() => saveMutation.mutate({ provider: provider.id, apiKey: newKeyValue })} isDisabled={!newKeyValue.trim()}>
+                      {saveMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check size={12} className="mr-1" />}
+                      Guardar
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Premium providers */}
+      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mt-5 mb-2">Premium (opcional)</p>
+      <div className="space-y-1.5">
+        {PROVIDERS.filter(p => p.category === 'premium').map((provider) => {
+          const userKey = getUserKey(provider.id);
+          const isAdding = addingProvider === provider.id;
+          return (
+            <div key={provider.id} className="rounded-lg border border-border overflow-hidden">
+              <div className="flex items-center gap-3 px-3.5 py-2.5">
+                <div className={cn('size-2 rounded-full shrink-0', userKey?.is_active ? 'bg-emerald-500' : 'bg-border')} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-foreground">{provider.name}</span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase bg-amber-500/10 text-amber-600">Premium</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{provider.description}</p>
+                  {userKey && (
+                    <p className="text-xs text-muted-foreground font-mono mt-0.5">{userKey.api_key_hint}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  {userKey ? (
+                    <Button variant="danger-soft" size="sm" isIconOnly onPress={() => deleteMutation.mutate(userKey.id)}>
+                      <Trash2 size={13} />
+                    </Button>
+                  ) : (
+                    <Button variant={isAdding ? 'secondary' : 'ghost'} size="sm"
+                      onPress={() => { setAddingProvider(isAdding ? null : provider.id); setNewKeyValue(''); setShowKey(false); }}>
+                      <Plus size={11} className="mr-1" />{isAdding ? 'Cancelar' : 'Añadir'}
                     </Button>
                   )}
                   <a href={provider.signupUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center size-7 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
