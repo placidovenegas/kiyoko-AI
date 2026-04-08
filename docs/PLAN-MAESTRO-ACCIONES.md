@@ -555,7 +555,172 @@ El modulo de tareas es funcional pero no es core para la creacion de videos. Se 
 
 ---
 
-## 14. ORDEN DE EJECUCION SUGERIDO (ACTUALIZADO)
+## 14. IA QUE APRENDE — Sistema de Reglas y Aprendizaje de Prompts
+
+### El problema
+Ahora mismo cuando le dices a la IA "mejora el prompt" o "añade camara", la IA no sabe:
+- Como TU quieres que sean los prompts (estructura, longitud, estilo)
+- Que reglas son importantes para TI (siempre incluir lighting, siempre poner negatives)
+- Que herramienta usas (Grok necesita un formato, Midjourney otro, Flux otro)
+- Que ha funcionado bien en el pasado
+
+### Lo que YA existe en la BD (pero la UI no lo usa bien)
+
+| Tabla | Para que | Estado actual |
+|-------|----------|---------------|
+| `prompt_templates` | Plantillas reutilizables con variables | Pagina existe pero basica, no se inyectan bien |
+| `style_presets` | Prefijo, sufijo, negative prompt, paleta | Pagina existe pero no se aplican al generar |
+| `global_prompt_rules` | Reglas globales del proyecto | Se inyecta en el prompt pero sin UI clara |
+| `project_ai_settings` | Config de proveedores por proyecto | Existe pero desconectado de la generacion |
+
+### 14.1 Sistema de Reglas de Prompt (Project Settings)
+
+Añadir seccion "Reglas de Prompt" en Project Settings con:
+
+#### A) Estructura preferida
+- [ ] Selector de orden: Subject → Action → Setting → Camera → Lighting → Quality
+- [ ] O personalizado: el usuario arrastra las secciones en el orden que quiera
+- [ ] Preview en tiempo real: muestra como queda un prompt ejemplo con esa estructura
+- [ ] Guardar en `prompt_templates` con `template_type: 'scene_description'` y `is_default: true`
+
+#### B) Reglas globales (editable)
+```
+Ejemplo de reglas que el usuario escribe:
+- Siempre incluir "cinematic lighting, 4K, detailed"
+- Siempre poner negative prompt: "no text, no watermark, no deformations"
+- Duracion exacta en prompts de video: "Duration: exactly Xs"
+- Si hay dialogo, incluir lip sync markers
+- Estilo visual: "Pixar 3D animation style"
+- Aspecte ratio en cada prompt: "16:9 composition"
+```
+- [ ] Textarea editable en Project Settings > Contexto IA
+- [ ] Se inyecta en CADA llamada a generate-scene-prompts y improve-prompt
+- [ ] Guardar en `projects.global_prompt_rules`
+
+#### C) Herramienta destino
+- [ ] Selector: "¿Para que herramienta generas?" → Grok / Midjourney / Flux / DALL-E / Runway / Kling / Custom
+- [ ] Cada herramienta tiene formato optimo diferente:
+  - **Grok**: prompts largos y descriptivos, soporta estilos con referencia
+  - **Midjourney**: prompts cortos (60 palabras max), parametros --ar --v --s
+  - **Flux**: prompts detallados, soporta negative prompts con --no
+  - **DALL-E**: prompts naturales, max 400 chars
+  - **Runway**: prompts de video con movimiento frame-by-frame
+- [ ] Guardar en `style_presets.generator` o `project_ai_settings.image_provider`
+- [ ] El prompt builder adapta el formato segun la herramienta
+
+#### D) Style Presets (ya existe la tabla)
+- [ ] Mejorar UI de `resources/styles/page.tsx`:
+  - Editor de `prompt_prefix` (se añade al inicio de cada prompt)
+  - Editor de `prompt_suffix` (se añade al final)
+  - Editor de `negative_prompt` (lo que NO debe aparecer)
+  - Imagen de referencia para el estilo
+  - Paleta de colores del proyecto
+- [ ] Aplicar automaticamente el preset marcado como `is_default` a toda generacion
+- [ ] Poder tener multiples presets y elegir por video
+
+### 14.2 Aprendizaje de Ediciones del Usuario
+
+Cuando el usuario edita manualmente un prompt, la IA debe aprender:
+
+#### A) Registro de correcciones
+- [ ] Crear tabla `prompt_corrections` (o usar `entity_snapshots`):
+  ```sql
+  prompt_corrections:
+    id, scene_prompt_id, original_text, corrected_text,
+    correction_type (style/camera/lighting/character/structure/length),
+    project_id, created_at
+  ```
+- [ ] Cada vez que el usuario edita un prompt y guarda, registrar el diff
+- [ ] Despues de 5+ correcciones, la IA analiza los patrones
+
+#### B) Aprendizaje activo
+- [ ] Funcion `analyzeUserCorrections(projectId)`:
+  - Buscar correcciones recientes del proyecto
+  - Detectar patrones: "el usuario siempre añade 'cinematic lighting'" o "siempre quita 'cartoon style'"
+  - Generar reglas sugeridas automaticamente
+  - Mostrar: "He notado que siempre añades X. ¿Quieres que lo haga automatico?"
+- [ ] Guardar reglas aprendidas en `global_prompt_rules` con tag "[auto-learned]"
+
+#### C) Feedback por prompt
+- [ ] Boton 👍/👎 en cada prompt generado
+- [ ] Si 👎: popup "¿Que no te gusta?" → opciones rapidas:
+  - Muy largo / Muy corto
+  - Mal estilo / Mal camara
+  - Falta detalle / Demasiado detalle
+  - Personaje incorrecto / Fondo incorrecto
+- [ ] Guardar feedback en `scene_prompts.generation_config` como JSON
+
+### 14.3 Prompt Builder Inteligente
+
+#### A) Funcion centralizada
+- [ ] Crear `src/lib/ai/prompt-builder.ts`:
+```typescript
+interface PromptConfig {
+  project: { style, globalRules, colorPalette }
+  scene: { title, description, duration, arcPhase, dialogue }
+  camera: { angle, movement, lighting, mood }
+  characters: Array<{ promptSnippet, rules }>
+  backgrounds: Array<{ promptSnippet, locationType, timeOfDay }>
+  stylePreset: { prefix, suffix, negativePrompt }
+  targetTool: 'grok' | 'midjourney' | 'flux' | 'dalle' | 'runway'
+  adjacentPrompts: { prev?: string, next?: string }
+  userCorrections: Array<{ pattern, replacement }>
+}
+
+function buildImagePrompt(config: PromptConfig): string
+function buildVideoPrompt(config: PromptConfig): string
+function buildNegativePrompt(config: PromptConfig): string
+```
+
+#### B) Inyeccion de contexto adyacente
+- [ ] Antes de generar prompt de escena #3, fetch prompts de #2 y #4
+- [ ] Añadir al mensaje de la IA: "Prompt anterior: [resumen]. Mantener continuidad visual."
+- [ ] Verificar que personajes/fondos usan el mismo snippet en escenas consecutivas
+
+#### C) Auto-mejora en 2 pasadas
+- [ ] Pasada 1: generar prompt base con Qwen Flash (rapido)
+- [ ] Pasada 2: evaluar con Qwen Plus (calidad) — puntuacion 1-10
+- [ ] Si < 7: regenerar con instrucciones de mejora especificas
+- [ ] Mostrar score al usuario en la tarjeta del prompt
+
+### 14.4 Chat IA que Entiende Instrucciones de Prompt
+
+Cuando el usuario dice en el chat:
+
+| El usuario dice | La IA hace |
+|-----------------|-----------|
+| "Mejora el prompt" | Llama a improve-prompt con las reglas del proyecto |
+| "Hazlo mas cinematico" | Añade lighting, depth of field, lens flare al prompt |
+| "Pon primer plano" | Cambia camera_angle a close_up y regenera |
+| "Añade movimiento de camara" | Cambia camera_movement y regenera prompt de video |
+| "Mas corto" | Reduce la duracion y ajusta el prompt de video |
+| "Pon a Ana mirando a la camara" | Modifica la posicion del personaje en el prompt |
+| "Cambia el fondo a noche" | Modifica lighting y time_of_day del background |
+| "Quita el dialogo" | Cambia audio_config y añade "SILENT SCENE. NO DIALOGUE." |
+| "Formato para Midjourney" | Reestructura con parametros --ar --v --s |
+
+- [ ] En el chat sidebar del SceneWorkModal: detectar intents de prompt
+- [ ] Cada intent ejecuta una accion especifica (no solo texto)
+- [ ] Resultado: el prompt se actualiza EN EL FORMULARIO (no solo en el chat)
+
+### 14.5 Templates de Prompt Reutilizables
+
+La tabla `prompt_templates` ya existe. Mejorar:
+
+- [ ] UI para crear/editar templates con variables:
+  ```
+  Template: "{{style}}, {{character}} {{action}} in {{background}},
+            {{camera}} shot, {{lighting}}, {{mood}}, cinematic 4K"
+  Variables: [style, character, action, background, camera, lighting, mood]
+  ```
+- [ ] Selector de template al generar prompts
+- [ ] Templates por defecto segun estilo del proyecto (Pixar, Realista, Anime)
+- [ ] El usuario puede guardar un prompt que le gusto como template
+- [ ] Boton "Guardar como template" en cada prompt generado
+
+---
+
+## 15. ORDEN DE EJECUCION SUGERIDO (ACTUALIZADO)
 
 ### Fase 0: Limpieza Inmediata (1 dia) ← HACER PRIMERO
 1. Eliminar modulo de tareas (16 archivos, sidebar, header)
@@ -569,12 +734,16 @@ El modulo de tareas es funcional pero no es core para la creacion de videos. Se 
 7. Consistencia de modales (migrar los que no usan ModalShell)
 8. Mejorar schema BD (negative_prompt, prompt_quality_score, target_tool)
 
-### Fase 2: Calidad de Prompts (2-3 dias)
-9. Prompt builder centralizado (`src/lib/ai/prompt-builder.ts`)
+### Fase 2: Calidad de Prompts + Aprendizaje IA (3-4 dias)
+9. Prompt builder centralizado (`src/lib/ai/prompt-builder.ts`) con PromptConfig
 10. Consistencia entre escenas adyacentes (inyectar contexto del prompt previo)
 11. Estructura estandarizada (Subject → Action → Setting → Camera → Lighting → Quality)
-12. Negative prompts automaticos
+12. Negative prompts automaticos (desde style_presets.negative_prompt)
 13. Edicion manual de prompts en escena detalle
+14. Herramienta destino: selector Grok/Midjourney/Flux y formato adaptado
+15. Reglas de prompt en Project Settings (UI para global_prompt_rules)
+16. Style presets aplicados automaticamente (prefix, suffix, negative)
+17. Chat IA detecta intents de prompt ("hazlo mas cinematico" → accion real)
 
 ### Fase 3: UX del Storyboard (2-3 dias)
 14. Header contextual con acciones rapidas por pagina
