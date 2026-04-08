@@ -337,7 +337,7 @@ export async function POST(request: Request) {
               : basePrompt;
             agentTemperature = 0.3;
             activeAgent = 'project';
-            preferredProviderIds = ['groq', 'gemini', 'mistral'];
+            preferredProviderIds = ['openrouter', 'gemini'];
           }
         }
       }

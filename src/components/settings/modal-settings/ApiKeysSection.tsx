@@ -9,14 +9,10 @@ import { Loader2, Plus, Trash2, Eye, EyeOff, ExternalLink, Check, Shield } from 
 import { SectionTitle, SectionDescription, SettingsCard, SectionLoading } from './shared';
 
 const TEXT_PROVIDERS = [
-  { id: 'groq', name: 'Groq', description: 'LLaMA 3.3 70B — Ultrarrapido, gratis ilimitado', isFree: true, signupUrl: 'https://console.groq.com/keys', placeholder: 'gsk_...' },
-  { id: 'cerebras', name: 'Cerebras', description: 'LLaMA 3.1 8B — La inferencia más rápida del mundo', isFree: true, signupUrl: 'https://cloud.cerebras.ai', placeholder: 'csk-...' },
-  { id: 'mistral', name: 'Mistral', description: 'Mistral Large — 1B tokens gratis/mes', isFree: true, signupUrl: 'https://console.mistral.ai', placeholder: 'Tu API key de Mistral' },
-  { id: 'gemini', name: 'Gemini', description: 'Gemini 2.0 Flash — Cuota gratuita limitada', isFree: true, signupUrl: 'https://aistudio.google.com/apikey', placeholder: 'AIza...' },
-  { id: 'grok', name: 'Grok (xAI)', description: 'Grok 3 Fast — Creativo (requiere créditos)', isFree: false, signupUrl: 'https://console.x.ai', placeholder: 'xai-...' },
-  { id: 'deepseek', name: 'DeepSeek', description: 'DeepSeek V3 — Narrativas profundas', isFree: false, signupUrl: 'https://platform.deepseek.com', placeholder: 'sk-...' },
-  { id: 'claude', name: 'Claude', description: 'Claude Sonnet 4 — El mejor en personajes vivos', isFree: false, signupUrl: 'https://console.anthropic.com', placeholder: 'sk-ant-...' },
-  { id: 'openai', name: 'OpenAI', description: 'GPT-4o Mini + DALL-E 3', isFree: false, signupUrl: 'https://platform.openai.com', placeholder: 'sk-proj-...' },
+  { id: 'openrouter', name: 'OpenRouter (Qwen)', description: 'Qwen 3.5 Flash — Cerebro principal, genera escenas y prompts', isFree: true, signupUrl: 'https://openrouter.ai/keys', placeholder: 'sk-or-...' },
+  { id: 'gemini', name: 'Gemini', description: 'Gemini 2.0 Flash — Vision + fallback de texto', isFree: true, signupUrl: 'https://aistudio.google.com/apikey', placeholder: 'AIza...' },
+  { id: 'claude', name: 'Claude', description: 'Claude Sonnet 4 — Premium, mejor calidad (opcional)', isFree: false, signupUrl: 'https://console.anthropic.com', placeholder: 'sk-ant-...' },
+  { id: 'openai', name: 'OpenAI', description: 'GPT-4o Mini — Premium, fiable (opcional)', isFree: false, signupUrl: 'https://platform.openai.com', placeholder: 'sk-proj-...' },
 ];
 
 interface UserKey {

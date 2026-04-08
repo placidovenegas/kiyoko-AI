@@ -77,7 +77,7 @@ export function selectAgent(intent: Intent, ctx: AgentContext): SelectedAgent {
           audioConfig: ctx.audioConfig,
         }),
         temperature: 0.7,
-        preferredProviders: ['openai', 'claude', 'gemini', 'groq'],
+        preferredProviders: ['openrouter', 'gemini', 'claude', 'openai'],
       };
 
     // ============ PROMPT GENERATION ============
@@ -95,7 +95,7 @@ export function selectAgent(intent: Intent, ctx: AgentContext): SelectedAgent {
           promptTemplates: ctx.promptTemplates,
         }),
         temperature: 0.8,
-        preferredProviders: ['claude', 'openai', 'gemini', 'mistral'],
+        preferredProviders: ['openrouter', 'gemini', 'claude', 'openai'],
       };
 
     // ============ SCENE EDITING ============
@@ -113,7 +113,7 @@ export function selectAgent(intent: Intent, ctx: AgentContext): SelectedAgent {
           activeSceneId: ctx.activeSceneId,
         }),
         temperature: 0.4,
-        preferredProviders: ['openai', 'groq', 'gemini', 'mistral'],
+        preferredProviders: ['openrouter', 'gemini', 'claude', 'openai'],
       };
 
     // ============ CHARACTERS ============
@@ -132,7 +132,7 @@ export function selectAgent(intent: Intent, ctx: AgentContext): SelectedAgent {
           agentTone: ctx.agentTone,
         }),
         temperature: 0.5,
-        preferredProviders: ['groq', 'gemini', 'openai', 'mistral'],
+        preferredProviders: ['openrouter', 'gemini'],
       };
 
     // ============ BACKGROUNDS ============
@@ -151,7 +151,7 @@ export function selectAgent(intent: Intent, ctx: AgentContext): SelectedAgent {
           agentTone: ctx.agentTone,
         }),
         temperature: 0.5,
-        preferredProviders: ['groq', 'gemini', 'openai', 'mistral'],
+        preferredProviders: ['openrouter', 'gemini'],
       };
 
     // ============ IDEATION ============
@@ -167,7 +167,7 @@ export function selectAgent(intent: Intent, ctx: AgentContext): SelectedAgent {
           creativeProfile: ctx.creativeProfile,
         }),
         temperature: 0.9,
-        preferredProviders: ['claude', 'openai', 'gemini', 'groq'],
+        preferredProviders: ['openrouter', 'gemini', 'claude'],
       };
 
     // ============ VIEW SCENE ============
@@ -184,7 +184,7 @@ export function selectAgent(intent: Intent, ctx: AgentContext): SelectedAgent {
           activeSceneId: ctx.activeSceneId,
         }),
         temperature: 0.3,
-        preferredProviders: ['groq', 'gemini', 'openai', 'mistral'],
+        preferredProviders: ['openrouter', 'gemini'],
       };
 
     // ============ VIDEO / PROJECT VIEW ============
@@ -208,7 +208,7 @@ export function selectAgent(intent: Intent, ctx: AgentContext): SelectedAgent {
           agentTone: ctx.agentTone,
         }),
         temperature: 0.3,
-        preferredProviders: ['groq', 'gemini', 'mistral', 'cerebras'],
+        preferredProviders: ['openrouter', 'gemini'],
       };
 
     // ============ ANALYSIS / READINESS ============
@@ -227,7 +227,7 @@ export function selectAgent(intent: Intent, ctx: AgentContext): SelectedAgent {
           activeSceneId: ctx.activeSceneId,
         }),
         temperature: 0.4,
-        preferredProviders: ['openai', 'gemini', 'groq', 'mistral'],
+        preferredProviders: ['openrouter', 'gemini', 'openai'],
       };
 
     // ============ NARRATION ============
@@ -245,7 +245,7 @@ export function selectAgent(intent: Intent, ctx: AgentContext): SelectedAgent {
           promptTemplates: ctx.promptTemplates,
         }),
         temperature: 0.7,
-        preferredProviders: ['claude', 'openai', 'gemini', 'mistral'],
+        preferredProviders: ['openrouter', 'gemini', 'claude', 'openai'],
       };
 
     // ============ DELETE ============
@@ -261,7 +261,7 @@ export function selectAgent(intent: Intent, ctx: AgentContext): SelectedAgent {
           agentTone: ctx.agentTone,
         }),
         temperature: 0.2,
-        preferredProviders: ['groq', 'gemini', 'openai', 'mistral'],
+        preferredProviders: ['openrouter', 'gemini'],
       };
 
     // ============ NAVIGATION ============
@@ -277,7 +277,7 @@ export function selectAgent(intent: Intent, ctx: AgentContext): SelectedAgent {
           agentTone: ctx.agentTone,
         }),
         temperature: 0.1,
-        preferredProviders: ['groq', 'cerebras', 'gemini', 'mistral'],
+        preferredProviders: ['openrouter', 'gemini'],
       };
 
     // ============ GENERAL (fallback) ============
@@ -293,7 +293,7 @@ export function selectAgent(intent: Intent, ctx: AgentContext): SelectedAgent {
           agentTone: ctx.agentTone,
         }),
         temperature: 0.3,
-        preferredProviders: ['groq', 'gemini', 'mistral', 'cerebras'],
+        preferredProviders: ['openrouter', 'gemini'],
       };
   }
 }

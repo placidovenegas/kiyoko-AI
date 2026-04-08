@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
       return apiBadRequest(requestContext, 'Missing required fields: provider, apiKey');
     }
 
-    const validProviders: AiProviderId[] = ['groq', 'cerebras', 'mistral', 'gemini', 'grok', 'deepseek', 'claude', 'openai', 'stability'];
+    const validProviders: AiProviderId[] = ['openrouter', 'gemini', 'claude', 'openai'];
     if (!validProviders.includes(provider)) {
       return apiBadRequest(requestContext, `Invalid provider. Must be one of: ${validProviders.join(', ')}`);
     }

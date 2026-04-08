@@ -12,11 +12,12 @@ import {
 export type AITask = 'chat' | 'vision' | 'narration' | 'image_gen';
 
 // Per-task fallback order (free providers first, then premium)
+// Stack B: Qwen (OpenRouter) primary, Gemini fallback, premium optional
 const CHAIN_ORDER: Record<AITask, ProviderId[]> = {
-  chat:      ['groq', 'mistral', 'gemini', 'cerebras', 'deepseek', 'grok', 'claude', 'openai'],
-  vision:    ['gemini', 'mistral', 'openai', 'grok', 'claude'],
-  narration: ['mistral', 'groq', 'gemini', 'cerebras', 'deepseek', 'claude', 'openai'],
-  image_gen: ['gemini', 'grok', 'openai'],
+  chat:      ['openrouter', 'gemini', 'claude', 'openai'],
+  vision:    ['gemini', 'openrouter', 'claude', 'openai'],
+  narration: ['openrouter', 'gemini', 'claude', 'openai'],
+  image_gen: ['gemini', 'openai'],
 };
 
 /**

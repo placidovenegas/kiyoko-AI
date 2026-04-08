@@ -98,24 +98,13 @@ export async function POST(request: NextRequest) {
           break;
         }
 
-        case 'groq': {
-          const response = await fetch('https://api.groq.com/openai/v1/models', {
+        case 'openrouter': {
+          const response = await fetch('https://openrouter.ai/api/v1/models', {
             headers: { Authorization: `Bearer ${apiKey}` },
           });
           isValid = response.ok;
           if (!response.ok) {
-            errorMessage = `Groq API returned status ${response.status}`;
-          }
-          break;
-        }
-
-        case 'stability': {
-          const response = await fetch('https://api.stability.ai/v1/engines/list', {
-            headers: { Authorization: `Bearer ${apiKey}` },
-          });
-          isValid = response.ok;
-          if (!response.ok) {
-            errorMessage = `Stability API returned status ${response.status}`;
+            errorMessage = `OpenRouter API returned status ${response.status}`;
           }
           break;
         }
