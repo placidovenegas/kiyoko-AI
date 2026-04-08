@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { slugify, generateProjectSlug } from '@/lib/utils/slugify';
+import { generateShortId } from '@/lib/utils/nanoid';
 import { cn } from '@/lib/utils/cn';
 import { toast } from 'sonner';
 import {
@@ -455,6 +456,7 @@ export default function NewProjectPage() {
 
       const title = data.title || 'Nuevo Proyecto';
       const slug = generateProjectSlug(title);
+      const shortId = generateShortId();
 
       // Insert project
       const { data: project, error } = await supabase
@@ -462,6 +464,7 @@ export default function NewProjectPage() {
         .insert({
           title: title.trim(),
           slug,
+          short_id: shortId,
           description: data.description.trim(),
           client_name: data.clientName.trim(),
           style: data.style,
@@ -475,7 +478,7 @@ export default function NewProjectPage() {
       if (error) throw error;
 
       // Auto-create "Video Principal"
-      const videoShortId = 'video-principal-' + Math.random().toString(36).slice(2, 8);
+      const videoShortId = generateShortId();
       await supabase.from('videos').insert({
         project_id: project.id,
         title: 'Video Principal',
@@ -526,7 +529,7 @@ export default function NewProjectPage() {
       }
 
       toast.success('Proyecto creado con exito');
-      router.push(`/project/${project.slug}`);
+      router.push(`/project/${project.short_id}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error al crear proyecto');
       setIsCreating(false);

@@ -2,6 +2,7 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
+import { generateShortId } from '@/lib/utils/nanoid';
 import { queryKeys } from '@/lib/query/keys';
 import { toast } from 'sonner';
 import type { VideoFormData } from './types';
@@ -12,9 +13,9 @@ export function useCreateVideo(projectId: string) {
 
   return useMutation({
     mutationFn: async (data: VideoFormData) => {
-      const shortId = data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)
-        + '-' + Date.now().toString(36);
-      const slug = shortId;
+      const shortId = generateShortId();
+      const slug = data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)
+        + '-' + shortId;
 
       const { data: video, error } = await supabase
         .from('videos')
@@ -28,7 +29,7 @@ export function useCreateVideo(projectId: string) {
           aspect_ratio: data.aspect_ratio,
           description: data.description.trim() || null,
           status: 'draft',
-          sort_order: Date.now(),
+          sort_order: Math.floor(Date.now() / 1000),
         })
         .select()
         .single();

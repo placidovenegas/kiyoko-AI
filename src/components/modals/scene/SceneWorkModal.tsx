@@ -318,19 +318,59 @@ Esta escena debería funcionar como puente entre ambas, ${suggestedPhase === 'pe
   }
 
   /* ── IA handler ──────────────────────────────────────── */
-  function handleIaSend() {
-    const text = iaInput.trim();
+  function handleIaSend(directText?: string) {
+    const text = (directText ?? iaInput).trim();
     if (!text || iaProcessing) return;
     setIaInput('');
     setIaProcessing(true);
     setIaMessages(prev => [...prev, { id: `u-${Date.now()}`, role: 'user', content: text }]);
     setTimeout(() => {
-      const context = prevScene ? `Insertar entre "${prevScene.title}" y "${nextScene?.title ?? 'final'}".` : '';
+      const prev = typeof insertPosition === 'number' ? allScenes[insertPosition] : null;
+      const next = typeof insertPosition === 'number' ? allScenes[insertPosition + 1] : null;
+      const context = prev ? `Insertar entre "${prev.title}" y "${next?.title ?? 'final'}".` : '';
+
+      // Generate a new suggestion based on user input
+      const suggestedTitle = text.toLowerCase().includes('acción') ? 'Secuencia de acción' :
+        text.toLowerCase().includes('transición') ? 'Transición suave' :
+        text.toLowerCase().includes('emocional') ? 'Momento emocional' :
+        text.toLowerCase().includes('gancho') ? 'Gancho visual' :
+        'Nueva escena sugerida';
+      const suggestedPhase = text.toLowerCase().includes('cierre') ? 'close' :
+        text.toLowerCase().includes('gancho') ? 'hook' :
+        text.toLowerCase().includes('clímax') ? 'peak' : 'build';
+      const suggestedAngle: CameraAngle = text.toLowerCase().includes('close') ? 'close_up' :
+        text.toLowerCase().includes('general') ? 'wide' : 'medium';
+      const suggestedMovement: CameraMovement = text.toLowerCase().includes('tracking') ? 'tracking' :
+        text.toLowerCase().includes('órbita') ? 'orbit' : 'dolly_in';
+      const suggestedDuration = text.toLowerCase().includes('corta') ? 3 : text.toLowerCase().includes('larga') ? 8 : 5;
+
+      const phaseLabel = PHASES.find(p => p.value === suggestedPhase)?.label ?? suggestedPhase;
+      const angleLabel = ANGLES.find(a => a.value === suggestedAngle)?.label ?? 'Medio';
+      const movLabel = MOVEMENTS.find(m => m.value === suggestedMovement)?.label ?? 'Dolly in';
+
+      const content = `${context ? `${context}\n\n` : ''}Basándome en tu indicación, propongo:
+
+**Título:** ${suggestedTitle}
+**Fase narrativa:** ${phaseLabel}
+**Duración:** ${suggestedDuration}s
+**Cámara:** ${angleLabel} con ${movLabel}
+
+¿Quieres usar esta sugerencia o prefieres algo diferente?`;
+
       setIaMessages(prev => [...prev, {
-        id: `a-${Date.now()}`, role: 'assistant',
-        content: `He analizado tu petición${context ? ` (${context})` : ''}. Sugiero una escena de ${form.duration}s con ${ANGLES.find(a => a.value === form.cameraAngle)?.label ?? 'plano medio'}.\n\n¿Quieres que rellene el formulario con esta sugerencia?`,
+        id: `auto-${Date.now()}`, role: 'assistant', content,
       }]);
       setIaProcessing(false);
+
+      // Pre-fill form
+      setForm(f => ({
+        ...f,
+        title: suggestedTitle,
+        arcPhase: suggestedPhase,
+        duration: suggestedDuration,
+        cameraAngle: suggestedAngle,
+        cameraMovement: suggestedMovement,
+      }));
     }, 600);
   }
 
@@ -543,7 +583,7 @@ Esta escena debería funcionar como puente entre ambas, ${suggestedPhase === 'pe
                             { label: 'Cambiar cámara', icon: Camera, color: 'text-sky-400 bg-sky-500/10 border-sky-500/20' },
                             { label: 'Regenerar prompts', icon: Wand2, color: 'text-amber-400 bg-amber-500/10 border-amber-500/20' },
                           ].map(a => (
-                            <button key={a.label} type="button" onClick={() => { setIaInput(a.label); handleIaSend(); }}
+                            <button key={a.label} type="button" onClick={() => handleIaSend(a.label)}
                               className={cn('flex items-center gap-2.5 rounded-xl border p-3 text-left text-sm font-medium transition-all hover:shadow-md', a.color)}>
                               <a.icon className="size-4" />{a.label}
                             </button>
@@ -585,10 +625,7 @@ Esta escena debería funcionar como puente entre ambas, ${suggestedPhase === 'pe
                             <Check className="size-3" />Usar sugerencia
                           </button>
                           <button type="button"
-                            onClick={() => {
-                              setIaInput('Dame otra opción diferente');
-                              setTimeout(() => handleIaSend(), 50);
-                            }}
+                            onClick={() => handleIaSend('Dame otra opción diferente')}
                             className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:border-primary/30 hover:text-foreground transition-colors">
                             Otra opción
                           </button>
@@ -617,7 +654,7 @@ Esta escena debería funcionar como puente entre ambas, ${suggestedPhase === 'pe
                     placeholder="Describe qué quieres..." rows={2}
                     className="flex-1 resize-none rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground/50 focus:border-primary/30"
                   />
-                  <button type="button" onClick={handleIaSend} disabled={!iaInput.trim() || iaProcessing}
+                  <button type="button" onClick={() => handleIaSend()} disabled={!iaInput.trim() || iaProcessing}
                     className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors shrink-0">
                     <Send className="size-4" />
                   </button>

@@ -11,7 +11,7 @@ import { PLATFORMS, DURATIONS, DEFAULT_VIDEO } from './types';
 import { useCreateVideo } from './useCreateVideo';
 import type { Key } from 'react';
 
-export function VideoCreateModal({ open, onOpenChange, projectId, onSuccess }: ModalProps) {
+export function VideoCreateModal({ open, onOpenChange, projectId, projectShortId, onSuccess }: ModalProps) {
   const [form, setForm] = useState<VideoFormData>({ ...DEFAULT_VIDEO });
   const mutation = useCreateVideo(projectId);
   const router = useRouter();
@@ -36,9 +36,8 @@ export function VideoCreateModal({ open, onOpenChange, projectId, onSuccess }: M
     setForm({ ...DEFAULT_VIDEO });
     onOpenChange(false);
     onSuccess?.();
-    if (video?.short_id) {
-      const projectShortId = window.location.pathname.match(/\/project\/([^/]+)/)?.[1];
-      if (projectShortId) router.push(`/project/${projectShortId}/video/${video.short_id}`);
+    if (video?.short_id && projectShortId) {
+      router.push(`/project/${projectShortId}/video/${video.short_id}`);
     }
   };
 

@@ -24,7 +24,7 @@ export function useCreateBackground(projectId: string) {
           time_of_day: data.time_of_day,
           description: data.description.trim() || null,
           available_angles: data.available_angles,
-          sort_order: Date.now(),
+          sort_order: Math.floor(Date.now() / 1000),
         })
         .select()
         .single();

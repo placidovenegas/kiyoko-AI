@@ -232,7 +232,7 @@ export default function VideosPage() {
         platform: video.platform,
         aspect_ratio: video.aspect_ratio,
         status: 'draft' as const,
-        sort_order: videos.length,
+        sort_order: Math.floor(Date.now() / 1000),
       });
       if (error) throw error;
     },
@@ -340,6 +340,7 @@ export default function VideosPage() {
           open={createModalOpen}
           onOpenChange={setCreateModalOpen}
           projectId={project.id}
+          projectShortId={project.short_id}
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: queryKeys.videos.byProject(project.id) });
           }}
