@@ -30,22 +30,7 @@ import {
 import { VIDEO_STATUS_LABELS, VIDEO_STATUS_BADGE, SCENE_STATUS_DOT, PHASE_STYLES } from '@/lib/constants/status';
 
 /* ── Expandable prompt text ────────────────────────────── */
-function ExpandablePrompt({ text, fallback }: { text?: string | null; fallback: string }) {
-  const [expanded, setExpanded] = useState(false);
-  if (!text) return <p className="flex-1 min-w-0 text-xs text-muted-foreground/40 italic px-3 py-1.5">{fallback}</p>;
-  return (
-    <button
-      type="button"
-      onClick={() => setExpanded(!expanded)}
-      className="flex-1 min-w-0 text-left font-mono text-xs text-muted-foreground bg-background rounded-lg px-3 py-1.5 cursor-pointer hover:bg-accent/50 transition-all"
-      title={expanded ? 'Click para colapsar' : 'Click para expandir'}
-    >
-      <span className={expanded ? '' : 'block overflow-hidden whitespace-nowrap text-ellipsis'}>
-        {text}
-      </span>
-    </button>
-  );
-}
+import { ExpandablePrompt } from '@/components/shared/ExpandablePrompt';
 import { useState } from 'react';
 import { SceneWorkModal } from '@/components/modals';
 import type { NarrativeArc, Scene, ScenePrompt, SceneMedia, Character, Background } from '@/types';

@@ -1545,12 +1545,16 @@ export type Database = {
           generator: string | null
           id: string
           is_current: boolean | null
+          negative_prompt: string | null
+          prompt_quality_score: number | null
           prompt_text: string
           prompt_type: Database["public"]["Enums"]["prompt_type"]
           result_url: string | null
           scene_id: string
           status: string | null
+          target_tool: string | null
           version: number | null
+          visual_style_notes: string | null
         }
         Insert: {
           created_at?: string | null
@@ -1558,12 +1562,16 @@ export type Database = {
           generator?: string | null
           id?: string
           is_current?: boolean | null
+          negative_prompt?: string | null
+          prompt_quality_score?: number | null
           prompt_text: string
           prompt_type?: Database["public"]["Enums"]["prompt_type"]
           result_url?: string | null
           scene_id: string
           status?: string | null
+          target_tool?: string | null
           version?: number | null
+          visual_style_notes?: string | null
         }
         Update: {
           created_at?: string | null
@@ -1571,12 +1579,16 @@ export type Database = {
           generator?: string | null
           id?: string
           is_current?: boolean | null
+          negative_prompt?: string | null
+          prompt_quality_score?: number | null
           prompt_text?: string
           prompt_type?: Database["public"]["Enums"]["prompt_type"]
           result_url?: string | null
           scene_id?: string
           status?: string | null
+          target_tool?: string | null
           version?: number | null
+          visual_style_notes?: string | null
         }
         Relationships: [
           {
