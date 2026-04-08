@@ -140,29 +140,59 @@ export function SceneWorkModal({
       const prevBgs = sceneBackgrounds.filter(sb => sb.scene_id === prev.id).map(sb => sb.background_id);
       const sugBgs = prevBgs.length > 0 ? [prevBgs[0]] : [];
 
-      const sugTitle = sugPhase === 'peak' ? 'Momento clave de tension'
-        : sugPhase === 'close' ? 'Cierre y resolucion'
-        : 'Desarrollo de la narrativa';
-
       const prevTitle = prev.title ?? `Escena #${prev.scene_number}`;
+      const prevDesc = prev.description ?? '';
       const nextTitle = next?.title ?? 'el final del video';
       const phaseLabel = PHASES.find(p => p.value === sugPhase)?.label ?? sugPhase;
       const angleLabel = ANGLES.find(a => a.value === sugAngle)?.label ?? 'Medio';
       const movLabel = MOVEMENTS.find(m => m.value === sugMove)?.label ?? 'Tracking';
 
+      // Generate contextual title and rich description
+      let sugTitle = '';
+      let sugDescription = '';
+      if (sugPhase === 'peak') {
+        sugTitle = 'Momento clave — punto de inflexion';
+        sugDescription = prevDesc
+          ? `Tras "${prevTitle}", la tension alcanza su punto maximo. La camara se acerca para capturar la reaccion emocional del momento decisivo. La iluminacion cambia dramaticamente para reflejar la intensidad de la escena.`
+          : `El momento de mayor impacto visual y narrativo del video. Un plano que capture la atencion del espectador con un movimiento de camara que eleve la intensidad dramatica.`;
+      } else if (sugPhase === 'close') {
+        sugTitle = 'Cierre y resolucion';
+        sugDescription = prevDesc
+          ? `Despues de "${prevTitle}", la escena se resuelve con un plano amplio que muestra la consecuencia de lo ocurrido. El ritmo se ralentiza y la camara retrocede, dando al espectador un momento para procesar.`
+          : `El cierre natural del video. Un plano final que transmita la conclusion del mensaje con un movimiento de camara suave que invite a la reflexion o accion del espectador.`;
+      } else if (sugPhase === 'hook') {
+        sugTitle = 'Gancho visual de apertura';
+        sugDescription = 'Una toma impactante que capture la atencion en los primeros segundos. Movimiento dinamico de camara con un elemento visual sorprendente que enganche al espectador inmediatamente.';
+      } else {
+        sugTitle = 'Desarrollo — construyendo la narrativa';
+        sugDescription = prevDesc
+          ? `Continuando desde "${prevTitle}", esta escena profundiza en el mensaje. La camara sigue la accion con un movimiento fluido que mantiene el interes mientras construye hacia el momento clave.`
+          : `Una escena que desarrolla el mensaje central del video. Plano medio con movimiento que acompane la narracion visual y mantenga el ritmo narrativo.`;
+      }
+
+      // Add character/background context to description
+      const charNames = characters.filter(c => sugChars.includes(c.id)).map(c => c.name);
+      const bgNames = backgrounds.filter(b => sugBgs.includes(b.id)).map(b => b.name);
+      if (charNames.length > 0) {
+        sugDescription += ` Protagonizada por ${charNames.join(' y ')}.`;
+      }
+      if (bgNames.length > 0) {
+        sugDescription += ` Ambientada en ${bgNames.join(', ')}.`;
+      }
+
       const suggestion: SuggestionData = {
-        title: sugTitle, description: '',
+        title: sugTitle, description: sugDescription,
         arcPhase: sugPhase, duration: sugDur,
         cameraAngle: sugAngle, cameraMovement: sugMove,
         characterIds: sugChars, backgroundIds: sugBgs,
       };
 
-      const content = `He analizado las escenas adyacentes para sugerirte la mejor transicion:
+      const content = `He analizado las escenas adyacentes:
 
-**Escena anterior:** "${prevTitle}" (${prev.duration_seconds}s · ${prev.arc_phase})
-**Escena siguiente:** "${nextTitle}"${next ? ` (${next.duration_seconds}s · ${next.arc_phase})` : ''}
+**← Anterior:** "${prevTitle}" (${prev.duration_seconds}s · ${prev.arc_phase})
+**→ Siguiente:** "${nextTitle}"${next ? ` (${next.duration_seconds}s · ${next.arc_phase})` : ''}
 
-Propongo una escena de tipo **${phaseLabel}** con camara **${angleLabel}** y movimiento **${movLabel}** que conecte ambas escenas.`;
+Basandome en el contexto narrativo, te sugiero esta escena:`;
 
       setIaMessages([{ id: `auto-${Date.now()}`, role: 'assistant', content, suggestion }]);
       setIaProcessing(false);
@@ -213,15 +243,31 @@ Propongo una escena de tipo **${phaseLabel}** con camara **${angleLabel}** y mov
       const sugDur = text.toLowerCase().includes('corto') || text.toLowerCase().includes('corta') ? 3 :
         text.toLowerCase().includes('larga') || text.toLowerCase().includes('largo') ? 8 : form.duration || 5;
 
+      // Generate rich description based on user input
+      const t = text.toLowerCase();
+      let sugDesc = '';
+      if (t.includes('accion')) {
+        sugDesc = 'Secuencia dinamica con movimientos rapidos de camara. El protagonista ejecuta la accion principal mientras la camara sigue cada movimiento con energia cinematografica. Iluminacion contrastada para dramatismo.';
+      } else if (t.includes('transicion')) {
+        sugDesc = 'Una toma de transicion fluida que conecta las escenas de forma natural. La camara se desplaza suavemente revelando el nuevo escenario mientras el ritmo visual se mantiene constante.';
+      } else if (t.includes('emocional')) {
+        sugDesc = 'Primer plano que captura la expresion y emocion del personaje. Iluminacion suave y calida, con fondo desenfocado para centrar toda la atencion en el momento intimo y vulnerable.';
+      } else if (t.includes('gancho')) {
+        sugDesc = 'Toma de apertura impactante disenada para captar la atencion en los primeros 2 segundos. Elemento visual sorprendente con movimiento de camara dinamico que genera curiosidad inmediata.';
+      } else if (t.includes('dramatico') || t.includes('drama')) {
+        sugDesc = 'Escena de alta intensidad emocional con contrastes de luz marcados. La camara se acerca lentamente al sujeto mientras la tension narrativa alcanza su punto maximo.';
+      } else {
+        sugDesc = `Escena ${sugPhase === 'peak' ? 'climática de máxima intensidad' : sugPhase === 'close' ? 'de cierre que resuelve la narrativa' : 'que desarrolla el mensaje central'}. Plano ${ANGLES.find(a => a.value === sugAngle)?.label?.toLowerCase() ?? 'medio'} con movimiento ${MOVEMENTS.find(m => m.value === sugMove)?.label?.toLowerCase() ?? 'fluido'} que mantiene el ritmo visual.`;
+      }
+
       const suggestion: SuggestionData = {
-        title: sugTitle, description: '',
+        title: sugTitle, description: sugDesc,
         arcPhase: sugPhase, duration: sugDur,
         cameraAngle: sugAngle, cameraMovement: sugMove,
         characterIds: form.characterIds, backgroundIds: form.backgroundIds,
       };
 
-      const phaseLabel = PHASES.find(p => p.value === sugPhase)?.label ?? sugPhase;
-      const content = `Basandome en tu indicacion, propongo una escena **${phaseLabel}** de **${sugDur}s**.`;
+      const content = `Entendido. He preparado una sugerencia basada en "${text}":`;
 
       setIaMessages(prev => [...prev, { id: `auto-${Date.now()}`, role: 'assistant', content, suggestion }]);
       setIaProcessing(false);

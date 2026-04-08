@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useEffect } from 'react';
-import { Sparkles, Send, Loader2, Check, Clock, Camera } from 'lucide-react';
+import { Sparkles, Send, Loader2, Check, Clock, Camera, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import type { IaMessage, SuggestionData } from './scene-work-types';
 import { PHASES, ANGLES, MOVEMENTS } from './scene-work-types';
@@ -50,44 +50,52 @@ function SuggestionCard({ data, onUse, onAnother, characters, backgrounds }: {
   const bgs = backgrounds.filter(b => data.backgroundIds.includes(b.id));
 
   return (
-    <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-2">
-      <p className="text-sm font-semibold text-foreground">{data.title}</p>
-      {data.description && <p className="text-xs text-muted-foreground line-clamp-2">{data.description}</p>}
-
-      <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-        {phase && (
-          <span className="inline-flex items-center gap-1">
-            <span className={cn('size-2 rounded-full', phase.color)} />{phase.label}
-          </span>
-        )}
-        <span className="flex items-center gap-1"><Clock className="size-3" />{data.duration}s</span>
-        {angle && <span className="flex items-center gap-1"><Camera className="size-3" />{angle.label}</span>}
-        {movement && <span>{movement.label}</span>}
+    <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10 overflow-hidden">
+      {/* Header */}
+      <div className="px-3.5 pt-3 pb-2 space-y-1">
+        <p className="text-[13px] font-semibold text-foreground leading-tight">{data.title}</p>
+        <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+          {phase && (
+            <span className={cn('inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-medium text-white', phase.color)}>
+              {phase.label}
+            </span>
+          )}
+          <span className="flex items-center gap-0.5 text-muted-foreground"><Clock className="size-2.5" />{data.duration}s</span>
+          {angle && <span className="flex items-center gap-0.5 text-muted-foreground"><Camera className="size-2.5" />{angle.label}</span>}
+          {movement && <span className="text-muted-foreground">{movement.label}</span>}
+        </div>
       </div>
 
-      {chars.length > 0 && (
-        <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-          <span className="font-medium">Personajes:</span>
+      {/* Description — the main content */}
+      {data.description && (
+        <div className="px-3.5 pb-2">
+          <p className="text-[11px] leading-relaxed text-muted-foreground">{data.description}</p>
+        </div>
+      )}
+
+      {/* Characters & Backgrounds */}
+      {(chars.length > 0 || bgs.length > 0) && (
+        <div className="px-3.5 pb-2 flex flex-wrap items-center gap-1.5">
           {chars.map(c => (
-            <span key={c.id} className="inline-flex items-center gap-0.5 rounded bg-card border border-border px-1.5 py-0.5 text-[10px]">
-              <span className="size-3 rounded-full text-[7px] font-bold text-white flex items-center justify-center"
+            <span key={c.id} className="inline-flex items-center gap-1 rounded-md bg-card/80 border border-border/50 px-1.5 py-0.5 text-[10px] text-foreground">
+              <span className="size-3.5 rounded-full text-[7px] font-bold text-white flex items-center justify-center shrink-0"
                 style={{ backgroundColor: c.color_accent ?? '#666' }}>{c.initials?.[0] ?? c.name[0]}</span>
               {c.name}
+            </span>
+          ))}
+          {bgs.map(b => (
+            <span key={b.id} className="inline-flex items-center gap-1 rounded-md bg-card/80 border border-border/50 px-1.5 py-0.5 text-[10px] text-foreground">
+              <MapPin className="size-2.5 text-muted-foreground" />{b.name}
             </span>
           ))}
         </div>
       )}
 
-      {bgs.length > 0 && (
-        <p className="text-[11px] text-muted-foreground">
-          <span className="font-medium">Fondo:</span> {bgs.map(b => b.name).join(', ')}
-        </p>
-      )}
-
-      <div className="flex items-center gap-2 pt-1">
+      {/* Actions */}
+      <div className="flex items-center gap-2 px-3.5 py-2.5 bg-card/30 border-t border-primary/10">
         <button type="button" onClick={onUse}
-          className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
-          <Check className="size-3" />Usar
+          className="flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm">
+          <Check className="size-3" />Usar sugerencia
         </button>
         <button type="button" onClick={onAnother}
           className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:border-primary/30 hover:text-foreground transition-colors">
