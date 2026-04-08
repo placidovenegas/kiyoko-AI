@@ -141,13 +141,10 @@ export type TaskUpdate = Update<'tasks'>;
 export type UserPlan = Row<'user_plans'>;
 export type UserApiKey = Row<'user_api_keys'>;
 export type Notification = Row<'notifications'>;
-export type Export = Row<'exports'>;
-export type ExportInsert = Insert<'exports'>;
 export type ActivityLog = Row<'activity_log'>;
 export type ActivityLogInsert = Insert<'activity_log'>;
 export type Feedback = Row<'feedback'>;
 export type FeedbackInsert = Insert<'feedback'>;
-export type BillingEvent = Row<'billing_events'>;
 export type UsageTracking = Row<'usage_tracking'>;
 export type RealtimeUpdate = Row<'realtime_updates'>;
 
@@ -159,8 +156,6 @@ export type TimelineEntryInsert = Insert<'timeline_entries'>;
 
 export type ProjectShare = Row<'project_shares'>;
 export type ProjectFavorite = Row<'project_favorites'>;
-export type Comment = Row<'comments'>;
-export type CommentInsert = Insert<'comments'>;
 
 // ========================
 // Enums de la base de datos

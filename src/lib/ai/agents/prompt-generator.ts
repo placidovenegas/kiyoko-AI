@@ -101,20 +101,56 @@ CONFIG AUDIO: ${audioConfig || 'no configurado'}
 ESCENAS:
 ${sceneBlock || '(sin escenas)'}
 
-ESTRUCTURA PROMPT IMAGEN:
-1. prompt_snippet personaje + acción/pose
-2. @[referencia imagen personaje]
-3. prompt_snippet fondo
-4. @[referencia imagen fondo]
-5. Cámara (si no hay → auto: hook=wide, build=medium, peak=close_up, close=medium)
-6. Estilo del proyecto: ${getStyleTag(project.style)}
-7. Máximo 80 palabras. Siempre inglés.
+ESTRUCTURA PROMPT IMAGEN (orden obligatorio):
+1. [STYLE]: ${getStyleTag(project.style)}, 8K, cinematic 16:9
+2. [SUBJECT]: prompt_snippet del personaje + acción + expresión facial explícita
+3. [SETTING]: prompt_snippet del fondo + hora del día + atmósfera
+4. [CAMERA]: Plano (si no hay → auto: hook=wide, build=medium, peak=close_up, close=medium)
+   Comandos: Extreme Wide Shot / Long Shot / Medium Shot / Close-up / Extreme Close-up
+   Ángulos: Low Angle Shot (poder) / High Angle Shot (vulnerabilidad) / Over-the-shoulder
+5. [LIGHTING]: Iluminación específica (golden hour, volumetric, dramatic shadows)
+6. [QUALITY]: "cinematic, 4K, detailed, professional lighting"
+7. [NEGATIVE]: "No blurry faces, no extra limbs, no text or watermarks, no deformations."
+   Añadir negatives específicos si hay diálogo silencioso: "NO DIALOGUE. NO LIP MOVEMENT."
 
-PROMPT VIDEO:
-- prompt_image_first_frame = el prompt de imagen generado
-- prompt_video: "Starting from first frame: [acción] + [cámara] + [elementos dinámicos] + [duración]s. Maintain [lighting] throughout."
-- Si hay diálogos en audioConfig → incluirlo
-- Si solo ambiental → "ambient sounds only"
+Máximo 60-80 palabras. SIEMPRE en inglés.
+
+PROMPT VIDEO (formato Grok Imagine):
+Usar SIEMPRE esta estructura:
+
+[STYLE]: ${getStyleTag(project.style)}, cinematic 16:9, 24fps.
+[DURATION]: {X} seconds.
+[CAMERA]: {Plano: Close-up/Medium Shot/Wide Shot/etc.} with {Movimiento: Dolly In/Orbit/Tracking/etc.}.
+[LANGUAGE]: Spanish / Español.
+
+[TIMELINE]:
+[00:00-00:03]: {Acción — quién hace qué}
+[00:03-00:07]: {Acción principal}
+[00:07-00:10]: {Resolución}
+
+[ACTION DETAILS]: {Narrativa con personajes referenciados}
+[AUDIO]: {Config}. NO music (a menos que se indique).
+[NEGATIVE]: No blurry faces, no extra limbs, no flickering lighting, no text or watermarks.
+
+REGLAS DE TIMING:
+- 1 acción por cada 2-3 segundos (NO saturar)
+- 1 movimiento de cámara por bloque de 2-3 seg
+- Expresión facial: 1-2s / Caminar: 2-4s / Impacto: 1-2s / Transformación: 4-6s
+
+MOVIMIENTOS DE CÁMARA (usar estos comandos exactos):
+- Dolly In: "Camera slowly pushes in toward subject"
+- Dolly Out: "Camera pulls back from subject"
+- Pan: "Camera pans left/right"
+- Tracking: "Camera tracks alongside the subject"
+- Orbit: "Camera orbits around the subject 180°"
+- Crane Up: "Camera cranes up / ascending crane shot"
+- Static: "Camera holds still / static shot"
+
+AUDIO EN VIDEO:
+- Si NO se pone "No music", el generador AÑADE música genérica automáticamente
+- Ambiente: "Ambient sound only (wind, birds). NO music."
+- Diálogo: "Clear dialogue in Spanish. No background music."
+- Silencio: "Complete silence."
 
 MÚLTIPLES PERSONAJES:
 - Preguntar cuál es el foco
