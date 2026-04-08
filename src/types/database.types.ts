@@ -284,44 +284,6 @@ export type Database = {
           },
         ]
       }
-      billing_events: {
-        Row: {
-          amount_cents: number | null
-          created_at: string | null
-          currency: string | null
-          event_type: string
-          id: string
-          metadata: Json | null
-          user_id: string
-        }
-        Insert: {
-          amount_cents?: number | null
-          created_at?: string | null
-          currency?: string | null
-          event_type: string
-          id?: string
-          metadata?: Json | null
-          user_id: string
-        }
-        Update: {
-          amount_cents?: number | null
-          created_at?: string | null
-          currency?: string | null
-          event_type?: string
-          id?: string
-          metadata?: Json | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "billing_events_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       character_images: {
         Row: {
           angle_description: string | null
@@ -464,91 +426,6 @@ export type Database = {
           },
         ]
       }
-      comments: {
-        Row: {
-          content: string
-          created_at: string | null
-          id: string
-          parent_id: string | null
-          project_id: string
-          resolved: boolean | null
-          scene_id: string | null
-          task_id: string | null
-          updated_at: string | null
-          user_id: string
-          video_id: string | null
-        }
-        Insert: {
-          content: string
-          created_at?: string | null
-          id?: string
-          parent_id?: string | null
-          project_id: string
-          resolved?: boolean | null
-          scene_id?: string | null
-          task_id?: string | null
-          updated_at?: string | null
-          user_id: string
-          video_id?: string | null
-        }
-        Update: {
-          content?: string
-          created_at?: string | null
-          id?: string
-          parent_id?: string | null
-          project_id?: string
-          resolved?: boolean | null
-          scene_id?: string | null
-          task_id?: string | null
-          updated_at?: string | null
-          user_id?: string
-          video_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "comments_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "comments"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "comments_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "comments_scene_id_fkey"
-            columns: ["scene_id"]
-            isOneToOne: false
-            referencedRelation: "scenes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "comments_task_id_fkey"
-            columns: ["task_id"]
-            isOneToOne: false
-            referencedRelation: "tasks"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "comments_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "comments_video_id_fkey"
-            columns: ["video_id"]
-            isOneToOne: false
-            referencedRelation: "videos"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       entity_snapshots: {
         Row: {
           action_type: string
@@ -619,63 +496,6 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      exports: {
-        Row: {
-          config: Json | null
-          created_at: string | null
-          file_path: string | null
-          file_size_bytes: number | null
-          file_url: string | null
-          format: Database["public"]["Enums"]["export_format"]
-          id: string
-          notes: string | null
-          project_id: string
-          version: number | null
-          video_id: string | null
-        }
-        Insert: {
-          config?: Json | null
-          created_at?: string | null
-          file_path?: string | null
-          file_size_bytes?: number | null
-          file_url?: string | null
-          format: Database["public"]["Enums"]["export_format"]
-          id?: string
-          notes?: string | null
-          project_id: string
-          version?: number | null
-          video_id?: string | null
-        }
-        Update: {
-          config?: Json | null
-          created_at?: string | null
-          file_path?: string | null
-          file_size_bytes?: number | null
-          file_url?: string | null
-          format?: Database["public"]["Enums"]["export_format"]
-          id?: string
-          notes?: string | null
-          project_id?: string
-          version?: number | null
-          video_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "exports_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "exports_video_id_fkey"
-            columns: ["video_id"]
-            isOneToOne: false
-            referencedRelation: "videos"
             referencedColumns: ["id"]
           },
         ]
@@ -1045,47 +865,6 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      project_members: {
-        Row: {
-          accepted_at: string | null
-          created_at: string | null
-          email: string | null
-          id: string
-          invited_by: string | null
-          project_id: string
-          role: string
-          user_id: string | null
-        }
-        Insert: {
-          accepted_at?: string | null
-          created_at?: string | null
-          email?: string | null
-          id?: string
-          invited_by?: string | null
-          project_id: string
-          role: string
-          user_id?: string | null
-        }
-        Update: {
-          accepted_at?: string | null
-          created_at?: string | null
-          email?: string | null
-          id?: string
-          invited_by?: string | null
-          project_id?: string
-          role?: string
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "project_members_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -1973,7 +1752,9 @@ export type Database = {
         Row: {
           annotation_source: string | null
           arc_phase: Database["public"]["Enums"]["arc_phase"] | null
+          audio_config: Json | null
           client_annotation: string | null
+          continuation_of_scene_id: string | null
           created_at: string | null
           description: string | null
           dialogue: string | null
@@ -1990,17 +1771,17 @@ export type Database = {
           short_id: string | null
           sort_order: number | null
           status: Database["public"]["Enums"]["scene_status"]
+          time_of_day: string | null
           title: string
           updated_at: string | null
           video_id: string
-          audio_config: Json | null
-          time_of_day: string | null
-          continuation_of_scene_id: string | null
         }
         Insert: {
           annotation_source?: string | null
           arc_phase?: Database["public"]["Enums"]["arc_phase"] | null
+          audio_config?: Json | null
           client_annotation?: string | null
+          continuation_of_scene_id?: string | null
           created_at?: string | null
           description?: string | null
           dialogue?: string | null
@@ -2017,17 +1798,17 @@ export type Database = {
           short_id?: string | null
           sort_order?: number | null
           status?: Database["public"]["Enums"]["scene_status"]
+          time_of_day?: string | null
           title: string
           updated_at?: string | null
           video_id: string
-          audio_config?: Json | null
-          time_of_day?: string | null
-          continuation_of_scene_id?: string | null
         }
         Update: {
           annotation_source?: string | null
           arc_phase?: Database["public"]["Enums"]["arc_phase"] | null
+          audio_config?: Json | null
           client_annotation?: string | null
+          continuation_of_scene_id?: string | null
           created_at?: string | null
           description?: string | null
           dialogue?: string | null
@@ -2044,14 +1825,19 @@ export type Database = {
           short_id?: string | null
           sort_order?: number | null
           status?: Database["public"]["Enums"]["scene_status"]
+          time_of_day?: string | null
           title?: string
           updated_at?: string | null
           video_id?: string
-          audio_config?: Json | null
-          time_of_day?: string | null
-          continuation_of_scene_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "scenes_continuation_of_scene_id_fkey"
+            columns: ["continuation_of_scene_id"]
+            isOneToOne: false
+            referencedRelation: "scenes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "scenes_project_id_fkey"
             columns: ["project_id"]
@@ -2277,77 +2063,6 @@ export type Database = {
           },
           {
             foreignKeyName: "tasks_video_id_fkey"
-            columns: ["video_id"]
-            isOneToOne: false
-            referencedRelation: "videos"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      time_entries: {
-        Row: {
-          created_at: string | null
-          description: string | null
-          duration_minutes: number | null
-          ended_at: string | null
-          id: string
-          is_running: boolean | null
-          project_id: string
-          started_at: string
-          task_id: string | null
-          user_id: string
-          video_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          description?: string | null
-          duration_minutes?: number | null
-          ended_at?: string | null
-          id?: string
-          is_running?: boolean | null
-          project_id: string
-          started_at: string
-          task_id?: string | null
-          user_id: string
-          video_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          description?: string | null
-          duration_minutes?: number | null
-          ended_at?: string | null
-          id?: string
-          is_running?: boolean | null
-          project_id?: string
-          started_at?: string
-          task_id?: string | null
-          user_id?: string
-          video_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "time_entries_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "time_entries_task_id_fkey"
-            columns: ["task_id"]
-            isOneToOne: false
-            referencedRelation: "tasks"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "time_entries_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "time_entries_video_id_fkey"
             columns: ["video_id"]
             isOneToOne: false
             referencedRelation: "videos"
@@ -3191,4 +2906,3 @@ export const Constants = {
     },
   },
 } as const
-

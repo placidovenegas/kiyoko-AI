@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Search, Home, Inbox, CheckSquare } from 'lucide-react';
+import { Search, Home, Inbox } from 'lucide-react';
 import { Tooltip } from '@heroui/react';
 import { useQuery } from '@tanstack/react-query';
 import { useSidebar } from '@/components/ui/sidebar';
@@ -41,7 +41,6 @@ export function SidebarNavFixed() {
     { id: 'search', label: t('common.search'), icon: Search, href: null, shortcut: '⌘K', onClick: handleSearch },
     { id: 'home', label: t('nav.dashboard'), icon: Home, href: '/dashboard' },
     { id: 'inbox', label: 'Inbox', icon: Inbox, href: '/dashboard/notifications', badge: unreadCount > 0 ? unreadCount : undefined },
-    { id: 'tasks', label: t('project.tasks'), icon: CheckSquare, href: '/dashboard/tasks' },
   ];
 
   return (

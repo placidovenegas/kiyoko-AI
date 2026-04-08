@@ -18,7 +18,6 @@ import { GlobalFilePreview } from '@/components/shared/GlobalFilePreview';
 import { DashboardBootstrap } from '@/providers/DashboardBootstrap';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ProjectCreatePanel } from '@/components/project/ProjectCreatePanel';
-import { TaskCreatePanel } from '@/components/tasks/TaskCreatePanel';
 
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -29,9 +28,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     settingsModalOpen,
     openSettingsModal,
     projectCreatePanelOpen,
-    taskCreatePanelOpen,
     closeProjectCreatePanel,
-    closeTaskCreatePanel,
     closeFilePreview,
   } = useUIStore();
   const pathname = usePathname();
@@ -96,11 +93,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     if (previousRouteRef.current !== routeSnapshot) {
       closeProjectCreatePanel();
-      closeTaskCreatePanel();
       closeFilePreview();
       previousRouteRef.current = routeSnapshot;
     }
-  }, [routeSnapshot, closeFilePreview, closeProjectCreatePanel, closeTaskCreatePanel]);
+  }, [routeSnapshot, closeFilePreview, closeProjectCreatePanel]);
 
   // Nota: closeSettingsModal lo maneja el propio SettingsModal al cambiar open=false.
   // (Antes se usaba para compactar header; en V6 el navbar del chat se alinea fijo a 47px.)
@@ -139,7 +135,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </div>
 
               {projectCreatePanelOpen && <ProjectCreatePanel />}
-              {taskCreatePanelOpen && <TaskCreatePanel />}
 
               {/* Kiyoko panel — only on production pages */}
               {showKiyokoPanel && <KiyokoPanel />}

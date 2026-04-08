@@ -122,7 +122,6 @@ export function Header() {
   const t = useTranslations();
 
   useDashboard();
-  const openTaskCreatePanel = useUIStore((s) => s.openTaskCreatePanel);
   const openProjectSettingsModal = useUIStore((s) => s.openProjectSettingsModal);
   const openVideoSettingsModal = useUIStore((s) => s.openVideoSettingsModal);
   const pageHeaderContext = useUIStore((s) => s.pageHeaderContext);
@@ -212,33 +211,6 @@ export function Header() {
         >
           {t('nav.feedback')}
         </Button>
-      ) : null}
-
-      {routeContext.showGlobalTaskAction ? (
-        <>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onPress={() => openTaskCreatePanel({ source: 'header' })}
-            isIconOnly
-            className={cn(chromeButtonClassName, 'shrink-0 mr-1.5 lg:hidden')}
-            aria-label="Nueva tarea"
-          >
-            <Plus className="h-3.5 w-3.5" />
-          </Button>
-
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onPress={() => openTaskCreatePanel({ source: 'header' })}
-            className={cn(chromeTextButtonClassName, 'mr-1.5 hidden lg:inline-flex')}
-          >
-            <Plus className="mr-1.5 h-3.5 w-3.5" />
-            Nueva tarea
-          </Button>
-        </>
       ) : null}
 
       {/* RIGHT: icons */}

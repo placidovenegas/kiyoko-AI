@@ -24,7 +24,6 @@ import { ProjectGrid } from '@/components/project/ProjectGrid';
 import { queryKeys } from '@/lib/query/keys';
 import { fetchWorkspaceProjects } from '@/lib/queries/projects';
 import { useUIStore } from '@/stores/useUIStore';
-import { TaskPreviewCard } from '@/components/shared/TaskPreviewCard';
 import { FilterPills } from '@/components/shared/FilterPills';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { cn } from '@/lib/utils/cn';
@@ -165,7 +164,7 @@ export function DashboardHomeView() {
       ) : (
         <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
           <Stat icon={FolderOpen} label="Proyectos" value={projects.length} tone="text-primary" />
-          <Stat icon={CheckSquare} label="Tareas activas" value={overview?.pendingTasksCount ?? 0} sub={`${overview?.overdueTasksCount ?? 0} vencidas`} tone="text-amber-500" />
+          <Stat icon={CheckSquare} label="Escenas totales" value={overview?.pendingTasksCount ?? 0} sub="en todos los proyectos" tone="text-amber-500" />
           <Stat icon={Zap} label="Tokens mes" value={fmtTokens(overview?.tokensThisMonth ?? 0)} sub={fmtUsd(overview?.monthlyCostUsd ?? 0)} tone="text-sky-500" />
           <Stat icon={TrendingUp} label="En progreso" value={counts.inProgress} tone="text-emerald-500" />
         </div>
@@ -289,25 +288,7 @@ export function DashboardHomeView() {
             </div>
           )}
 
-          {/* Focus tasks */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Cola de foco</p>
-              <Link href="/dashboard/tasks" className="text-xs text-primary hover:text-primary/80">Ver todo</Link>
-            </div>
-            {overviewQ.isLoading ? (
-              <div className="h-24 animate-pulse rounded-xl border border-border bg-card" />
-            ) : (overview?.focusTasks ?? []).length === 0 ? (
-              <EmptyState icon={CheckSquare} title="Sin tareas en foco" compact />
-            ) : (
-              <div className="space-y-1.5">
-                {(overview?.focusTasks ?? []).slice(0, 4).map((t) => {
-                  const proj = projects.find((p) => p.id === t.projectId);
-                  return <TaskPreviewCard key={t.id} title={t.title} projectName={proj?.title} priority={t.priority} dueDate={t.dueDate} href={`/project/${proj?.short_id ?? ''}/tasks`} />;
-                })}
-              </div>
-            )}
-          </div>
+          {/* Quick actions placeholder */}
         </aside>
       </div>
 

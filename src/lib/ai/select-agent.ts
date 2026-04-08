@@ -18,7 +18,7 @@ import { buildPromptGeneratorPrompt } from '@/lib/ai/agents/prompt-generator';
 import { buildSceneEditorPrompt } from '@/lib/ai/agents/scene-editor';
 import { buildCharacterAgentPrompt } from '@/lib/ai/agents/character-agent';
 import { buildBackgroundAgentPrompt } from '@/lib/ai/agents/background-agent';
-import { buildTaskAgentPrompt } from '@/lib/ai/agents/task-agent';
+// task-agent removed — tasks module deferred
 import { buildIdeationAgentPrompt } from '@/lib/ai/agents/ideation-agent';
 
 // ---- Context bundle passed from the API route ----
@@ -152,21 +152,6 @@ export function selectAgent(intent: Intent, ctx: AgentContext): SelectedAgent {
         }),
         temperature: 0.5,
         preferredProviders: ['groq', 'gemini', 'openai', 'mistral'],
-      };
-
-    // ============ TASKS ============
-    case 'create_task':
-    case 'list_tasks':
-      return {
-        agentName: 'tasks',
-        systemPrompt: buildTaskAgentPrompt({
-          project: ctx.project,
-          video: ctx.video,
-          agentTone: ctx.agentTone,
-          taskStats: ctx.taskStats,
-        }),
-        temperature: 0.3,
-        preferredProviders: ['groq', 'gemini', 'mistral', 'cerebras'],
       };
 
     // ============ IDEATION ============
