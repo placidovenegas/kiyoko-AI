@@ -8,7 +8,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { cn } from '@/lib/utils/cn';
 import { useUIStore } from '@/stores/useUIStore';
-import { useAIStore } from '@/stores/ai-store';
+import { generateShortId } from '@/lib/utils/nanoid';
+
 import { ArcBar } from '@/components/video/ArcBar';
 import { SceneGeneratorModal } from '@/components/modals/scene/SceneGeneratorModal';
 // SceneWorkModal replaces both SceneCreateModal and SceneEditorModal
@@ -17,7 +18,7 @@ import {
   Film, Clock, Monitor, Mic, FileOutput, Music, Image as ImageIcon,
   Video, Loader2, BarChart3, Layers, CheckCircle2, Target,
   Settings2, Copy, Sparkles, ExternalLink, MoreHorizontal,
-  Eye, Pencil, Camera, Clapperboard, Plus, Trash2, ArrowRight, Clock3, GripVertical,
+  Eye, Pencil, Camera, Plus, Trash2, ArrowRight, Clock3, GripVertical,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -219,6 +220,9 @@ function StoryboardCard({
   onGeneratePrompts,
   onEditScene,
   onReorderScene,
+  onDuplicate,
+  onDelete,
+  onInsertBefore,
   isGenerating,
 }: {
   scene: Scene;
@@ -234,6 +238,9 @@ function StoryboardCard({
   onGeneratePrompts: () => void;
   onEditScene: () => void;
   onReorderScene: (draggedId: string, targetId: string) => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
+  onInsertBefore: () => void;
   isGenerating: boolean;
 }) {
   const sceneLink = scene.short_id
@@ -519,36 +526,28 @@ function StoryboardCard({
                   Ver detalle
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => toast.info('Edicion inline proximamente')}>
+              <DropdownMenuItem onClick={onEditScene}>
                 <Pencil className="h-4 w-4" />
-                Editar inline
+                Editar escena
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => toast.info('Regenerar imagen proximamente')}>
-                <Camera className="h-4 w-4" />
-                Regenerar imagen
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => toast.info('Regenerar clips proximamente')}>
-                <Clapperboard className="h-4 w-4" />
-                Regenerar clips
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => toast.info('Mejorar con IA proximamente')}>
+              <DropdownMenuItem onClick={onGeneratePrompts} disabled={isGenerating}>
                 <Sparkles className="h-4 w-4" />
-                Mejorar con IA
+                {isGenerating ? 'Generando...' : 'Regenerar prompts'}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => toast.info('Duplicar proximamente')}>
+              <DropdownMenuItem onClick={onDuplicate}>
                 <Copy className="h-4 w-4" />
                 Duplicar escena
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => toast.info('Insertar proximamente')}>
+              <DropdownMenuItem onClick={onInsertBefore}>
                 <Plus className="h-4 w-4" />
                 Insertar antes
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive focus:text-destructive">
+              <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive">
                 <Trash2 className="h-4 w-4" />
-                Eliminar
+                Eliminar escena
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -595,11 +594,28 @@ export default function VideoOverviewPage() {
 
   async function handleGenerateAll() {
     setGeneratingAll(true);
+    toast.loading(`Generando prompts para ${scenes.length} escenas...`, { id: 'gen-all' });
     try {
-      for (const scene of scenes) {
-        await handleGeneratePrompts(scene.id);
+      // Generate in batches of 3 for balance between speed and rate limits
+      const batchSize = 3;
+      let completed = 0;
+      for (let i = 0; i < scenes.length; i += batchSize) {
+        const batch = scenes.slice(i, i + batchSize);
+        await Promise.all(batch.map(async (scene) => {
+          try {
+            const res = await fetch('/api/ai/generate-scene-prompts', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ sceneId: scene.id }),
+            });
+            if (res.ok) completed++;
+          } catch { /* skip failed scene */ }
+        }));
       }
-      toast.success('Todos los prompts generados');
+      queryClient.invalidateQueries({ queryKey: ['scene-prompts', video?.id] });
+      toast.success(`${completed}/${scenes.length} prompts generados`, { id: 'gen-all' });
+    } catch {
+      toast.error('Error al generar prompts', { id: 'gen-all' });
     } finally {
       setGeneratingAll(false);
     }
@@ -625,6 +641,49 @@ export default function VideoOverviewPage() {
     toast.success('Escenas reordenadas');
     queryClient.invalidateQueries({ queryKey: ['video'] });
   }
+
+  /* ── Scene actions: duplicate, delete, insert before ──── */
+
+  async function handleDuplicateScene(sceneId: string) {
+    const original = scenes.find(s => s.id === sceneId);
+    if (!original) return;
+    const supabase = createClient();
+    const num = (original.scene_number ?? scenes.length) + 1;
+    const { error } = await supabase.from('scenes').insert({
+      video_id: video!.id, project_id: project!.id,
+      title: `${original.title} (copia)`,
+      description: original.description,
+      duration_seconds: original.duration_seconds,
+      arc_phase: original.arc_phase,
+      scene_number: num, sort_order: num,
+      short_id: generateShortId(),
+      status: 'draft', scene_type: 'original',
+      dialogue: original.dialogue,
+      director_notes: original.director_notes,
+    });
+    if (error) { toast.error('Error al duplicar'); return; }
+    toast.success('Escena duplicada');
+    queryClient.invalidateQueries({ queryKey: ['video'] });
+  }
+
+  async function handleDeleteScene(sceneId: string) {
+    const sceneToDelete = scenes.find(s => s.id === sceneId);
+    if (!sceneToDelete) return;
+    if (!confirm(`¿Eliminar "${sceneToDelete.title}"? Esta accion no se puede deshacer.`)) return;
+    const supabase = createClient();
+    const { error } = await supabase.from('scenes').delete().eq('id', sceneId);
+    if (error) { toast.error('Error al eliminar'); return; }
+    toast.success('Escena eliminada');
+    queryClient.invalidateQueries({ queryKey: ['video'] });
+    queryClient.invalidateQueries({ queryKey: ['scenes'] });
+  }
+
+  function handleInsertBefore(sceneIndex: number) {
+    setInsertAtPosition(sceneIndex > 0 ? sceneIndex - 1 : 0);
+    setShowCreateScene(true);
+  }
+
+  const [insertAtPosition, setInsertAtPosition] = useState<number | null>(null);
 
   // Fetch narrative arcs
   const { data: arcs = [] } = useQuery({
@@ -775,8 +834,6 @@ export default function VideoOverviewPage() {
     enabled: !!project?.id,
   });
 
-  // Open chat with scene context
-  const { openChat, setActiveAgent } = useAIStore();
   function handleEditSceneWithAI(scene: Scene) {
     setEditingScene(scene);
   }
@@ -1012,7 +1069,7 @@ export default function VideoOverviewPage() {
         ) : viewMode === 'storyboard' ? (
           /* ── Storyboard view ── */
           <div className="space-y-3">
-            {scenes.map((scene) => {
+            {scenes.map((scene, sceneIndex) => {
               const imagePrompt = scenePrompts.find((p) => p.scene_id === scene.id && p.prompt_type === 'image');
               const videoPrompt = scenePrompts.find((p) => p.scene_id === scene.id && p.prompt_type === 'video');
               const thumbnail = sceneMedia.find((m) => m.scene_id === scene.id);
@@ -1037,6 +1094,9 @@ export default function VideoOverviewPage() {
                   onGeneratePrompts={() => handleGeneratePrompts(scene.id)}
                   onEditScene={() => handleEditSceneWithAI(scene)}
                   onReorderScene={handleReorderScene}
+                  onDuplicate={() => handleDuplicateScene(scene.id)}
+                  onDelete={() => handleDeleteScene(scene.id)}
+                  onInsertBefore={() => handleInsertBefore(sceneIndex)}
                   isGenerating={generatingSceneId === scene.id}
                 />
               );
