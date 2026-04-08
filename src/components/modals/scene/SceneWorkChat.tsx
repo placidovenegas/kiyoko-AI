@@ -91,6 +91,24 @@ function SuggestionCard({ data, onUse, onAnother, characters, backgrounds }: {
         </div>
       )}
 
+      {/* Prompts preview (if AI generated them) */}
+      {(data.promptImage || data.promptVideo) && (
+        <div className="px-3.5 pb-2 space-y-1.5">
+          {data.promptImage && (
+            <div className="space-y-0.5">
+              <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Prompt imagen</p>
+              <p className="font-mono text-[9px] text-muted-foreground/80 bg-background/60 rounded px-2 py-1.5 max-h-16 overflow-y-auto leading-relaxed border border-border/30">{data.promptImage}</p>
+            </div>
+          )}
+          {data.promptVideo && (
+            <div className="space-y-0.5">
+              <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Prompt video</p>
+              <p className="font-mono text-[9px] text-muted-foreground/80 bg-background/60 rounded px-2 py-1.5 max-h-16 overflow-y-auto leading-relaxed border border-border/30">{data.promptVideo}</p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Actions */}
       <div className="flex items-center gap-2 px-3.5 py-2.5 bg-card/30 border-t border-primary/10">
         <button type="button" onClick={onUse}

@@ -3,9 +3,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Select, ListBox, Label } from '@heroui/react';
-import { X, Sparkles, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils/cn';
+import { Select, ListBox } from '@heroui/react';
+import { X, Sparkles, Loader2, Wand2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { generateShortId } from '@/lib/utils/nanoid';
 import { SceneWorkForm } from './SceneWorkForm';
@@ -21,55 +20,6 @@ interface SceneCameraData {
 }
 import type { SceneCharacterWithChar, SceneBackgroundWithBg } from './scene-work-types';
 import type { Key } from 'react';
-
-/* ── Scene suggestion builder ─────────────────────────────── */
-
-function buildSceneSuggestion(ctx: {
-  sugPhase: string; prevTitle: string; prevDesc: string; prevDialogue: string;
-  nextTitle: string; nextDesc: string; charContext: string; bgContext: string;
-  angleLabel: string; movLabel: string;
-}): { title: string; description: string } {
-  const { sugPhase, prevTitle, prevDesc, prevDialogue, nextTitle, nextDesc, charContext, bgContext, angleLabel, movLabel } = ctx;
-  const hasContext = prevDesc || prevDialogue;
-  const hasNext = nextDesc || (nextTitle !== 'el final del video');
-  const who = charContext || 'el protagonista';
-  const where = bgContext ? `en ${bgContext}` : '';
-
-  if (sugPhase === 'peak') {
-    const title = hasContext
-      ? `Climax — ${prevTitle} llega al punto critico`
-      : 'Momento de maxima tension';
-    const desc = hasContext
-      ? `Tras lo ocurrido en "${prevTitle}"${prevDesc ? ` (${prevDesc.slice(0, 60)}...)` : ''}, ${who} se enfrenta al momento decisivo ${where}. ${angleLabel} que se acerca lentamente capturando la reaccion emocional. La tension se intensifica con un ${movLabel.toLowerCase()} que sigue la accion.${prevDialogue ? ` La escena responde al dialogo anterior: "${prevDialogue.slice(0, 50)}..."` : ''}`
-      : `${who} alcanza el punto de maxima intensidad ${where}. La camara ${angleLabel.toLowerCase()} con ${movLabel.toLowerCase()} captura el momento decisivo. Iluminacion dramatica con contrastes marcados.`;
-    return { title, description: desc };
-  }
-
-  if (sugPhase === 'close') {
-    const title = hasContext
-      ? `Cierre — resolucion de "${prevTitle}"`
-      : 'Cierre y llamada a la accion';
-    const desc = hasContext
-      ? `Despues de lo ocurrido en "${prevTitle}", ${who} muestra la resolucion ${where}. La camara retrocede con ${movLabel.toLowerCase()} revelando el resultado final. El ritmo se calma, dando al espectador un momento de reflexion antes del cierre.${prevDialogue ? ` Conecta con: "${prevDialogue.slice(0, 50)}..."` : ''}`
-      : `${who} cierra la narrativa ${where} con un plano ${angleLabel.toLowerCase()} que transmite la conclusion. Movimiento ${movLabel.toLowerCase()} que invita a la accion o reflexion del espectador.`;
-    return { title, description: desc };
-  }
-
-  if (sugPhase === 'hook') {
-    const title = 'Gancho — primera impresion';
-    const desc = `${who} aparece ${where} en una toma impactante disenada para captar la atencion en los primeros 2 segundos. ${angleLabel} con ${movLabel.toLowerCase()} que genera curiosidad inmediata.${hasNext ? ` Prepara el terreno para "${nextTitle}".` : ''}`;
-    return { title, description: desc };
-  }
-
-  // build phase
-  const title = hasContext
-    ? `Desarrollo — continuacion de "${prevTitle}"`
-    : `Desarrollo — ${who} en accion`;
-  const desc = hasContext
-    ? `Continuando desde "${prevTitle}"${prevDesc ? ` donde ${prevDesc.slice(0, 60).toLowerCase()}` : ''}, ${who} avanza en la narrativa ${where}. La camara ${angleLabel.toLowerCase()} con ${movLabel.toLowerCase()} sigue la accion, construyendo tension hacia el momento clave.${hasNext ? ` Prepara la transicion hacia "${nextTitle}"${nextDesc ? ` (${nextDesc.slice(0, 40)}...)` : ''}.` : ''}${prevDialogue ? ` Dialogo previo: "${prevDialogue.slice(0, 50)}..."` : ''}`
-    : `${who} desarrolla la accion principal ${where}. Plano ${angleLabel.toLowerCase()} con ${movLabel.toLowerCase()} que mantiene el ritmo narrativo.${hasNext ? ` Esta escena conecta naturalmente con "${nextTitle}".` : ''}`;
-  return { title, description: desc };
-}
 
 /* ── Props ────────────────────────────────────────────────── */
 
@@ -103,12 +53,11 @@ export function SceneWorkModal({
   const queryClient = useQueryClient();
   const isEdit = !!scene;
 
-  // Form state
   const [form, setForm] = useState<SceneForm>(DEFAULT_FORM);
   const [insertPosition, setInsertPosition] = useState<'end' | number>('end');
   const [saving, setSaving] = useState(false);
+  const [generatingPrompts, setGeneratingPrompts] = useState(false);
 
-  // Chat state
   const [iaInput, setIaInput] = useState('');
   const [iaMessages, setIaMessages] = useState<IaMessage[]>([]);
   const [iaProcessing, setIaProcessing] = useState(false);
@@ -135,10 +84,10 @@ export function SceneWorkModal({
       setForm(DEFAULT_FORM);
       setIaMessages([]);
       setIaInput('');
+      setInsertPosition('end');
     }
   }, [open, scene, sceneCameras, sceneCharacters, sceneBackgrounds]);
 
-  // Escape to close
   useEffect(() => {
     if (!open) return;
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onOpenChange(false); };
@@ -150,9 +99,96 @@ export function SceneWorkModal({
     setForm(f => ({ ...f, [key]: val }));
   }, []);
 
-  // Adjacent scenes
   const prevScene = typeof insertPosition === 'number' ? allScenes[insertPosition] : null;
   const nextScene = typeof insertPosition === 'number' ? allScenes[insertPosition + 1] : null;
+
+  /* ── Call real AI for scene suggestion ───────────────────── */
+  async function callAiSuggestion(instruction: string): Promise<SuggestionData | null> {
+    try {
+      const res = await fetch('/api/ai/generate-scenes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, instruction }),
+      });
+      if (!res.ok) return null;
+      const json = await res.json();
+      if (!json.success || !json.data) return null;
+      const d = json.data;
+      return {
+        title: d.title ?? '',
+        description: d.description ?? '',
+        arcPhase: d.arc_phase ?? 'build',
+        duration: d.duration_seconds ?? 5,
+        cameraAngle: (d.camera_angle as CameraAngle) ?? 'medium',
+        cameraMovement: (d.camera_movement as CameraMovement) ?? 'static',
+        characterIds: [],
+        backgroundIds: [],
+        promptImage: d.prompt_image ?? undefined,
+        promptVideo: d.prompt_video ?? undefined,
+        directorNotes: d.director_notes ?? undefined,
+        mood: d.mood ?? undefined,
+        lighting: d.lighting ?? undefined,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /* ── Fallback local suggestion builder ──────────────────── */
+  function buildLocalSuggestion(prevS: Scene | null, nextS: Scene | null, userHint?: string): SuggestionData {
+    const prevPhase: string = prevS?.arc_phase ?? 'build';
+    const nextPhase: string | undefined = nextS?.arc_phase ?? undefined;
+    let sugPhase = 'build';
+    if (prevPhase === 'hook') sugPhase = 'build';
+    else if (prevPhase === 'build' && nextPhase === 'close') sugPhase = 'peak';
+    else if (prevPhase === 'peak') sugPhase = 'close';
+    else if (!nextPhase) sugPhase = prevPhase === 'peak' ? 'close' : 'peak';
+
+    if (userHint) {
+      const h = userHint.toLowerCase();
+      if (h.includes('gancho') || h.includes('hook')) sugPhase = 'hook';
+      else if (h.includes('climax') || h.includes('peak')) sugPhase = 'peak';
+      else if (h.includes('cierre') || h.includes('close')) sugPhase = 'close';
+    }
+
+    const sugAngle: CameraAngle = sugPhase === 'peak' ? 'close_up' : sugPhase === 'hook' ? 'medium' : 'wide';
+    const sugMove: CameraMovement = sugPhase === 'peak' ? 'dolly_in' : sugPhase === 'close' ? 'dolly_out' : 'tracking';
+    const sugDur = sugPhase === 'hook' ? 4 : sugPhase === 'peak' ? 6 : 5;
+
+    const prevChars = prevS ? sceneCharacters.filter(sc => sc.scene_id === prevS.id).map(sc => sc.character_id) : [];
+    const nextChars = nextS ? sceneCharacters.filter(sc => sc.scene_id === nextS.id).map(sc => sc.character_id) : [];
+    const sugChars = [...new Set([...prevChars, ...nextChars])];
+    const prevBgs = prevS ? sceneBackgrounds.filter(sb => sb.scene_id === prevS.id).map(sb => sb.background_id) : [];
+
+    const charNames = characters.filter(c => sugChars.includes(c.id)).map(c => c.name);
+    const bgNames = backgrounds.filter(b => prevBgs.includes(b.id)).map(b => b.name);
+    const who = charNames.length > 0 ? charNames.join(' y ') : 'el protagonista';
+    const where = bgNames.length > 0 ? `en ${bgNames[0]}` : '';
+    const prevTitle = prevS?.title ?? '';
+    const prevDesc = prevS?.description ?? '';
+
+    let title = '';
+    let desc = '';
+    if (sugPhase === 'peak') {
+      title = prevTitle ? `Climax — ${prevTitle} llega al punto critico` : 'Momento de maxima tension';
+      desc = `${who} se enfrenta al momento decisivo ${where}. La camara se acerca capturando la reaccion emocional.${prevDesc ? ` Tras: "${prevDesc.slice(0, 60)}..."` : ''}`;
+    } else if (sugPhase === 'close') {
+      title = prevTitle ? `Cierre — resolucion de "${prevTitle}"` : 'Cierre y llamada a la accion';
+      desc = `${who} muestra la resolucion ${where}. La camara retrocede revelando el resultado final.${prevDesc ? ` Despues de: "${prevDesc.slice(0, 60)}..."` : ''}`;
+    } else if (sugPhase === 'hook') {
+      title = 'Gancho — primera impresion';
+      desc = `${who} aparece ${where} en una toma impactante que capta la atencion en los primeros 2 segundos.`;
+    } else {
+      title = prevTitle ? `Desarrollo — continuacion de "${prevTitle}"` : `Desarrollo — ${who} en accion`;
+      desc = `${who} avanza en la narrativa ${where}.${prevDesc ? ` Continuando desde: "${prevDesc.slice(0, 60)}..."` : ''}${nextS ? ` Prepara la transicion hacia "${nextS.title}".` : ''}`;
+    }
+
+    return {
+      title, description: desc, arcPhase: sugPhase, duration: sugDur,
+      cameraAngle: sugAngle, cameraMovement: sugMove,
+      characterIds: sugChars, backgroundIds: prevBgs.length > 0 ? [prevBgs[0]] : [],
+    };
+  }
 
   /* ── Auto-suggestion on position change ─────────────────── */
   useEffect(() => {
@@ -166,154 +202,76 @@ export function SceneWorkModal({
     setIaMessages([]);
     setIaProcessing(true);
 
-    const timer = setTimeout(() => {
-      const next = allScenes[insertPosition + 1];
-      const prevPhase: string = prev.arc_phase ?? 'build';
-      const nextPhase: string | undefined = next?.arc_phase ?? undefined;
+    const next = allScenes[insertPosition + 1];
+    const prevTitle = prev.title ?? `Escena #${prev.scene_number}`;
+    const nextTitle = next?.title ?? 'el final del video';
 
-      let sugPhase = 'build';
-      if (prevPhase === 'hook') sugPhase = 'build';
-      else if (prevPhase === 'build' && nextPhase === 'close') sugPhase = 'peak';
-      else if (prevPhase === 'peak') sugPhase = 'close';
-      else if (!nextPhase) sugPhase = prevPhase === 'peak' ? 'close' : 'peak';
+    // Try real AI first, fallback to local
+    const instruction = `Genera una escena para insertar entre "${prevTitle}" (${prev.arc_phase}, ${prev.duration_seconds}s${prev.description ? `: ${prev.description}` : ''}) y "${nextTitle}"${next?.description ? ` (${next.description})` : ''}. Debe conectar ambas escenas narrativamente.`;
 
-      const sugAngle: CameraAngle = prevPhase === 'hook' ? 'medium' : prevPhase === 'peak' ? 'close_up' : 'wide';
-      const sugMove: CameraMovement = sugPhase === 'peak' ? 'dolly_in' : sugPhase === 'close' ? 'dolly_out' : 'tracking';
-      const sugDur = prevPhase === 'hook' ? 4 : prevPhase === 'peak' ? 6 : 5;
-
-      // Pick characters/backgrounds from adjacent scenes
-      const prevChars = sceneCharacters.filter(sc => sc.scene_id === prev.id).map(sc => sc.character_id);
-      const nextChars = next ? sceneCharacters.filter(sc => sc.scene_id === next.id).map(sc => sc.character_id) : [];
-      const sugChars = [...new Set([...prevChars, ...nextChars])];
-
-      const prevBgs = sceneBackgrounds.filter(sb => sb.scene_id === prev.id).map(sb => sb.background_id);
-      const sugBgs = prevBgs.length > 0 ? [prevBgs[0]] : [];
-
-      const prevTitle = prev.title ?? `Escena #${prev.scene_number}`;
-      const prevDesc = prev.description ?? '';
-      const prevDialogue = prev.dialogue ?? '';
-      const nextTitle = next?.title ?? 'el final del video';
-      const nextDesc = next?.description ?? '';
-      const phaseLabel = PHASES.find(p => p.value === sugPhase)?.label ?? sugPhase;
-      const angleLabel = ANGLES.find(a => a.value === sugAngle)?.label ?? 'Medio';
-      const movLabel = MOVEMENTS.find(m => m.value === sugMove)?.label ?? 'Tracking';
-
-      // Get real character/background names
-      const charNames = characters.filter(c => sugChars.includes(c.id)).map(c => c.name);
-      const bgNames = backgrounds.filter(b => sugBgs.includes(b.id)).map(b => b.name);
-      const charContext = charNames.length > 0 ? charNames.join(' y ') : '';
-      const bgContext = bgNames.length > 0 ? bgNames[0] : '';
-
-      // Build contextual description from REAL adjacent scene data
-      const sugResult = buildSceneSuggestion({
-        sugPhase, prevTitle, prevDesc, prevDialogue, nextTitle, nextDesc,
-        charContext, bgContext, angleLabel, movLabel,
-      });
-
-      const suggestion: SuggestionData = {
-        title: sugResult.title, description: sugResult.description,
-        arcPhase: sugPhase, duration: sugDur,
-        cameraAngle: sugAngle, cameraMovement: sugMove,
-        characterIds: sugChars, backgroundIds: sugBgs,
-      };
-
+    callAiSuggestion(instruction).then(aiResult => {
+      const suggestion = aiResult ?? buildLocalSuggestion(prev, next);
       const content = `He analizado las escenas adyacentes:
 
 **← Anterior:** "${prevTitle}" (${prev.duration_seconds}s · ${prev.arc_phase})
 **→ Siguiente:** "${nextTitle}"${next ? ` (${next.duration_seconds}s · ${next.arc_phase})` : ''}
 
-Basandome en el contexto narrativo, te sugiero esta escena:`;
+${aiResult ? 'He generado esta escena con IA:' : 'Te sugiero esta escena:'}`;
 
       setIaMessages([{ id: `auto-${Date.now()}`, role: 'assistant', content, suggestion }]);
       setIaProcessing(false);
-    }, 600);
-
-    return () => clearTimeout(timer);
+    });
   }, [open, isEdit, insertPosition, allScenes, sceneCharacters, sceneBackgrounds]);
 
   /* ── Use suggestion ─────────────────────────────────────── */
   function handleUseSuggestion(data: SuggestionData) {
     setForm(f => ({
       ...f,
-      title: data.title,
-      description: data.description,
-      arcPhase: data.arcPhase,
-      duration: data.duration,
-      cameraAngle: data.cameraAngle,
-      cameraMovement: data.cameraMovement,
-      characterIds: data.characterIds,
-      backgroundIds: data.backgroundIds,
+      title: data.title, description: data.description,
+      arcPhase: data.arcPhase, duration: data.duration,
+      cameraAngle: data.cameraAngle, cameraMovement: data.cameraMovement,
+      characterIds: data.characterIds, backgroundIds: data.backgroundIds,
     }));
     toast.success('Sugerencia aplicada al formulario');
   }
 
-  /* ── IA chat handler ────────────────────────────────────── */
-  function handleIaSend(directText?: string) {
+  /* ── IA chat handler (calls real API) ───────────────────── */
+  async function handleIaSend(directText?: string) {
     const text = (directText ?? iaInput).trim();
     if (!text || iaProcessing) return;
     setIaInput('');
     setIaProcessing(true);
     setIaMessages(prev => [...prev, { id: `u-${Date.now()}`, role: 'user', content: text }]);
 
-    setTimeout(() => {
-      // Mock suggestion based on user input
-      const sugTitle = text.toLowerCase().includes('accion') ? 'Secuencia de accion' :
-        text.toLowerCase().includes('transicion') ? 'Transicion suave' :
-        text.toLowerCase().includes('emocional') ? 'Momento emocional' :
-        text.toLowerCase().includes('gancho') ? 'Gancho visual' :
-        text.toLowerCase().includes('corto') || text.toLowerCase().includes('corta') ? form.title || 'Escena rapida' :
-        'Escena sugerida';
-      const sugPhase = text.toLowerCase().includes('cierre') ? 'close' :
-        text.toLowerCase().includes('gancho') ? 'hook' :
-        text.toLowerCase().includes('climax') ? 'peak' : form.arcPhase || 'build';
-      const sugAngle: CameraAngle = text.toLowerCase().includes('primer plano') || text.toLowerCase().includes('close') ? 'close_up' :
-        text.toLowerCase().includes('general') ? 'wide' : form.cameraAngle || 'medium';
-      const sugMove: CameraMovement = text.toLowerCase().includes('tracking') ? 'tracking' :
-        text.toLowerCase().includes('orbita') ? 'orbit' : form.cameraMovement || 'dolly_in';
-      const sugDur = text.toLowerCase().includes('corto') || text.toLowerCase().includes('corta') ? 3 :
-        text.toLowerCase().includes('larga') || text.toLowerCase().includes('largo') ? 8 : form.duration || 5;
+    // Build instruction with context
+    const prev = typeof insertPosition === 'number' ? allScenes[insertPosition] : null;
+    const next = typeof insertPosition === 'number' ? allScenes[insertPosition + 1] : null;
+    const contextParts: string[] = [];
+    if (prev) contextParts.push(`Escena anterior: "${prev.title}" (${prev.arc_phase}${prev.description ? `, ${prev.description}` : ''})`);
+    if (next) contextParts.push(`Escena siguiente: "${next.title}" (${next.arc_phase}${next.description ? `, ${next.description}` : ''})`);
+    if (form.title) contextParts.push(`Titulo actual del formulario: "${form.title}"`);
+    const instruction = `${text}. ${contextParts.length > 0 ? `Contexto: ${contextParts.join('. ')}` : ''}`;
 
-      // Use real context from adjacent scenes
-      const prev = typeof insertPosition === 'number' ? allScenes[insertPosition] : null;
-      const next = typeof insertPosition === 'number' ? allScenes[insertPosition + 1] : null;
-      const charNames = characters.filter(c => form.characterIds.includes(c.id)).map(c => c.name);
-      const bgNames = backgrounds.filter(b => form.backgroundIds.includes(b.id)).map(b => b.name);
-      const angleLabel = ANGLES.find(a => a.value === sugAngle)?.label ?? 'Medio';
-      const movLabel = MOVEMENTS.find(m => m.value === sugMove)?.label ?? 'Tracking';
+    const aiResult = await callAiSuggestion(instruction);
+    const suggestion = aiResult ?? buildLocalSuggestion(prev, next, text);
+    const content = aiResult
+      ? `He generado una escena basada en tu indicacion:`
+      : `Entendido. Te propongo esta escena:`;
 
-      const chatResult = buildSceneSuggestion({
-        sugPhase,
-        prevTitle: prev?.title ?? '',
-        prevDesc: prev?.description ?? text,
-        prevDialogue: prev?.dialogue ?? '',
-        nextTitle: next?.title ?? 'el final del video',
-        nextDesc: next?.description ?? '',
-        charContext: charNames.join(' y '),
-        bgContext: bgNames[0] ?? '',
-        angleLabel, movLabel,
-      });
-
-      const suggestion: SuggestionData = {
-        title: chatResult.title || sugTitle, description: chatResult.description,
-        arcPhase: sugPhase, duration: sugDur,
-        cameraAngle: sugAngle, cameraMovement: sugMove,
-        characterIds: form.characterIds, backgroundIds: form.backgroundIds,
-      };
-
-      const content = `Entendido. He preparado una sugerencia basada en "${text}":`;
-
-      setIaMessages(prev => [...prev, { id: `auto-${Date.now()}`, role: 'assistant', content, suggestion }]);
-      setIaProcessing(false);
-    }, 500);
+    setIaMessages(prev => [...prev, { id: `auto-${Date.now()}`, role: 'assistant', content, suggestion }]);
+    setIaProcessing(false);
   }
 
-  /* ── Save ────────────────────────────────────────────────── */
+  /* ── Save + auto-generate prompts ───────────────────────── */
   async function handleSave() {
     if (!form.title.trim()) { toast.error('El titulo es obligatorio'); return; }
     setSaving(true);
     try {
       const supabase = createClient();
+      let sceneId: string | null = null;
+
       if (isEdit && scene) {
+        sceneId = scene.id;
         await supabase.from('scenes').update({
           title: form.title, description: form.description,
           arc_phase: form.arcPhase as 'hook' | 'build' | 'peak' | 'close',
@@ -321,12 +279,9 @@ Basandome en el contexto narrativo, te sugiero esta escena:`;
         }).eq('id', scene.id);
 
         // Update camera
-        const cam = sceneCameras.find(c => c.scene_id === scene.id);
-        if (cam) {
-          await supabase.from('scene_camera').update({
-            camera_angle: form.cameraAngle, camera_movement: form.cameraMovement,
-          }).eq('scene_id', scene.id);
-        }
+        await supabase.from('scene_camera').upsert({
+          scene_id: scene.id, camera_angle: form.cameraAngle, camera_movement: form.cameraMovement,
+        }, { onConflict: 'scene_id' });
 
         toast.success('Escena actualizada');
       } else {
@@ -340,18 +295,15 @@ Basandome en el contexto narrativo, te sugiero esta escena:`;
         }).select('id').single();
 
         if (newScene) {
+          sceneId = newScene.id;
           await supabase.from('scene_camera').insert({
             scene_id: newScene.id, camera_angle: form.cameraAngle, camera_movement: form.cameraMovement,
           });
-
-          // Insert characters
           if (form.characterIds.length > 0) {
             await supabase.from('scene_characters').insert(
               form.characterIds.map((cid, i) => ({ scene_id: newScene.id, character_id: cid, sort_order: i }))
             );
           }
-
-          // Insert backgrounds
           if (form.backgroundIds.length > 0) {
             await supabase.from('scene_backgrounds').insert(
               form.backgroundIds.map((bid, i) => ({ scene_id: newScene.id, background_id: bid, is_primary: i === 0 }))
@@ -360,21 +312,49 @@ Basandome en el contexto narrativo, te sugiero esta escena:`;
         }
         toast.success('Escena creada');
       }
+
+      // Invalidate queries
       queryClient.invalidateQueries({ queryKey: ['scenes'] });
       queryClient.invalidateQueries({ queryKey: ['video'] });
       queryClient.invalidateQueries({ queryKey: ['scene-characters'] });
       queryClient.invalidateQueries({ queryKey: ['scene-backgrounds'] });
+      queryClient.invalidateQueries({ queryKey: ['scene-cameras'] });
       onUpdate?.();
       onOpenChange(false);
-    } catch { toast.error('Error al guardar'); }
-    finally { setSaving(false); }
+      setSaving(false);
+
+      // Auto-generate prompts in background (after modal closes)
+      if (sceneId) {
+        setGeneratingPrompts(true);
+        toast.loading('Generando prompts de imagen y video...', { id: 'gen-prompts' });
+        try {
+          const res = await fetch('/api/ai/generate-scene-prompts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sceneId }),
+          });
+          const json = await res.json();
+          if (json.success) {
+            toast.success('Prompts generados automaticamente', { id: 'gen-prompts' });
+            queryClient.invalidateQueries({ queryKey: ['scene-prompts'] });
+          } else {
+            toast.error('No se pudieron generar prompts', { id: 'gen-prompts' });
+          }
+        } catch {
+          toast.error('Error generando prompts', { id: 'gen-prompts' });
+        }
+        setGeneratingPrompts(false);
+      }
+    } catch {
+      toast.error('Error al guardar');
+      setSaving(false);
+    }
   }
 
   if (!open) return null;
 
   const sceneNum = isEdit ? scene?.scene_number : (insertPosition === 'end' ? allScenes.length + 1 : (typeof insertPosition === 'number' ? insertPosition + 2 : nextSceneNumber));
 
-  // Position options for HeroUI Select
   const positionOptions = [
     { key: 'end', label: `Al final (escena #${allScenes.length + 1})` },
     ...allScenes.map((s, i) => ({ key: String(i), label: `Despues de #${s.scene_number} "${s.title}"` })),
@@ -387,7 +367,6 @@ Basandome en el contexto narrativo, te sugiero esta escena:`;
 
         {/* ── Header ── */}
         <div className="flex items-center gap-3 border-b border-border px-5 py-3 shrink-0">
-          {/* Position selector */}
           {!isEdit && allScenes.length > 0 && (
             <div className="w-[260px] shrink-0">
               <Select variant="secondary" aria-label="Posicion" selectedKey={insertPosition === 'end' ? 'end' : String(insertPosition)}
@@ -410,46 +389,29 @@ Basandome en el contexto narrativo, te sugiero esta escena:`;
           </button>
         </div>
 
-        {/* ── Body: Form + Chat side by side ── */}
+        {/* ── Body ── */}
         <div className="flex flex-1 min-h-0 overflow-hidden">
-          {/* Left: Form */}
           <div className="flex-1 overflow-y-auto px-5 py-4">
             <SceneWorkForm
-              form={form}
-              update={update}
-              characters={characters}
-              backgrounds={backgrounds}
-              imagePrompt={imagePrompt}
-              videoPrompt={videoPrompt}
+              form={form} update={update}
+              characters={characters} backgrounds={backgrounds}
+              imagePrompt={imagePrompt} videoPrompt={videoPrompt}
               isEdit={isEdit}
             />
           </div>
-
-          {/* Right: Chat sidebar */}
           <div className="w-[340px] shrink-0 border-l border-border bg-background/50 hidden lg:flex flex-col">
             <SceneWorkChat
-              messages={iaMessages}
-              processing={iaProcessing}
-              input={iaInput}
-              onInputChange={setIaInput}
-              onSend={handleIaSend}
-              onUseSuggestion={handleUseSuggestion}
-              characters={characters}
-              backgrounds={backgrounds}
+              messages={iaMessages} processing={iaProcessing}
+              input={iaInput} onInputChange={setIaInput}
+              onSend={handleIaSend} onUseSuggestion={handleUseSuggestion}
+              characters={characters} backgrounds={backgrounds}
               isEdit={isEdit}
             />
           </div>
-
-          {/* Mobile: Chat toggle button */}
-          <button type="button" className="lg:hidden fixed bottom-24 right-6 z-20 flex size-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl hover:bg-primary/90 transition-colors"
-            onClick={() => toast.info('Chat IA disponible en pantalla completa')}>
-            <Sparkles className="size-5" />
-          </button>
         </div>
 
         {/* ── Footer ── */}
         <div className="flex items-center justify-between border-t border-border px-5 py-3 shrink-0">
-          {/* Context indicator */}
           {prevScene && (
             <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-muted-foreground">
               <span className="text-foreground font-medium">{prevScene.title}</span>
@@ -468,8 +430,8 @@ Basandome en el contexto narrativo, te sugiero esta escena:`;
             </button>
             <button type="button" onClick={handleSave} disabled={!form.title.trim() || saving}
               className="rounded-xl bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center gap-2">
-              {saving && <Loader2 className="size-4 animate-spin" />}
-              {isEdit ? 'Guardar cambios' : 'Crear escena'}
+              {saving ? <Loader2 className="size-4 animate-spin" /> : <Wand2 className="size-4" />}
+              {isEdit ? 'Guardar y regenerar prompts' : 'Crear y generar prompts'}
             </button>
           </div>
         </div>

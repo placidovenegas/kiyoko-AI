@@ -28,6 +28,11 @@ export interface SuggestionData {
   cameraMovement: CameraMovement;
   characterIds: string[];
   backgroundIds: string[];
+  promptImage?: string;
+  promptVideo?: string;
+  directorNotes?: string;
+  mood?: string;
+  lighting?: string;
 }
 
 export interface IaMessage {
