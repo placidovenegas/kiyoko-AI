@@ -46,7 +46,7 @@ function ExpandablePrompt({ text, fallback }: { text?: string | null; fallback: 
 }
 import { useState } from 'react';
 import { SceneWorkModal } from '@/components/modals';
-import type { NarrativeArc, Scene, ScenePrompt, SceneMedia } from '@/types';
+import type { NarrativeArc, Scene, ScenePrompt, SceneMedia, Character, Background } from '@/types';
 
 /* ------------------------------------------------------------------ */
 /*  Stat                                                               */
@@ -754,6 +754,27 @@ export default function VideoOverviewPage() {
     enabled: !!video?.id,
   });
 
+  // Project-level characters and backgrounds (for SceneWorkModal pickers)
+  const { data: projectCharacters = [] } = useQuery({
+    queryKey: ['characters', project?.id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data } = await supabase.from('characters').select('*').eq('project_id', project!.id).order('sort_order');
+      return (data ?? []) as Character[];
+    },
+    enabled: !!project?.id,
+  });
+
+  const { data: projectBackgrounds = [] } = useQuery({
+    queryKey: ['backgrounds', project?.id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data } = await supabase.from('backgrounds').select('*').eq('project_id', project!.id).order('sort_order');
+      return (data ?? []) as Background[];
+    },
+    enabled: !!project?.id,
+  });
+
   // Open chat with scene context
   const { openChat, setActiveAgent } = useAIStore();
   function handleEditSceneWithAI(scene: Scene) {
@@ -1175,6 +1196,11 @@ export default function VideoOverviewPage() {
         nextSceneNumber={scenes.length + 1}
         scene={editingScene}
         allScenes={scenes}
+        characters={projectCharacters}
+        backgrounds={projectBackgrounds}
+        sceneCharacters={sceneCharacters}
+        sceneBackgrounds={sceneBackgrounds}
+        sceneCameras={sceneCameras}
         imagePrompt={editingScene ? scenePrompts.find(p => p.scene_id === editingScene.id && p.prompt_type === 'image')?.prompt_text : undefined}
         videoPrompt={editingScene ? scenePrompts.find(p => p.scene_id === editingScene.id && p.prompt_type === 'video')?.prompt_text : undefined}
         onUpdate={() => {
