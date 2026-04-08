@@ -9,11 +9,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useSidebar } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils/cn';
 import { NavItem, SectionLabel, Divider } from './shared/NavItem';
-
-const SCENE_STATUS_COLORS: Record<string, string> = {
-  draft: 'bg-zinc-400', prompt_ready: 'bg-blue-400', generating: 'bg-amber-400',
-  generated: 'bg-emerald-400', approved: 'bg-emerald-600', rejected: 'bg-red-400',
-};
+import { SCENE_STATUS_DOT } from '@/lib/constants/status';
 
 export function SidebarVideoNav({ projectShortId, videoShortId }: { projectShortId: string; videoShortId: string }) {
   const pathname = usePathname();
@@ -61,7 +57,7 @@ export function SidebarVideoNav({ projectShortId, videoShortId }: { projectShort
               <p className="px-2 py-1 text-[11px] font-medium text-muted-foreground">Escenas</p>
               {scenes?.map((s) => (
                 <Link key={s.id} href={`${base}/scene/${s.short_id}`} className={cn('flex w-full items-center gap-2 rounded-md px-2 h-7 text-[12px] transition-colors', pathname.startsWith(`${base}/scene/${s.short_id}`) ? 'bg-accent font-medium text-foreground' : 'text-foreground/80 hover:bg-accent')}>
-                  <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', SCENE_STATUS_COLORS[s.status] ?? 'bg-zinc-400')} />
+                  <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', SCENE_STATUS_DOT[s.status] ?? 'bg-zinc-400')} />
                   <span className="text-[10px] text-muted-foreground w-3 text-right shrink-0 tabular-nums">{s.scene_number}</span>
                   <span className="truncate">{s.title}</span>
                 </Link>
@@ -105,7 +101,7 @@ export function SidebarVideoNav({ projectShortId, videoShortId }: { projectShort
                   'flex w-full items-center gap-2 rounded-md px-2 h-7 text-[12px] transition-colors',
                   isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium' : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
                 )}>
-                  <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', SCENE_STATUS_COLORS[s.status] ?? 'bg-zinc-400')} />
+                  <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', SCENE_STATUS_DOT[s.status] ?? 'bg-zinc-400')} />
                   <span className="text-[10px] text-sidebar-foreground/40 w-3 text-right shrink-0 tabular-nums">{s.scene_number}</span>
                   <span className="truncate">{s.title}</span>
                 </Link>

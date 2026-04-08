@@ -29,20 +29,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   tv_commercial: 'TV', web: 'Web', custom: 'Custom',
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  draft: 'Borrador', prompting: 'Prompts',
-  generating: 'Generando', review: 'Revisión',
-  approved: 'Aprobado', exported: 'Exportado',
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  draft: 'bg-muted-foreground/15 text-muted-foreground',
-  prompting: 'bg-blue-500/15 text-blue-400',
-  generating: 'bg-amber-500/15 text-amber-400',
-  review: 'bg-purple-500/15 text-purple-400',
-  approved: 'bg-emerald-500/15 text-emerald-400',
-  exported: 'bg-primary/15 text-primary',
-};
+import { VIDEO_STATUS_LABELS, VIDEO_STATUS_BADGE } from '@/lib/constants/status';
 
 const VIDEO_STATUSES = [
   'draft', 'prompting', 'generating', 'review', 'approved', 'exported',
@@ -121,9 +108,9 @@ function VideoRow({
         <div className="flex shrink-0 items-center gap-2 relative z-10">
           <span className={cn(
             'rounded-full px-2.5 py-0.5 text-[11px] font-medium',
-            STATUS_COLORS[video.status] ?? 'bg-muted-foreground/15 text-muted-foreground'
+            VIDEO_STATUS_BADGE[video.status] ?? 'bg-muted-foreground/15 text-muted-foreground'
           )}>
-            {STATUS_LABELS[video.status] ?? video.status}
+            {VIDEO_STATUS_LABELS[video.status] ?? video.status}
           </span>
           <div ref={menuRef} className="relative">
             <button
@@ -156,7 +143,7 @@ function VideoRow({
                       video.status === s ? 'text-primary font-medium' : 'text-foreground'
                     )}
                   >
-                    {STATUS_LABELS[s]}
+                    {VIDEO_STATUS_LABELS[s]}
                     {video.status === s && <CheckCircle2 className="h-3.5 w-3.5" />}
                   </button>
                 ))}

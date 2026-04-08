@@ -22,14 +22,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { SidebarVideoItem } from './SidebarVideoItem';
-
-const STATUS_COLORS: Record<string, string> = {
-  draft: 'bg-zinc-400',
-  in_progress: 'bg-blue-400',
-  review: 'bg-amber-400',
-  completed: 'bg-emerald-400',
-  archived: 'bg-zinc-500',
-};
+import { PROJECT_STATUS_BADGE } from '@/lib/constants/status';
 
 interface Project {
   id: string;

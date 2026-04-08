@@ -27,6 +27,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import { VIDEO_STATUS_LABELS, VIDEO_STATUS_BADGE, SCENE_STATUS_DOT, PHASE_STYLES } from '@/lib/constants/status';
 
 /* ── Expandable prompt text ────────────────────────────── */
 function ExpandablePrompt({ text, fallback }: { text?: string | null; fallback: string }) {
@@ -84,39 +85,6 @@ function Stat({
 /* ------------------------------------------------------------------ */
 /*  Status / Phase helpers                                             */
 /* ------------------------------------------------------------------ */
-const STATUS_LABELS: Record<string, string> = {
-  draft: 'Borrador',
-  prompting: 'Creando prompts',
-  generating: 'Generando',
-  review: 'Revision',
-  approved: 'Aprobado',
-  exported: 'Exportado',
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  draft: 'bg-zinc-500/20 text-muted-foreground border-zinc-500/20',
-  prompting: 'bg-blue-500/20 text-blue-400 border-blue-500/20',
-  generating: 'bg-amber-500/20 text-amber-400 border-amber-500/20',
-  review: 'bg-purple-500/20 text-purple-400 border-purple-500/20',
-  approved: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/20',
-  exported: 'bg-primary/20 text-primary border-primary/20',
-};
-
-const SCENE_STATUS_DOT: Record<string, string> = {
-  draft: 'bg-zinc-500',
-  prompt_ready: 'bg-blue-500',
-  generating: 'bg-amber-500',
-  generated: 'bg-purple-500',
-  approved: 'bg-emerald-500',
-  rejected: 'bg-red-500',
-};
-
-const PHASE_STYLES: Record<string, string> = {
-  hook: 'bg-red-500/80 text-white',
-  build: 'bg-amber-500/80 text-white',
-  peak: 'bg-emerald-500/80 text-white',
-  close: 'bg-blue-500/80 text-white',
-};
 
 /* ------------------------------------------------------------------ */
 /*  Audio config type                                                  */
@@ -901,10 +869,10 @@ export default function VideoOverviewPage() {
             <span
               className={cn(
                 'rounded-full border px-2.5 py-0.5 text-xs font-medium',
-                STATUS_COLORS[video.status] ?? 'bg-zinc-500/20 text-muted-foreground border-zinc-500/20',
+                VIDEO_STATUS_BADGE[video.status] ?? 'bg-zinc-500/20 text-muted-foreground border-zinc-500/20',
               )}
             >
-              {STATUS_LABELS[video.status] ?? video.status}
+              {VIDEO_STATUS_LABELS[video.status] ?? video.status}
             </span>
           </div>
         </div>

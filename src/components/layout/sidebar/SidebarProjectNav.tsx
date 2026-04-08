@@ -16,11 +16,7 @@ import { cn } from '@/lib/utils/cn';
 import { NavItem, SubNavItem, SectionLabel, SectionLabelWithAction, Divider } from './shared/NavItem';
 import { useUIStore } from '@/stores/useUIStore';
 import { useTranslations } from 'next-intl';
-
-const VIDEO_STATUS_COLORS: Record<string, string> = {
-  draft: 'bg-zinc-400', prompting: 'bg-blue-400', generating: 'bg-amber-400',
-  review: 'bg-purple-400', approved: 'bg-emerald-400', exported: 'bg-emerald-600',
-};
+import { VIDEO_STATUS_DOT } from '@/lib/constants/status';
 
 export function SidebarProjectNav({ projectShortId }: { projectShortId: string }) {
   const pathname = usePathname();
@@ -112,7 +108,7 @@ export function SidebarProjectNav({ projectShortId }: { projectShortId: string }
               </div>
               {videos?.map((v) => (
                 <Link key={v.id} href={`${base}/video/${v.short_id}`} className={cn('flex w-full items-center gap-2 rounded-md px-2 h-7 text-[12px] transition-colors', pathname.startsWith(`${base}/video/${v.short_id}`) ? 'bg-accent font-medium text-foreground' : 'text-foreground/80 hover:bg-accent')}>
-                  <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', VIDEO_STATUS_COLORS[v.status] ?? 'bg-zinc-400')} />
+                  <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', VIDEO_STATUS_DOT[v.status] ?? 'bg-zinc-400')} />
                   <span className="truncate">{v.title}</span>
                 </Link>
               ))}
@@ -172,7 +168,7 @@ export function SidebarProjectNav({ projectShortId }: { projectShortId: string }
         <SectionLabelWithAction action={<Link href={`${base}/videos`} className="flex items-center justify-center size-5 rounded text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer" title={t('video.newVideo')}><Plus className="h-3.5 w-3.5" /></Link>}>{t('project.videos')}</SectionLabelWithAction>
         <ul className="flex flex-col gap-0.5">
           {videos?.map((v) => (
-            <SubNavItem key={v.id} href={`${base}/video/${v.short_id}`} icon={Film} label={v.title} pathname={pathname} statusColor={VIDEO_STATUS_COLORS[v.status]} />
+            <SubNavItem key={v.id} href={`${base}/video/${v.short_id}`} icon={Film} label={v.title} pathname={pathname} statusColor={VIDEO_STATUS_DOT[v.status]} />
           ))}
           {videos && videos.length === 0 && <li className="px-2 py-1 text-xs text-sidebar-foreground/40">{t('video.noVideos')}</li>}
         </ul>

@@ -2,19 +2,13 @@
 
 import { cn } from '@/lib/utils/cn';
 import type { NarrativeArc } from '@/types';
+import { PHASE_LABELS } from '@/lib/constants/status';
 
 const PHASE_COLORS: Record<string, string> = {
   hook: 'bg-red-500',
   build: 'bg-amber-500',
   peak: 'bg-emerald-500',
   close: 'bg-blue-500',
-};
-
-const PHASE_LABELS: Record<string, string> = {
-  hook: 'Gancho',
-  build: 'Construcción',
-  peak: 'Clímax',
-  close: 'Cierre',
 };
 
 interface ArcBarProps {

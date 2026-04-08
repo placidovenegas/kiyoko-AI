@@ -15,31 +15,7 @@ import {
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import type { Scene } from '@/types';
-
-const STATUS_COLORS: Record<string, string> = {
-  draft: 'bg-zinc-500',
-  prompt_ready: 'bg-blue-500',
-  generating: 'bg-amber-500 animate-pulse',
-  generated: 'bg-purple-500',
-  approved: 'bg-emerald-500',
-  rejected: 'bg-red-500',
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  draft: 'Borrador',
-  prompt_ready: 'Prompt listo',
-  generating: 'Generando',
-  generated: 'Generado',
-  approved: 'Aprobado',
-  rejected: 'Rechazado',
-};
-
-const PHASE_STYLES: Record<string, string> = {
-  hook: 'bg-red-500/80 text-white',
-  build: 'bg-amber-500/80 text-white',
-  peak: 'bg-emerald-500/80 text-white',
-  close: 'bg-blue-500/80 text-white',
-};
+import { SCENE_STATUS_DOT, SCENE_STATUS_LABELS, PHASE_STYLES } from '@/lib/constants/status';
 
 const ALL_STATUSES = ['draft', 'prompt_ready', 'generating', 'generated', 'approved', 'rejected'] as const;
 const ALL_PHASES = ['hook', 'build', 'peak', 'close'] as const;
@@ -134,10 +110,10 @@ export function SceneCard({ scene, basePath, characters = [], onAction }: SceneC
         <div className="mt-auto flex items-center justify-between pt-1">
           <div className="flex items-center gap-1.5">
             <div
-              className={cn('h-2 w-2 rounded-full', STATUS_COLORS[scene.status ?? 'draft'])}
+              className={cn('h-2 w-2 rounded-full', SCENE_STATUS_DOT[scene.status ?? 'draft'])}
             />
             <span className="text-[10px] text-muted-foreground">
-              {STATUS_LABELS[scene.status ?? 'draft']}
+              {SCENE_STATUS_LABELS[scene.status ?? 'draft']}
             </span>
           </div>
 
@@ -195,8 +171,8 @@ export function SceneCard({ scene, basePath, characters = [], onAction }: SceneC
               <DropdownMenuLabel className="text-xs text-muted-foreground">Cambiar estado</DropdownMenuLabel>
               {ALL_STATUSES.map((s) => (
                 <DropdownMenuItem key={`status-${s}`} onClick={() => onAction?.(`status:${s}`, scene)}>
-                  <div className={cn('h-2 w-2 rounded-full', STATUS_COLORS[s])} />
-                  {STATUS_LABELS[s]}
+                  <div className={cn('h-2 w-2 rounded-full', SCENE_STATUS_DOT[s])} />
+                  {SCENE_STATUS_LABELS[s]}
                 </DropdownMenuItem>
               ))}
               <DropdownMenuSeparator />

@@ -31,25 +31,7 @@ import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils/cn';
 import { useUIStore } from '@/stores/useUIStore';
 import type { Video } from '@/types';
-
-/* ── Constants ───────────────────────────────────────────── */
-
-const PROJECT_STATUS_LABELS: Record<string, string> = {
-  draft: 'Borrador',
-  in_progress: 'En progreso',
-  review: 'En revision',
-  completed: 'Completado',
-  archived: 'Archivado',
-};
-
-const VIDEO_STATUS_LABELS: Record<string, string> = {
-  draft: 'Borrador',
-  prompting: 'Prompts',
-  generating: 'Generando',
-  review: 'En revision',
-  approved: 'Aprobado',
-  exported: 'Exportado',
-};
+import { PROJECT_STATUS_LABELS, VIDEO_STATUS_LABELS } from '@/lib/constants/status';
 
 const PLATFORM_ICONS: Record<string, LucideIcon> = {
   youtube: VideoIcon,

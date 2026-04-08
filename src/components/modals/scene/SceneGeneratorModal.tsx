@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { generateShortId } from '@/lib/utils/nanoid';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils/cn';
+import { PHASE_BADGE } from '@/lib/constants/status';
 import {
   X, Sparkles, Send, Loader2, Film, Camera, Music, BookOpen,
   ChevronDown, ChevronUp, Check, RefreshCw, Copy,
@@ -64,13 +65,6 @@ const VIDEO_TYPES = [
   { value: 'presentacion', label: 'Presentacion' },
   { value: 'otro', label: 'Otro' },
 ] as const;
-
-const PHASE_COLORS: Record<string, string> = {
-  hook: 'bg-red-500/20 text-red-400 border-red-500/30',
-  build: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
-  peak: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-  close: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-};
 
 /* ── TogglePill ───────────────────────────────────────── */
 
@@ -214,7 +208,7 @@ function SceneCard({
         </button>
         <span className="text-xs font-bold text-muted-foreground w-5 text-right">#{index + 1}</span>
         <span className="text-sm font-medium text-foreground flex-1 truncate">{scene.title}</span>
-        <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-medium', PHASE_COLORS[scene.arc_phase] ?? 'bg-zinc-500/20 text-muted-foreground border-zinc-500/30')}>
+        <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-medium', PHASE_BADGE[scene.arc_phase] ?? 'bg-zinc-500/20 text-muted-foreground border-zinc-500/30')}>
           {scene.arc_phase}
         </span>
         <span className="text-[10px] text-muted-foreground tabular-nums">{scene.duration_seconds}s</span>

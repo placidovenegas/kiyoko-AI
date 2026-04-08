@@ -20,24 +20,11 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import type { CameraAngle, CameraMovement } from '@/types';
 import { CharacterPickerModal } from '@/components/modals/character/CharacterPickerModal';
 import { BackgroundPickerModal } from '@/components/modals/background/BackgroundPickerModal';
+import { SCENE_STATUS_DOT, SCENE_STATUS_LABELS } from '@/lib/constants/status';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
-
-const STATUS_COLORS: Record<string, string> = {
-  draft: 'bg-zinc-500/20 text-muted-foreground border-zinc-500/30',
-  prompt_ready: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
-  generating: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-  generated: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-  approved: 'bg-green-500/20 text-green-300 border-green-500/30',
-  rejected: 'bg-red-500/20 text-red-400 border-red-500/30',
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  draft: 'Borrador', prompt_ready: 'Prompt listo', generating: 'Generando',
-  generated: 'Generado', approved: 'Aprobado', rejected: 'Rechazado',
-};
 
 const CAMERA_ANGLES: CameraAngle[] = [
   'wide', 'medium', 'close_up', 'extreme_close_up', 'pov',
@@ -406,9 +393,9 @@ export default function SceneDetailPage() {
 
             <span className={cn(
               'inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border',
-              STATUS_COLORS[scene.status] ?? STATUS_COLORS.draft,
+              SCENE_STATUS_DOT[scene.status] ?? SCENE_STATUS_DOT.draft,
             )}>
-              {STATUS_LABELS[scene.status] ?? scene.status}
+              {SCENE_STATUS_LABELS[scene.status] ?? scene.status}
             </span>
 
             {prevScene && (

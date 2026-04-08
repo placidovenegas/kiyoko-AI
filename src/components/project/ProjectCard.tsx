@@ -19,24 +19,9 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import type { Project } from '@/types';
+import { PROJECT_STATUS_LABELS, PROJECT_STATUS_BADGE } from '@/lib/constants/status';
 
 export type { Project };
-
-const STATUS_LABELS: Record<string, string> = {
-  draft: 'Borrador',
-  in_progress: 'En progreso',
-  review: 'Revision',
-  completed: 'Completado',
-  archived: 'Archivado',
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  draft: 'bg-muted0/20 text-muted-foreground',
-  in_progress: 'bg-primary/20 text-primary',
-  review: 'bg-purple-500/20 text-purple-400',
-  completed: 'bg-green-500/20 text-green-400',
-  archived: 'bg-muted0/10 text-muted-foreground',
-};
 
 function ConfirmDeleteModal({
   projectTitle,
@@ -247,8 +232,8 @@ export function ProjectCard({ project }: { project: Project }) {
 
           {/* Footer */}
           <div className="flex items-center justify-between mt-auto">
-            <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium', STATUS_COLORS[project.status] ?? 'bg-muted0/20 text-muted-foreground')}>
-              {STATUS_LABELS[project.status] ?? project.status}
+            <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium', PROJECT_STATUS_BADGE[project.status] ?? 'bg-muted0/20 text-muted-foreground')}>
+              {PROJECT_STATUS_LABELS[project.status] ?? project.status}
             </span>
             <div className="flex items-center gap-1.5">
               <span className="text-[11px] text-muted-foreground">{timeAgo}</span>
