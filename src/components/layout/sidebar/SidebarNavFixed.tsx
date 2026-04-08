@@ -2,19 +2,16 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Search, Home, Inbox, CheckSquare, Sparkles } from 'lucide-react';
+import { Search, Home, Inbox, CheckSquare } from 'lucide-react';
 import { Tooltip } from '@heroui/react';
 import { useQuery } from '@tanstack/react-query';
 import { useSidebar } from '@/components/ui/sidebar';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils/cn';
-import { useUIStore } from '@/stores/useUIStore';
 import { useTranslations } from 'next-intl';
 
 export function SidebarNavFixed() {
   const pathname = usePathname();
-  const toggleChat = useUIStore((s) => s.toggleChat);
-  const chatPanelOpen = useUIStore((s) => s.chatPanelOpen);
   const { state } = useSidebar();
   const isCollapsed = state === 'collapsed';
   const t = useTranslations();
@@ -45,15 +42,13 @@ export function SidebarNavFixed() {
     { id: 'home', label: t('nav.dashboard'), icon: Home, href: '/dashboard' },
     { id: 'inbox', label: 'Inbox', icon: Inbox, href: '/dashboard/notifications', badge: unreadCount > 0 ? unreadCount : undefined },
     { id: 'tasks', label: t('project.tasks'), icon: CheckSquare, href: '/dashboard/tasks' },
-    { id: 'kiyoko', label: 'Kiyoko IA', icon: Sparkles, href: null, onClick: toggleChat },
   ];
 
   return (
     <div className={isCollapsed ? 'px-2 py-1' : 'px-1.5 py-1'}>
       <ul className="flex flex-col gap-0.5">
         {items.map((item) => {
-          const isActive = item.id === 'kiyoko' ? chatPanelOpen
-            : item.href ? (item.href === '/dashboard' ? pathname === item.href : pathname.startsWith(item.href))
+          const isActive = item.href ? (item.href === '/dashboard' ? pathname === item.href : pathname.startsWith(item.href))
             : false;
 
           const cls = cn(

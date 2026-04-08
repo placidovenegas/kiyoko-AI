@@ -3,7 +3,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import { queryKeys } from '@/lib/query/keys';
-import { Button } from '@heroui/react';
 import {
   Loader2, CreditCard, Sparkles, CalendarDays, AlertTriangle,
 } from 'lucide-react';
@@ -112,14 +111,12 @@ export default function SubscriptionPage() {
           <p className="mb-4 text-sm text-muted-foreground">
             Desbloquea proyectos ilimitados, mas generaciones y funciones de colaboracion.
           </p>
-          <Button
-            variant="primary"
-            size="lg"
-            startContent={<Sparkles className="h-4 w-4" />}
-            className="rounded-md"
+          <button
+            className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
           >
+            <Sparkles className="h-4 w-4" />
             Actualizar plan
-          </Button>
+          </button>
         </div>
       )}
 
@@ -129,14 +126,12 @@ export default function SubscriptionPage() {
           <p className="mb-4 text-sm text-muted-foreground">
             Enterprise incluye generaciones ilimitadas, acceso API y soporte prioritario.
           </p>
-          <Button
-            variant="primary"
-            size="lg"
-            startContent={<Sparkles className="h-4 w-4" />}
-            className="rounded-md"
+          <button
+            className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
           >
+            <Sparkles className="h-4 w-4" />
             Contactar ventas
-          </Button>
+          </button>
         </div>
       )}
     </div>

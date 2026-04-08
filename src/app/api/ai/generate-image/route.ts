@@ -234,7 +234,7 @@ export async function POST(request: NextRequest) {
 
     return apiError(requestContext, 'generate-image', error, {
       message: 'Internal server error',
-      extra: { projectId: body?.projectId ?? null, videoId: body?.videoId ?? null, sceneId: body?.sceneId ?? null },
+      extra: {},
     });
   }
 }

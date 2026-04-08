@@ -1,9 +1,9 @@
 export const kiyokoColors = {
   brand: {
-    teal:    '#0EA5A0',
-    green:   '#34D399',
-    coral:   '#F97316',
-    gradient: 'linear-gradient(135deg, #0EA5A0, #34D399)',
+    teal:    '#058B96',
+    green:   '#58DAAC',
+    coral:   '#FE6A3C',
+    gradient: 'linear-gradient(135deg, #058B96, #58DAAC)',
   },
 
   dark: {

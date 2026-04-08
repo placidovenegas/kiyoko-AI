@@ -35,7 +35,9 @@ export function useRealtimeUpdates({ projectId, enabled = true }: UseRealtimeUpd
         (payload) => {
           const updateType = (payload.new as Record<string, unknown>)?.update_type as string;
 
-          console.log(`[realtime] ${updateType} for project ${projectId}`);
+          if (process.env.NODE_ENV === 'development') {
+            console.debug(`[realtime] ${updateType} for project ${projectId}`);
+          }
 
           switch (updateType) {
             case 'ai_actions_executed':

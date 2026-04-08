@@ -1,25 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useProject } from '@/contexts/ProjectContext';
 import { createClient } from '@/lib/supabase/client';
 import { queryKeys } from '@/lib/query/keys';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils/cn';
-import { Button } from '@heroui/react';
 import {
   Plus, Clock, MoreHorizontal, Copy, Trash2,
-  Pencil, ExternalLink, CheckCircle2, Video,
+  Pencil, ExternalLink, CheckCircle2, Video, Sparkles,
 } from 'lucide-react';
 import Link from 'next/link';
-import {
-  Dropdown,
-  DropdownTrigger,
-  DropdownMenu,
-  DropdownItem,
-  DropdownSection,
-} from '@heroui/react';
 import { VideoCreateModal } from '@/components/modals';
 import { useActiveVideoStore } from '@/stores/useActiveVideoStore';
 import { generateShortId } from '@/lib/utils/nanoid';
@@ -73,12 +65,25 @@ function VideoRow({
   onStatusChange: (id: string, status: VideoStatusValue) => void;
 }) {
   const targetDuration = video.target_duration_seconds ?? 0;
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [menuOpen]);
 
   return (
-    <div className="group relative rounded-lg border border-border bg-card p-4 transition-colors hover:bg-accent">
+    <div className="group relative rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/20">
       <Link
         href={`/project/${projectShortId}/video/${video.short_id}`}
-        className="absolute inset-0 rounded-lg"
+        className="absolute inset-0 rounded-xl"
         aria-label={video.title}
       />
 
@@ -120,44 +125,51 @@ function VideoRow({
           )}>
             {STATUS_LABELS[video.status] ?? video.status}
           </span>
-          <Dropdown>
-            <DropdownTrigger>
-              <Button variant="ghost" size="sm" isIconOnly className="h-7 w-7 opacity-0 group-hover:opacity-100">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownTrigger>
-            <DropdownMenu aria-label="Video actions" className="w-48">
-              <DropdownSection>
-                <DropdownItem key="open" href={`/project/${projectShortId}/video/${video.short_id}`}>
-                  <div className="flex items-center gap-2"><ExternalLink className="h-4 w-4" /> Abrir video</div>
-                </DropdownItem>
-              </DropdownSection>
-              <DropdownSection>
-                <DropdownItem key="duplicate" onClick={() => onDuplicate(video)}>
-                  <div className="flex items-center gap-2"><Copy className="h-4 w-4" /> Duplicar</div>
-                </DropdownItem>
-              </DropdownSection>
-              <DropdownSection aria-label="Cambiar estado">
+          <div ref={menuRef} className="relative">
+            <button
+              onClick={(e) => { e.preventDefault(); setMenuOpen(!menuOpen); }}
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground opacity-0 transition hover:bg-accent hover:text-foreground group-hover:opacity-100"
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 top-8 z-50 w-48 rounded-lg border border-border bg-card py-1 shadow-lg">
+                <a
+                  href={`/project/${projectShortId}/video/${video.short_id}`}
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent"
+                >
+                  <ExternalLink className="h-4 w-4" /> Abrir video
+                </a>
+                <button
+                  onClick={() => { onDuplicate(video); setMenuOpen(false); }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent"
+                >
+                  <Copy className="h-4 w-4" /> Duplicar
+                </button>
+                <div className="my-1 border-t border-border" />
                 {VIDEO_STATUSES.map((s) => (
-                  <DropdownItem
+                  <button
                     key={s}
-                    onClick={() => onStatusChange(video.id, s)}
-                    className={video.status === s ? 'text-primary font-medium' : ''}
+                    onClick={() => { onStatusChange(video.id, s); setMenuOpen(false); }}
+                    className={cn(
+                      'flex w-full items-center justify-between px-3 py-1.5 text-sm hover:bg-accent',
+                      video.status === s ? 'text-primary font-medium' : 'text-foreground'
+                    )}
                   >
-                    <div className="flex items-center justify-between w-full">
-                      {STATUS_LABELS[s]}
-                      {video.status === s && <CheckCircle2 className="h-3.5 w-3.5" />}
-                    </div>
-                  </DropdownItem>
+                    {STATUS_LABELS[s]}
+                    {video.status === s && <CheckCircle2 className="h-3.5 w-3.5" />}
+                  </button>
                 ))}
-              </DropdownSection>
-              <DropdownSection>
-                <DropdownItem key="delete" className="text-danger" onClick={() => onDelete(video.id)}>
-                  <div className="flex items-center gap-2"><Trash2 className="h-4 w-4" /> Eliminar</div>
-                </DropdownItem>
-              </DropdownSection>
-            </DropdownMenu>
-          </Dropdown>
+                <div className="my-1 border-t border-border" />
+                <button
+                  onClick={() => { onDelete(video.id); setMenuOpen(false); }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-accent"
+                >
+                  <Trash2 className="h-4 w-4" /> Eliminar
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -262,7 +274,7 @@ export default function VideosPage() {
   };
 
   return (
-    <div className="h-full overflow-y-auto space-y-6 p-6">
+    <div className="mx-auto max-w-7xl px-4 py-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -271,13 +283,22 @@ export default function VideosPage() {
             {videos.length} vídeo{videos.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <button
-          onClick={() => setCreateModalOpen(true)}
-          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary"
-        >
-          <Plus className="h-4 w-4" />
-          Nuevo vídeo
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => toast.success('Generación de video con IA próximamente')}
+            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            <Sparkles className="h-4 w-4" />
+            Generar video con IA
+          </button>
+          <button
+            onClick={() => setCreateModalOpen(true)}
+            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary/90"
+          >
+            <Plus className="h-4 w-4" />
+            Nuevo vídeo
+          </button>
+        </div>
       </div>
 
       {/* Content */}

@@ -1,35 +1,88 @@
 'use client';
 
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import { useVideo } from '@/contexts/VideoContext';
 import { useProject } from '@/contexts/ProjectContext';
 import Link from 'next/link';
+import Image from 'next/image';
 import { cn } from '@/lib/utils/cn';
-import { Button } from '@heroui/react';
 import { useUIStore } from '@/stores/useUIStore';
+import { useAIStore } from '@/stores/ai-store';
 import { ArcBar } from '@/components/video/ArcBar';
-import { SceneCard } from '@/components/video/SceneCard';
+import { SceneGeneratorModal } from '@/components/modals/scene/SceneGeneratorModal';
+// SceneWorkModal replaces both SceneCreateModal and SceneEditorModal
+import { toast } from 'sonner';
 import {
-  Film, Clock, Monitor, ArrowRight, Mic, FileOutput,
-  Video, Loader2, BarChart3, Share2, Plus, Sparkles,
-  Layers, LayoutGrid, List, Settings2, Table2, Timer,
+  Film, Clock, Monitor, Mic, FileOutput, Music, Image as ImageIcon,
+  Video, Loader2, BarChart3, Layers, CheckCircle2, Target,
+  Settings2, Copy, Sparkles, ExternalLink, MoreHorizontal,
+  Eye, Pencil, Camera, Clapperboard, Plus, Trash2, ArrowRight, Clock3, GripVertical,
 } from 'lucide-react';
-import type { NarrativeArc, Scene } from '@/types';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 
-type ViewMode = 'storyboard' | 'list' | 'table' | 'timeline';
+/* ── Expandable prompt text ────────────────────────────── */
+function ExpandablePrompt({ text, fallback }: { text?: string | null; fallback: string }) {
+  const [expanded, setExpanded] = useState(false);
+  if (!text) return <p className="flex-1 min-w-0 text-xs text-muted-foreground/40 italic px-3 py-1.5">{fallback}</p>;
+  return (
+    <button
+      type="button"
+      onClick={() => setExpanded(!expanded)}
+      className="flex-1 min-w-0 text-left font-mono text-xs text-muted-foreground bg-background rounded-lg px-3 py-1.5 cursor-pointer hover:bg-accent/50 transition-all"
+      title={expanded ? 'Click para colapsar' : 'Click para expandir'}
+    >
+      <span className={expanded ? '' : 'block overflow-hidden whitespace-nowrap text-ellipsis'}>
+        {text}
+      </span>
+    </button>
+  );
+}
+import { useState } from 'react';
+import { SceneWorkModal } from '@/components/modals';
+import type { NarrativeArc, Scene, ScenePrompt, SceneMedia } from '@/types';
 
-const VIEW_TABS: Array<{ key: ViewMode; label: string; icon: typeof LayoutGrid }> = [
-  { key: 'storyboard', label: 'Storyboard', icon: LayoutGrid },
-  { key: 'list', label: 'Lista', icon: List },
-  { key: 'table', label: 'Tabla', icon: Table2 },
-  { key: 'timeline', label: 'Timeline', icon: Timer },
-];
+/* ------------------------------------------------------------------ */
+/*  Stat                                                               */
+/* ------------------------------------------------------------------ */
+function Stat({
+  icon: Icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: string | number;
+  tone?: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+      <div
+        className={cn(
+          'flex size-8 items-center justify-center rounded-lg bg-muted/60',
+          tone || 'text-muted-foreground',
+        )}
+      >
+        <Icon className="size-4" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-lg font-semibold tabular-nums text-foreground">{value}</p>
+        <p className="text-[11px] text-muted-foreground truncate">{label}</p>
+      </div>
+    </div>
+  );
+}
 
-const ALL_PHASES = ['hook', 'build', 'peak', 'close'] as const;
-const ALL_STATUSES = ['draft', 'prompt_ready', 'generating', 'generated', 'approved', 'rejected'] as const;
-
+/* ------------------------------------------------------------------ */
+/*  Status / Phase helpers                                             */
+/* ------------------------------------------------------------------ */
 const STATUS_LABELS: Record<string, string> = {
   draft: 'Borrador',
   prompting: 'Creando prompts',
@@ -48,15 +101,6 @@ const STATUS_COLORS: Record<string, string> = {
   exported: 'bg-primary/20 text-primary border-primary/20',
 };
 
-const SCENE_STATUS_LABELS: Record<string, string> = {
-  draft: 'Borrador',
-  prompt_ready: 'Prompt listo',
-  generating: 'Generando',
-  generated: 'Generado',
-  approved: 'Aprobado',
-  rejected: 'Rechazado',
-};
-
 const SCENE_STATUS_DOT: Record<string, string> = {
   draft: 'bg-zinc-500',
   prompt_ready: 'bg-blue-500',
@@ -66,130 +110,523 @@ const SCENE_STATUS_DOT: Record<string, string> = {
   rejected: 'bg-red-500',
 };
 
-const PHASE_DOT: Record<string, string> = {
-  hook: 'bg-red-500',
-  build: 'bg-amber-500',
-  peak: 'bg-emerald-500',
-  close: 'bg-blue-500',
+const PHASE_STYLES: Record<string, string> = {
+  hook: 'bg-red-500/80 text-white',
+  build: 'bg-amber-500/80 text-white',
+  peak: 'bg-emerald-500/80 text-white',
+  close: 'bg-blue-500/80 text-white',
 };
 
+/* ------------------------------------------------------------------ */
+/*  Audio config type                                                  */
+/* ------------------------------------------------------------------ */
+interface AudioConfig {
+  music: boolean;
+  dialogue: boolean;
+  sfx: boolean;
+  voiceover: boolean;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Scene character / background / clip types                          */
+/* ------------------------------------------------------------------ */
+interface SceneCharacterWithChar {
+  scene_id: string;
+  character_id: string;
+  role_in_scene: string | null;
+  character: {
+    id: string;
+    name: string;
+    initials: string | null;
+    color_accent: string | null;
+    reference_image_url: string | null;
+  };
+}
+
+interface SceneBackgroundWithBg {
+  scene_id: string;
+  background_id: string;
+  is_primary: boolean | null;
+  background: {
+    id: string;
+    name: string;
+    reference_image_url: string | null;
+    location_type: string | null;
+  };
+}
+
+interface SceneClipRow {
+  scene_id: string;
+  clip_type: string | null;
+  duration_seconds: number | null;
+}
+
+interface TimelineEntryRow {
+  scene_id: string | null;
+  title: string;
+  description: string | null;
+  start_time: string;
+  end_time: string;
+  duration_seconds: number | null;
+}
+
+/* ------------------------------------------------------------------ */
+/*  View mode                                                          */
+/* ------------------------------------------------------------------ */
+type ViewMode = 'storyboard' | 'compact' | 'timeline';
+
+/* ------------------------------------------------------------------ */
+/*  Quick links                                                        */
+/* ------------------------------------------------------------------ */
 const QUICK_LINKS = [
-  { label: 'Escenas', href: '/scenes', icon: Film, desc: 'Board de escenas del video' },
-  { label: 'Timeline', href: '/timeline', icon: Layers, desc: 'Linea de tiempo visual' },
-  { label: 'Narracion', href: '/narration', icon: Mic, desc: 'Texto y audio TTS' },
-  { label: 'Analisis', href: '/analysis', icon: BarChart3, desc: 'Analisis IA del video' },
-  { label: 'Compartir', href: '/share', icon: Share2, desc: 'Compartir escenas con clientes' },
-  { label: 'Exportar', href: '/export', icon: FileOutput, desc: 'PDF, HTML, JSON, MP4' },
+  { label: 'Timeline', href: '/timeline', icon: Layers },
+  { label: 'Narracion', href: '/narration', icon: Mic },
+  { label: 'Analisis', href: '/analysis', icon: BarChart3 },
+  { label: 'Exportar', href: '/export', icon: FileOutput },
 ] as const;
 
-// ─── Scene Table Row ─────────────────────────────────────────
-function SceneTableRow({ scene, basePath }: { scene: Scene; basePath: string }) {
-  const sceneLink = scene.short_id
-    ? `${basePath}/scene/${scene.short_id}`
-    : `${basePath}/scenes`;
-
-  return (
-    <Link
-      href={sceneLink}
-      className="flex items-center h-10 border-b border-border text-sm hover:bg-secondary/50 transition-colors"
-    >
-      <div className="w-12 px-3 text-muted-foreground font-mono text-xs">{scene.scene_number}</div>
-      <div className="flex-1 min-w-0 px-3 truncate font-medium text-foreground">{scene.title}</div>
-      <div className="w-16 px-3 text-muted-foreground text-xs text-center">{scene.duration_seconds ?? 0}s</div>
-      <div className="w-20 px-3">
-        {scene.arc_phase && (
-          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span className={cn('h-2 w-2 rounded-full', PHASE_DOT[scene.arc_phase] ?? 'bg-zinc-500')} />
-            {scene.arc_phase}
-          </span>
-        )}
-      </div>
-      <div className="w-24 px-3">
-        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <span className={cn('h-2 w-2 rounded-full', SCENE_STATUS_DOT[scene.status ?? 'draft'])} />
-          {SCENE_STATUS_LABELS[scene.status ?? 'draft']}
-        </span>
-      </div>
-    </Link>
-  );
+/* ------------------------------------------------------------------ */
+/*  Clipboard helper                                                   */
+/* ------------------------------------------------------------------ */
+function copyToClipboard(text: string, label: string) {
+  navigator.clipboard.writeText(text);
+  toast.success(`${label} copiado`);
 }
 
-// ─── Scene List Item ─────────────────────────────────────────
-function SceneListItem({ scene, basePath }: { scene: Scene; basePath: string }) {
-  const sceneLink = scene.short_id
-    ? `${basePath}/scene/${scene.short_id}`
-    : `${basePath}/scenes`;
-
-  return (
-    <Link
-      href={sceneLink}
-      className="flex items-center gap-4 rounded-lg border border-border bg-card p-3 transition-all hover:border-primary/30 hover:shadow-md hover:shadow-black/20"
-    >
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-background text-sm font-bold text-muted-foreground">
-        #{scene.scene_number}
-      </div>
-      <div className="flex-1 min-w-0">
-        <h4 className="text-sm font-medium text-foreground truncate">{scene.title}</h4>
-        {scene.client_annotation && (
-          <p className="text-xs italic text-muted-foreground truncate mt-0.5">
-            &ldquo;{scene.client_annotation}&rdquo;
-          </p>
-        )}
-      </div>
-      <div className="flex items-center gap-3 shrink-0 text-xs text-muted-foreground">
-        <span>{scene.duration_seconds ?? 0}s</span>
-        {scene.arc_phase && (
-          <span className="flex items-center gap-1">
-            <span className={cn('h-2 w-2 rounded-full', PHASE_DOT[scene.arc_phase] ?? 'bg-zinc-500')} />
-            {scene.arc_phase}
-          </span>
-        )}
-        <span className="flex items-center gap-1">
-          <span className={cn('h-2 w-2 rounded-full', SCENE_STATUS_DOT[scene.status ?? 'draft'])} />
-        </span>
-      </div>
-    </Link>
-  );
+/* ------------------------------------------------------------------ */
+/*  SceneCamera type (from scene_camera table)                         */
+/* ------------------------------------------------------------------ */
+interface SceneCamera {
+  scene_id: string;
+  camera_angle: string | null;
+  camera_movement: string | null;
 }
 
-// ─── Timeline Block ──────────────────────────────────────────
-function TimelineBlock({ scene, basePath, maxDuration }: { scene: Scene; basePath: string; maxDuration: number }) {
+/* ------------------------------------------------------------------ */
+/*  Storyboard scene card                                              */
+/* ------------------------------------------------------------------ */
+function StoryboardCard({
+  scene,
+  basePath,
+  imagePrompt,
+  videoPrompt,
+  thumbnail,
+  camera,
+  chars,
+  bgs,
+  clips,
+  timelineEntry,
+  onGeneratePrompts,
+  onEditScene,
+  onReorderScene,
+  isGenerating,
+}: {
+  scene: Scene;
+  basePath: string;
+  imagePrompt: ScenePrompt | undefined;
+  videoPrompt: ScenePrompt | undefined;
+  thumbnail: SceneMedia | undefined;
+  camera: SceneCamera | undefined;
+  chars: SceneCharacterWithChar[];
+  bgs: SceneBackgroundWithBg[];
+  clips: SceneClipRow[];
+  timelineEntry: TimelineEntryRow | undefined;
+  onGeneratePrompts: () => void;
+  onEditScene: () => void;
+  onReorderScene: (draggedId: string, targetId: string) => void;
+  isGenerating: boolean;
+}) {
   const sceneLink = scene.short_id
     ? `${basePath}/scene/${scene.short_id}`
-    : `${basePath}/scenes`;
-  const dur = scene.duration_seconds ?? 5;
-  const widthPercent = maxDuration > 0 ? Math.max((dur / maxDuration) * 100, 5) : 10;
-  const phaseColor = scene.arc_phase
-    ? { hook: 'bg-red-500/20 border-red-500/40', build: 'bg-amber-500/20 border-amber-500/40', peak: 'bg-emerald-500/20 border-emerald-500/40', close: 'bg-blue-500/20 border-blue-500/40' }[scene.arc_phase] ?? 'bg-zinc-500/20 border-zinc-500/40'
-    : 'bg-zinc-500/20 border-zinc-500/40';
+    : `${basePath}`;
+
+  const audio: AudioConfig = { music: false, dialogue: false, sfx: false, voiceover: false, ...(scene.audio_config as Partial<AudioConfig> | null) };
+  const audioTags: string[] = [];
+  if (audio.music) audioTags.push('Musica');
+  if (audio.sfx) audioTags.push('SFX');
+  if (audio.voiceover) audioTags.push('Voz');
+  if (audio.dialogue) audioTags.push('Dialogo');
+
+  const thumbUrl = thumbnail?.thumbnail_url ?? thumbnail?.file_url;
 
   return (
-    <Link
-      href={sceneLink}
-      className={cn(
-        'inline-flex flex-col items-center justify-center rounded-md border px-2 py-1.5 text-[10px] transition-all hover:opacity-80',
-        phaseColor,
+    <div
+      className="group rounded-xl border border-border bg-card p-4 space-y-3 transition-colors hover:border-primary/20 cursor-grab active:cursor-grabbing"
+      draggable
+      onDragStart={(e) => e.dataTransfer.setData('sceneId', scene.id)}
+      onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-primary'); }}
+      onDragLeave={(e) => e.currentTarget.classList.remove('border-primary')}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.currentTarget.classList.remove('border-primary');
+        const draggedId = e.dataTransfer.getData('sceneId');
+        if (draggedId && draggedId !== scene.id) {
+          onReorderScene(draggedId, scene.id);
+        }
+      }}
+    >
+      {/* ── Top row: number, title, phase, duration, status ── */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <GripVertical className="size-4 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors cursor-grab shrink-0" />
+          <span className="shrink-0 text-sm font-bold text-muted-foreground">#{scene.scene_number}</span>
+          <h4 className="text-sm font-medium text-foreground truncate">{scene.title}</h4>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {scene.arc_phase && (
+            <span className={cn('rounded px-1.5 py-0.5 text-[10px] font-medium', PHASE_STYLES[scene.arc_phase] ?? 'bg-zinc-500/80 text-white')}>
+              {scene.arc_phase}
+            </span>
+          )}
+          <span className="text-xs text-muted-foreground tabular-nums">{scene.duration_seconds ?? 5}s</span>
+          <span className={cn('h-2.5 w-2.5 rounded-full shrink-0', SCENE_STATUS_DOT[scene.status ?? 'draft'])} />
+        </div>
+      </div>
+
+      {/* ── Middle: thumbnail + metadata ── */}
+      <div className="flex gap-4">
+        {/* Thumbnail */}
+        <Link href={sceneLink} className="shrink-0">
+          <div className="relative h-[75px] w-[100px] rounded-lg bg-background border border-border overflow-hidden flex items-center justify-center">
+            {thumbUrl ? (
+              <Image src={thumbUrl} alt={scene.title} fill className="object-cover" sizes="100px" />
+            ) : (
+              <Film className="h-6 w-6 text-muted-foreground/40" />
+            )}
+          </div>
+        </Link>
+
+        {/* Metadata */}
+        <div className="flex-1 min-w-0 space-y-1">
+          {/* Description */}
+          {scene.description && (
+            <p className="text-xs text-muted-foreground line-clamp-1">{scene.description}</p>
+          )}
+
+          {/* Camera */}
+          {camera && (camera.camera_angle || camera.camera_movement) && (
+            <p className="text-xs text-muted-foreground">
+              <Camera className="inline h-3 w-3 mr-1 opacity-60" />
+              {[camera.camera_angle, camera.camera_movement].filter(Boolean).join(' · ')}
+            </p>
+          )}
+
+          {/* Audio */}
+          {audioTags.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              <Music className="inline h-3 w-3 mr-1 opacity-60" />
+              {audioTags.join(' · ')}
+            </p>
+          )}
+
+          {/* Director notes */}
+          {scene.director_notes && (
+            <p className="text-xs text-muted-foreground/70 line-clamp-1 italic">{scene.director_notes}</p>
+          )}
+
+          {/* Characters */}
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] text-muted-foreground mr-1">Personajes:</span>
+            {chars.length === 0 ? (
+              <span className="text-[10px] text-muted-foreground/50">&mdash;</span>
+            ) : (
+              chars.map((c) => {
+                const char = c.character;
+                return char.reference_image_url ? (
+                  <img
+                    key={c.character_id}
+                    src={char.reference_image_url}
+                    alt={char.name}
+                    title={char.name}
+                    className="size-5 rounded-full object-cover border border-border"
+                  />
+                ) : (
+                  <div
+                    key={c.character_id}
+                    title={char.name}
+                    className="flex size-5 items-center justify-center rounded-full text-[7px] font-bold text-white"
+                    style={{ backgroundColor: char.color_accent ?? '#6B7280' }}
+                  >
+                    {(char.initials || char.name?.slice(0, 2) || '?').toUpperCase()}
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Background */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-muted-foreground">Fondo:</span>
+            {bgs.length === 0 ? (
+              <span className="text-[10px] text-muted-foreground/50">&mdash;</span>
+            ) : (
+              bgs.map((b) => {
+                const bg = b.background;
+                return (
+                  <div key={b.background_id} className="flex items-center gap-1">
+                    {bg.reference_image_url && (
+                      <img
+                        src={bg.reference_image_url}
+                        alt={bg.name}
+                        className="h-5 w-8 rounded object-cover border border-border"
+                      />
+                    )}
+                    <span className="text-[10px] text-muted-foreground">{bg.name}</span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Clips count */}
+          {clips.length > 0 && (
+            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+              <Film className="size-3" />
+              {clips.filter((c) => c.clip_type === 'base').length} base
+              {clips.filter((c) => c.clip_type === 'extension').length > 0 && (
+                <span className="text-purple-400">
+                  + {clips.filter((c) => c.clip_type === 'extension').length} ext
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Continuation indicator */}
+          {scene.continuation_of_scene_id && (
+            <div className="flex items-center gap-1.5 text-[10px] text-sky-400">
+              <ArrowRight className="size-3" />
+              <span>Continua escena anterior</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Prompts ── */}
+      <div className="space-y-1.5">
+        {/* Image prompt */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <ImageIcon className="h-3 w-3 text-muted-foreground/60" />
+            <span className="text-[10px] font-medium text-muted-foreground w-10">Imagen</span>
+          </div>
+          <ExpandablePrompt text={imagePrompt?.prompt_text} fallback="Sin prompt" />
+          <div className="flex items-center gap-1 shrink-0">
+            {imagePrompt && (
+              <button type="button" onClick={() => copyToClipboard(imagePrompt.prompt_text, 'Prompt de imagen')} className="rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors" title="Copiar">
+                <Copy className="h-3 w-3" />
+              </button>
+            )}
+            <button type="button" disabled={isGenerating} onClick={onGeneratePrompts} className="rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50" title="Generar con IA">
+              {isGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Video prompt */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Video className="h-3 w-3 text-muted-foreground/60" />
+            <span className="text-[10px] font-medium text-muted-foreground w-10">Video</span>
+          </div>
+          <ExpandablePrompt text={videoPrompt?.prompt_text} fallback="Sin prompt" />
+          <div className="flex items-center gap-1 shrink-0">
+            {videoPrompt && (
+              <button type="button" onClick={() => copyToClipboard(videoPrompt.prompt_text, 'Prompt de video')} className="rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors" title="Copiar">
+                <Copy className="h-3 w-3" />
+              </button>
+            )}
+            <button type="button" disabled={isGenerating} onClick={onGeneratePrompts} className="rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50" title="Generar con IA"
+            >
+              {isGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Timeline entry (second-by-second) ── */}
+      {timelineEntry?.description && (
+        <div className="rounded-lg bg-background/50 border border-border/30 px-3 py-2">
+          <div className="flex items-center gap-1.5 mb-1">
+            <Clock3 className="h-3 w-3 text-muted-foreground/60" />
+            <span className="text-[10px] font-medium text-muted-foreground">Desglose temporal</span>
+            <span className="text-[10px] text-muted-foreground/50">{timelineEntry.start_time} – {timelineEntry.end_time}</span>
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed">{timelineEntry.description}</p>
+        </div>
       )}
-      style={{ width: `${widthPercent}%`, minWidth: '40px' }}
-      title={`${scene.title} (${dur}s)`}
-    >
-      <span className="font-bold text-foreground">{scene.scene_number}</span>
-      <span className="text-muted-foreground">{dur}s</span>
-    </Link>
+
+      {/* ── Action buttons ── */}
+      <div className="flex items-center gap-1.5 pt-1 border-t border-border/50">
+        <Link
+          href={sceneLink}
+          className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors flex items-center gap-1.5"
+        >
+          <ExternalLink className="h-3 w-3" />
+          Abrir
+        </Link>
+
+        <button
+          type="button"
+          disabled={isGenerating}
+          onClick={onGeneratePrompts}
+          className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors flex items-center gap-1.5 disabled:opacity-50"
+        >
+          {isGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+          Generar prompts
+        </button>
+
+        {(imagePrompt || videoPrompt) && (
+          <button
+            type="button"
+            onClick={() => {
+              const parts: string[] = [];
+              if (imagePrompt) parts.push(imagePrompt.prompt_text);
+              if (videoPrompt) parts.push(videoPrompt.prompt_text);
+              copyToClipboard(parts.join('\n\n'), 'Prompts');
+            }}
+            className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors flex items-center gap-1.5"
+          >
+            <Copy className="h-3 w-3" />
+            Copiar todo
+          </button>
+        )}
+
+        <button
+          type="button"
+          onClick={onEditScene}
+          className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-primary hover:bg-primary/10 transition-colors flex items-center gap-1.5"
+          title="Editar con IA"
+        >
+          <Sparkles className="h-3 w-3" />
+          Editar con IA
+        </button>
+
+        {/* Dropdown menu */}
+        <div className="ml-auto">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem asChild>
+                <Link href={sceneLink}>
+                  <Eye className="h-4 w-4" />
+                  Ver detalle
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => toast.info('Edicion inline proximamente')}>
+                <Pencil className="h-4 w-4" />
+                Editar inline
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => toast.info('Regenerar imagen proximamente')}>
+                <Camera className="h-4 w-4" />
+                Regenerar imagen
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => toast.info('Regenerar clips proximamente')}>
+                <Clapperboard className="h-4 w-4" />
+                Regenerar clips
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => toast.info('Mejorar con IA proximamente')}>
+                <Sparkles className="h-4 w-4" />
+                Mejorar con IA
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => toast.info('Duplicar proximamente')}>
+                <Copy className="h-4 w-4" />
+                Duplicar escena
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => toast.info('Insertar proximamente')}>
+                <Plus className="h-4 w-4" />
+                Insertar antes
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-destructive focus:text-destructive">
+                <Trash2 className="h-4 w-4" />
+                Eliminar
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+    </div>
   );
 }
 
+/* ================================================================== */
+/*  Page                                                               */
+/* ================================================================== */
 export default function VideoOverviewPage() {
   const { project } = useProject();
   const { video, loading, scenes, scenesLoading } = useVideo();
-  const openTaskCreatePanel = useUIStore((state) => state.openTaskCreatePanel);
-  const openVideoSettingsModal = useUIStore((state) => state.openVideoSettingsModal);
+  const openVideoSettingsModal = useUIStore((s) => s.openVideoSettingsModal);
+  const queryClient = useQueryClient();
 
+  const [generatingSceneId, setGeneratingSceneId] = useState<string | null>(null);
+  const [generatingAll, setGeneratingAll] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('storyboard');
-  const [phaseFilter, setPhaseFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [showCreateScene, setShowCreateScene] = useState(false);
+  const [showSceneGenerator, setShowSceneGenerator] = useState(false);
+  const [editingScene, setEditingScene] = useState<Scene | null>(null);
+  const [aiDescription, setAiDescription] = useState('');
 
-  // Fetch narrative arcs for ArcBar
+  async function handleGeneratePrompts(sceneId: string) {
+    setGeneratingSceneId(sceneId);
+    try {
+      const res = await fetch('/api/ai/generate-scene-prompts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sceneId }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success('Prompts generados');
+      queryClient.invalidateQueries({ queryKey: ['scene-prompts', video?.id] });
+    } catch {
+      toast.error('Error al generar prompts');
+    } finally {
+      setGeneratingSceneId(null);
+    }
+  }
+
+  async function handleGenerateAll() {
+    setGeneratingAll(true);
+    try {
+      for (const scene of scenes) {
+        await handleGeneratePrompts(scene.id);
+      }
+      toast.success('Todos los prompts generados');
+    } finally {
+      setGeneratingAll(false);
+    }
+  }
+
+  async function handleReorderScene(draggedId: string, targetId: string) {
+    const dragIdx = scenes.findIndex((s) => s.id === draggedId);
+    const targetIdx = scenes.findIndex((s) => s.id === targetId);
+    if (dragIdx === -1 || targetIdx === -1) return;
+
+    const reordered = [...scenes];
+    const [moved] = reordered.splice(dragIdx, 1);
+    reordered.splice(targetIdx, 0, moved);
+
+    const supabase = createClient();
+    for (let i = 0; i < reordered.length; i++) {
+      await supabase
+        .from('scenes')
+        .update({ sort_order: i, scene_number: i + 1 })
+        .eq('id', reordered[i].id);
+    }
+
+    toast.success('Escenas reordenadas');
+    queryClient.invalidateQueries({ queryKey: ['video'] });
+  }
+
+  // Fetch narrative arcs
   const { data: arcs = [] } = useQuery({
     queryKey: ['narrative-arcs', video?.id],
     queryFn: async () => {
@@ -204,6 +641,142 @@ export default function VideoOverviewPage() {
     enabled: !!video?.id,
   });
 
+  // Fetch scene prompts (current versions)
+  const { data: scenePrompts = [] } = useQuery({
+    queryKey: ['scene-prompts', video?.id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const sceneIds = scenes.map((s) => s.id);
+      if (sceneIds.length === 0) return [];
+      const { data } = await supabase
+        .from('scene_prompts')
+        .select('*')
+        .in('scene_id', sceneIds)
+        .eq('is_current', true);
+      return (data ?? []) as ScenePrompt[];
+    },
+    enabled: !!video?.id && scenes.length > 0,
+  });
+
+  // Fetch scene media (most recent first)
+  const { data: sceneMedia = [] } = useQuery({
+    queryKey: ['scene-media', video?.id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const sceneIds = scenes.map((s) => s.id);
+      if (sceneIds.length === 0) return [];
+      const { data } = await supabase
+        .from('scene_media')
+        .select('*')
+        .in('scene_id', sceneIds)
+        .order('created_at', { ascending: false });
+      return (data ?? []) as SceneMedia[];
+    },
+    enabled: !!video?.id && scenes.length > 0,
+  });
+
+  // Fetch scene cameras
+  const { data: sceneCameras = [] } = useQuery({
+    queryKey: ['scene-cameras', video?.id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const sceneIds = scenes.map((s) => s.id);
+      if (sceneIds.length === 0) return [];
+      const { data } = await supabase
+        .from('scene_camera')
+        .select('scene_id, camera_angle, camera_movement')
+        .in('scene_id', sceneIds);
+      return (data ?? []) as SceneCamera[];
+    },
+    enabled: !!video?.id && scenes.length > 0,
+  });
+
+  // Fetch scene characters with character data
+  const { data: sceneCharacters = [] } = useQuery({
+    queryKey: ['scene-characters', video?.id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const sceneIds = scenes.map((s) => s.id);
+      if (!sceneIds.length) return [];
+      const { data } = await supabase
+        .from('scene_characters')
+        .select('scene_id, character_id, role_in_scene, character:characters!character_id(id, name, initials, color_accent, reference_image_url)')
+        .in('scene_id', sceneIds);
+      return (data ?? []) as unknown as SceneCharacterWithChar[];
+    },
+    enabled: !!video?.id && scenes.length > 0,
+  });
+
+  // Fetch scene backgrounds with background data
+  const { data: sceneBackgrounds = [] } = useQuery({
+    queryKey: ['scene-backgrounds', video?.id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const sceneIds = scenes.map((s) => s.id);
+      if (!sceneIds.length) return [];
+      const { data } = await supabase
+        .from('scene_backgrounds')
+        .select('scene_id, background_id, is_primary, background:backgrounds!background_id(id, name, reference_image_url, location_type)')
+        .in('scene_id', sceneIds);
+      return (data ?? []) as unknown as SceneBackgroundWithBg[];
+    },
+    enabled: !!video?.id && scenes.length > 0,
+  });
+
+  // Fetch scene video clips
+  const { data: sceneClips = [] } = useQuery({
+    queryKey: ['scene-clips', video?.id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const sceneIds = scenes.map((s) => s.id);
+      if (!sceneIds.length) return [];
+      const { data } = await supabase
+        .from('scene_video_clips')
+        .select('scene_id, clip_type, duration_seconds')
+        .in('scene_id', sceneIds);
+      return (data ?? []) as SceneClipRow[];
+    },
+    enabled: !!video?.id && scenes.length > 0,
+  });
+
+  // Timeline entries (second-by-second breakdown)
+  const { data: timelineEntries = [] } = useQuery({
+    queryKey: ['timeline-entries', video?.id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from('timeline_entries')
+        .select('scene_id, title, description, start_time, end_time, duration_seconds')
+        .eq('video_id', video!.id)
+        .order('sort_order');
+      return (data ?? []) as TimelineEntryRow[];
+    },
+    enabled: !!video?.id,
+  });
+
+  // Open chat with scene context
+  const { openChat, setActiveAgent } = useAIStore();
+  function handleEditSceneWithAI(scene: Scene) {
+    setEditingScene(scene);
+  }
+
+  /* Copy all prompts in order */
+  function copyAllPrompts() {
+    const imageLines: string[] = [];
+    const videoLines: string[] = [];
+
+    scenes.forEach((scene) => {
+      const ip = scenePrompts.find((p) => p.scene_id === scene.id && p.prompt_type === 'image');
+      const vp = scenePrompts.find((p) => p.scene_id === scene.id && p.prompt_type === 'video');
+      imageLines.push(`#${scene.scene_number}: ${ip?.prompt_text ?? '(sin prompt)'}`);
+      videoLines.push(`#${scene.scene_number}: ${vp?.prompt_text ?? '(sin prompt)'}`);
+    });
+
+    const text = `=== PROMPTS DE IMAGEN ===\n${imageLines.join('\n')}\n\n=== PROMPTS DE VIDEO ===\n${videoLines.join('\n')}`;
+    copyToClipboard(text, 'Todos los prompts');
+  }
+
+  /* Loading */
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -212,6 +785,7 @@ export default function VideoOverviewPage() {
     );
   }
 
+  /* Not found */
   if (!video || !project) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
@@ -228,102 +802,72 @@ export default function VideoOverviewPage() {
   const totalDuration = scenes.reduce((sum, s) => sum + (s.duration_seconds ?? 0), 0);
   const approvedScenes = scenes.filter((s) => s.status === 'approved').length;
 
-  // Apply filters
-  const filteredScenes = scenes.filter((s) => {
-    if (phaseFilter !== 'all' && s.arc_phase !== phaseFilter) return false;
-    if (statusFilter !== 'all' && s.status !== statusFilter) return false;
-    return true;
-  });
-
-  const maxSceneDuration = Math.max(...scenes.map((s) => s.duration_seconds ?? 0), 1);
-
   return (
-    <div className="h-full overflow-y-auto p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10">
-            <Video className="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-lg font-semibold text-foreground">{video.title}</h1>
-            <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+    <div className="mx-auto max-w-7xl px-4 py-6 space-y-6">
+      {/* ── Header ──────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">{video.title}</h1>
+          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <span className="rounded-md bg-secondary px-2 py-0.5 text-xs font-medium">{video.platform}</span>
+            <span className="flex items-center gap-1">
+              <Clock className="h-3.5 w-3.5" />
+              {video.target_duration_seconds}s
+            </span>
+            {video.aspect_ratio && (
               <span className="flex items-center gap-1">
                 <Monitor className="h-3.5 w-3.5" />
-                {video.platform}
+                {video.aspect_ratio}
               </span>
-              <span className="flex items-center gap-1">
-                <Clock className="h-3.5 w-3.5" />
-                {video.target_duration_seconds}s objetivo
-              </span>
-              {video.aspect_ratio && (
-                <span className="rounded bg-secondary px-1.5 py-0.5 text-xs text-muted-foreground">
-                  {video.aspect_ratio}
-                </span>
+            )}
+            <span
+              className={cn(
+                'rounded-full border px-2.5 py-0.5 text-xs font-medium',
+                STATUS_COLORS[video.status] ?? 'bg-zinc-500/20 text-muted-foreground border-zinc-500/20',
               )}
-            </div>
+            >
+              {STATUS_LABELS[video.status] ?? video.status}
+            </span>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            startContent={<Settings2 className="h-3.5 w-3.5" />}
-            onPress={() => openVideoSettingsModal('general')}
-            className="rounded-md"
-          >
-            Ajustes
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            startContent={<Plus className="h-3.5 w-3.5" />}
-            onPress={() => openTaskCreatePanel({ projectId: project.id, videoId: video.id, source: 'video' })}
-            className="rounded-md"
-          >
-            Nueva tarea
-          </Button>
-          <span className={cn(
-            'shrink-0 rounded-full border px-3 py-1 text-xs font-medium',
-            STATUS_COLORS[video.status] ?? 'bg-zinc-500/20 text-muted-foreground border-zinc-500/20',
-          )}>
-            {STATUS_LABELS[video.status] ?? video.status}
-          </span>
-        </div>
+
+        <button
+          type="button"
+          onClick={() => openVideoSettingsModal('general')}
+          className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
+        >
+          <Settings2 className="h-4 w-4 text-muted-foreground" />
+          Ajustes
+        </button>
       </div>
 
-      {/* Stats Row */}
+      {/* ── Stats row ───────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[
-          { value: scenesLoading ? '...' : scenes.length, label: 'Escenas' },
-          { value: scenesLoading ? '...' : approvedScenes, label: 'Aprobadas' },
-          { value: `${video.target_duration_seconds}s`, label: 'Duracion objetivo' },
-          { value: scenesLoading ? '...' : `${totalDuration}s`, label: 'Duracion actual' },
-        ].map((stat) => (
-          <div key={stat.label} className="rounded-xl border border-border bg-card p-4">
-            <p className="text-2xl font-bold text-foreground">{stat.value}</p>
-            <p className="text-xs text-muted-foreground">{stat.label}</p>
-          </div>
-        ))}
+        <Stat icon={Film} label="Escenas" value={scenesLoading ? '...' : scenes.length} />
+        <Stat icon={CheckCircle2} label="Aprobadas" value={scenesLoading ? '...' : approvedScenes} tone="text-emerald-500" />
+        <Stat icon={Target} label="Duracion objetivo" value={`${video.target_duration_seconds}s`} />
+        <Stat icon={Clock} label="Duracion actual" value={scenesLoading ? '...' : `${totalDuration}s`} />
       </div>
 
-      {/* Narrative Arc Bar */}
+      {/* ── Narrative arc bar ───────────────────────────────── */}
       {arcs.length > 0 && (
         <div className="space-y-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Arco narrativo</h3>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Arco narrativo</p>
           <ArcBar arcs={arcs} totalDuration={totalDuration || video.target_duration_seconds || 60} className="h-3" />
           <div className="flex flex-wrap gap-3 text-[11px] text-muted-foreground">
             {arcs.map((arc) => {
               const duration = (arc.end_second ?? 0) - (arc.start_second ?? 0);
               return (
                 <span key={arc.id} className="flex items-center gap-1">
-                  <span className={cn(
-                    'h-2 w-2 rounded-full',
-                    arc.phase === 'hook' ? 'bg-red-500' :
-                    arc.phase === 'build' ? 'bg-amber-500' :
-                    arc.phase === 'peak' ? 'bg-emerald-500' :
-                    arc.phase === 'close' ? 'bg-blue-500' : 'bg-zinc-500',
-                  )} />
+                  <span
+                    className={cn(
+                      'h-2 w-2 rounded-full',
+                      arc.phase === 'hook' ? 'bg-red-500' :
+                      arc.phase === 'build' ? 'bg-amber-500' :
+                      arc.phase === 'peak' ? 'bg-emerald-500' :
+                      arc.phase === 'close' ? 'bg-blue-500' : 'bg-zinc-500',
+                    )}
+                  />
                   {arc.title} ({duration}s)
                 </span>
               );
@@ -332,204 +876,324 @@ export default function VideoOverviewPage() {
         </div>
       )}
 
-      {/* Scene Grid with Toolbar */}
+      {/* ── Scenes section ────────────────────────────────── */}
       <div className="space-y-3">
-        {/* Toolbar */}
+        {/* Header row: title + tabs + actions */}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <LayoutGrid className="h-4 w-4 text-primary" />
-              Escenas
-              {!scenesLoading && (
-                <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-normal text-muted-foreground">
-                  {filteredScenes.length}
-                </span>
-              )}
-            </h3>
-          </div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Escenas
+          </p>
 
-          <div className="flex items-center gap-2">
-            {/* View mode tabs */}
-            <div className="flex items-center rounded-lg border border-border bg-secondary/50 p-0.5">
-              {VIEW_TABS.map((tab) => (
+          {/* View mode tabs */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1 rounded-lg border border-border p-0.5">
+              {(['storyboard', 'compact', 'timeline'] as const).map((mode) => (
                 <button
-                  key={tab.key}
+                  key={mode}
                   type="button"
-                  onClick={() => setViewMode(tab.key)}
+                  onClick={() => setViewMode(mode)}
                   className={cn(
-                    'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
-                    viewMode === tab.key
-                      ? 'bg-card text-foreground shadow-sm'
+                    'px-3 py-1.5 rounded-md text-xs font-medium transition-colors',
+                    viewMode === mode
+                      ? 'bg-secondary text-foreground'
                       : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
-                  <tab.icon className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">{tab.label}</span>
+                  {mode === 'storyboard' ? 'Storyboard' : mode === 'compact' ? 'Compacto' : 'Timeline'}
                 </button>
               ))}
             </div>
 
-            {/* Filters */}
-            <select
-              value={phaseFilter}
-              onChange={(e) => setPhaseFilter(e.target.value)}
-              className="h-8 rounded-lg border border-border bg-secondary/50 px-2 text-xs text-foreground outline-none focus:border-primary transition-colors"
+            <button
+              type="button"
+              onClick={() => setShowCreateScene(true)}
+              className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
             >
-              <option value="all">Todas las fases</option>
-              {ALL_PHASES.map((p) => (
-                <option key={p} value={p}>{p}</option>
-              ))}
-            </select>
+              <Plus className="size-3.5" />
+              Nueva escena
+            </button>
 
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="h-8 rounded-lg border border-border bg-secondary/50 px-2 text-xs text-foreground outline-none focus:border-primary transition-colors"
+            <Link
+              href={`${basePath}`}
+              className="text-xs font-medium text-primary hover:underline"
             >
-              <option value="all">Todos los estados</option>
-              {ALL_STATUSES.map((s) => (
-                <option key={s} value={s}>{SCENE_STATUS_LABELS[s]}</option>
-              ))}
-            </select>
-
-            <Link href={`${basePath}/scenes`}>
-              <Button variant="ghost" size="sm" endContent={<ArrowRight className="h-3.5 w-3.5" />} className="rounded-md">
-                Ver todas
-              </Button>
+              Ver todas
             </Link>
           </div>
         </div>
 
-        {/* Scene content by view mode */}
+        {/* Content */}
         {scenesLoading ? (
           <div className="flex h-40 items-center justify-center">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
-        ) : filteredScenes.length === 0 && scenes.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card/50 py-12">
-            <Film className="h-10 w-10 text-muted-foreground/60" />
-            <h4 className="mt-3 text-sm font-medium text-foreground">Sin escenas todavia</h4>
-            <p className="mt-1 text-xs text-muted-foreground">Crea escenas manualmente o genera con IA</p>
-            <div className="mt-4 flex gap-2">
-              <Link href={`${basePath}/scenes`}>
-                <Button variant="outline" size="sm" startContent={<Plus className="h-3.5 w-3.5" />} className="rounded-md">
-                  Crear manual
-                </Button>
-              </Link>
-              <Link href={`${basePath}/scenes`}>
-                <Button variant="primary" size="sm" startContent={<Sparkles className="h-3.5 w-3.5" />} className="rounded-md">
-                  Generar con IA
-                </Button>
-              </Link>
+        ) : scenes.length === 0 ? (
+          <div className="rounded-xl border border-border bg-card p-6 sm:p-8 space-y-5">
+            <div className="text-center space-y-2">
+              <h4 className="text-lg font-semibold text-foreground">Vamos a crear tu storyboard!</h4>
+              <p className="text-sm text-muted-foreground max-w-lg mx-auto">
+                Describe que quieres en tu video y Kiyoko generara las escenas automaticamente con arco narrativo, camara, y prompts listos para copiar.
+              </p>
             </div>
-          </div>
-        ) : filteredScenes.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card/50 py-8">
-            <p className="text-sm text-muted-foreground">No hay escenas con los filtros seleccionados</p>
+
+            <textarea
+              value={aiDescription}
+              onChange={(e) => setAiDescription(e.target.value)}
+              placeholder="Describe tu video: ej. Anuncio de 60s para peluqueria mostrando los 4 profesionales, con gancho inicial, servicios destacados y call-to-action final..."
+              rows={4}
+              className="w-full rounded-lg border border-border bg-background px-4 py-3 text-sm outline-none focus:border-primary/30 focus:ring-1 focus:ring-primary/10 resize-y placeholder:text-muted-foreground/50"
+            />
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setShowSceneGenerator(true)}
+                className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                <Sparkles className="h-4 w-4" />
+                Generar escenas con IA
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowCreateScene(true)}
+                className="flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
+              >
+                <Plus className="h-4 w-4 text-muted-foreground" />
+                Crear manualmente
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">O elige una opcion rapida:</p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { label: 'Anuncio 30s', text: 'Crea un anuncio de 30 segundos con gancho inicial, presentacion del producto, y call-to-action final.' },
+                  { label: 'Reel 15s', text: 'Crea un reel vertical de 15 segundos con transiciones rapidas y texto overlay.' },
+                  { label: 'Presentacion 60s', text: 'Crea una presentacion de 60 segundos mostrando el equipo, servicios, y resultados.' },
+                ].map((option) => (
+                  <button
+                    key={option.label}
+                    type="button"
+                    onClick={() => setAiDescription(option.text)}
+                    className={cn(
+                      'rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors',
+                      aiDescription === option.text
+                        ? 'border-primary/40 bg-primary/10 text-primary'
+                        : 'border-border text-muted-foreground hover:border-primary/20 hover:text-foreground',
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         ) : viewMode === 'storyboard' ? (
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-            {filteredScenes.map((scene) => (
-              <SceneCard key={scene.id} scene={scene} basePath={basePath} />
-            ))}
-          </div>
-        ) : viewMode === 'list' ? (
-          <div className="space-y-2">
-            {filteredScenes.map((scene) => (
-              <SceneListItem key={scene.id} scene={scene} basePath={basePath} />
-            ))}
-          </div>
-        ) : viewMode === 'table' ? (
-          <div className="rounded-xl border border-border bg-card overflow-hidden">
-            {/* Table header */}
-            <div className="flex items-center h-9 border-b border-border bg-secondary/50 text-xs font-medium text-muted-foreground uppercase">
-              <div className="w-12 px-3">#</div>
-              <div className="flex-1 px-3">Titulo</div>
-              <div className="w-16 px-3 text-center">Dur.</div>
-              <div className="w-20 px-3">Fase</div>
-              <div className="w-24 px-3">Estado</div>
-            </div>
-            {/* Table rows */}
-            {filteredScenes.map((scene) => (
-              <SceneTableRow key={scene.id} scene={scene} basePath={basePath} />
-            ))}
-            {/* Footer */}
-            <div className="flex items-center h-9 border-t border-border bg-secondary/30 text-xs text-muted-foreground">
-              <div className="w-12 px-3" />
-              <div className="flex-1 px-3 font-medium">Total: {filteredScenes.length} escenas</div>
-              <div className="w-16 px-3 text-center font-medium">{filteredScenes.reduce((s, sc) => s + (sc.duration_seconds ?? 0), 0)}s</div>
-              <div className="w-20 px-3" />
-              <div className="w-24 px-3" />
-            </div>
-          </div>
-        ) : (
-          /* Timeline view */
-          <div className="rounded-xl border border-border bg-card p-4 overflow-x-auto">
-            {/* Time ruler */}
-            <div className="flex items-center gap-0 mb-3 text-[10px] text-muted-foreground">
-              {Array.from({ length: Math.ceil(totalDuration / 15) + 1 }, (_, i) => (
-                <span key={i} className="flex-1 text-center border-l border-border/40 first:border-l-0">
-                  {i * 15}s
-                </span>
-              ))}
-            </div>
-            {/* Group by phase */}
-            {ALL_PHASES.map((phase) => {
-              const phaseScenes = filteredScenes.filter((s) => s.arc_phase === phase);
-              if (phaseScenes.length === 0) return null;
+          /* ── Storyboard view ── */
+          <div className="space-y-3">
+            {scenes.map((scene) => {
+              const imagePrompt = scenePrompts.find((p) => p.scene_id === scene.id && p.prompt_type === 'image');
+              const videoPrompt = scenePrompts.find((p) => p.scene_id === scene.id && p.prompt_type === 'video');
+              const thumbnail = sceneMedia.find((m) => m.scene_id === scene.id);
+              const camera = sceneCameras.find((c) => c.scene_id === scene.id);
+              const chars = sceneCharacters.filter((c) => c.scene_id === scene.id);
+              const bgList = sceneBackgrounds.filter((b) => b.scene_id === scene.id);
+              const clipList = sceneClips.filter((c) => c.scene_id === scene.id);
+
               return (
-                <div key={phase} className="mb-3">
-                  <div className="text-[10px] font-medium uppercase text-muted-foreground mb-1.5 flex items-center gap-1.5">
-                    <span className={cn('h-2 w-2 rounded-full', PHASE_DOT[phase])} />
-                    {phase}
-                  </div>
-                  <div className="flex gap-1 flex-wrap">
-                    {phaseScenes.map((scene) => (
-                      <TimelineBlock key={scene.id} scene={scene} basePath={basePath} maxDuration={maxSceneDuration} />
-                    ))}
-                  </div>
-                </div>
+                <StoryboardCard
+                  key={scene.id}
+                  scene={scene}
+                  basePath={basePath}
+                  imagePrompt={imagePrompt}
+                  videoPrompt={videoPrompt}
+                  thumbnail={thumbnail}
+                  camera={camera}
+                  chars={chars}
+                  bgs={bgList}
+                  clips={clipList}
+                  timelineEntry={timelineEntries.find((t) => t.scene_id === scene.id)}
+                  onGeneratePrompts={() => handleGeneratePrompts(scene.id)}
+                  onEditScene={() => handleEditSceneWithAI(scene)}
+                  onReorderScene={handleReorderScene}
+                  isGenerating={generatingSceneId === scene.id}
+                />
               );
             })}
-            {/* Scenes without a phase */}
-            {filteredScenes.filter((s) => !s.arc_phase).length > 0 && (
-              <div className="mb-3">
-                <div className="text-[10px] font-medium uppercase text-muted-foreground mb-1.5">Sin fase</div>
-                <div className="flex gap-1 flex-wrap">
-                  {filteredScenes.filter((s) => !s.arc_phase).map((scene) => (
-                    <TimelineBlock key={scene.id} scene={scene} basePath={basePath} maxDuration={maxSceneDuration} />
-                  ))}
-                </div>
-              </div>
+          </div>
+        ) : viewMode === 'compact' ? (
+          /* ── Compact view ── */
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            {scenes.map((scene) => {
+              const thumb = sceneMedia.find((m) => m.scene_id === scene.id);
+              const thumbUrl = thumb?.thumbnail_url ?? thumb?.file_url;
+              return (
+                <Link
+                  key={scene.id}
+                  href={scene.short_id ? `${basePath}/scene/${scene.short_id}` : `${basePath}`}
+                  className="rounded-xl border border-border bg-card overflow-hidden hover:border-primary/30 transition-all"
+                >
+                  <div className="aspect-video bg-background flex items-center justify-center relative">
+                    {thumbUrl ? (
+                      <img src={thumbUrl} alt={scene.title} className="size-full object-cover" />
+                    ) : (
+                      <Film className="size-6 text-muted-foreground/40" />
+                    )}
+                    <span className="absolute top-1.5 left-1.5 bg-black/70 text-white text-[9px] font-bold px-1 rounded">
+                      #{scene.scene_number}
+                    </span>
+                    {scene.arc_phase && (
+                      <span
+                        className={cn(
+                          'absolute bottom-1.5 left-1.5 text-[9px] px-1 rounded',
+                          PHASE_STYLES[scene.arc_phase] ?? 'bg-zinc-500/80 text-white',
+                        )}
+                      >
+                        {scene.arc_phase}
+                      </span>
+                    )}
+                  </div>
+                  <div className="p-2">
+                    <p className="text-xs font-medium truncate">{scene.title}</p>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span className="text-[10px] text-muted-foreground">{scene.duration_seconds ?? 5}s</span>
+                      <span
+                        className={cn(
+                          'size-1.5 rounded-full',
+                          SCENE_STATUS_DOT[scene.status ?? 'draft'],
+                        )}
+                      />
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        ) : (
+          /* ── Timeline view ── */
+          <div className="space-y-3">
+            {/* Arc bar */}
+            {arcs.length > 0 && (
+              <ArcBar
+                arcs={arcs}
+                totalDuration={totalDuration || video.target_duration_seconds || 60}
+                className="h-4"
+              />
             )}
+            {/* Scene list */}
+            <div className="space-y-1">
+              {scenes.map((scene) => (
+                <Link
+                  key={scene.id}
+                  href={scene.short_id ? `${basePath}/scene/${scene.short_id}` : `${basePath}`}
+                  className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-accent transition-colors"
+                >
+                  <span className="text-xs font-bold text-muted-foreground w-6 text-right tabular-nums">
+                    #{scene.scene_number}
+                  </span>
+                  <span className="text-sm font-medium flex-1 truncate">{scene.title}</span>
+                  {scene.arc_phase && (
+                    <span
+                      className={cn(
+                        'rounded px-1.5 py-0.5 text-[10px] font-medium',
+                        PHASE_STYLES[scene.arc_phase] ?? 'bg-zinc-500/80 text-white',
+                      )}
+                    >
+                      {scene.arc_phase}
+                    </span>
+                  )}
+                  <span className="text-xs text-muted-foreground tabular-nums">{scene.duration_seconds ?? 5}s</span>
+                  <span
+                    className={cn(
+                      'size-2 rounded-full',
+                      SCENE_STATUS_DOT[scene.status ?? 'draft'],
+                    )}
+                  />
+                </Link>
+              ))}
+            </div>
           </div>
         )}
       </div>
 
-      {/* Quick Actions */}
+      {/* ── Quick actions ───────────────────────────────────── */}
       <div className="space-y-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Acciones rapidas</h3>
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Acciones rapidas</p>
         <div className="flex flex-wrap gap-2">
+          {scenes.length > 0 && (
+            <>
+              <button
+                type="button"
+                disabled={generatingAll || generatingSceneId !== null}
+                onClick={handleGenerateAll}
+                className="group flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm transition-all hover:border-primary/30 disabled:opacity-50"
+              >
+                {generatingAll
+                  ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  : <Sparkles className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />}
+                <span className="text-foreground">Generar todos los prompts</span>
+              </button>
+              <button
+                type="button"
+                onClick={copyAllPrompts}
+                className="group flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm transition-all hover:border-primary/30"
+              >
+                <Copy className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                <span className="text-foreground">Copiar todos los prompts</span>
+              </button>
+            </>
+          )}
           {QUICK_LINKS.map((link) => (
             <Link
               key={link.href}
               href={`${basePath}${link.href}`}
-              className="group flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm transition-all duration-200 hover:border-primary/30 hover:shadow-md hover:shadow-black/20"
+              className="group flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm transition-all hover:border-primary/30"
             >
               <link.icon className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-              <span className="text-foreground text-sm">{link.label}</span>
+              <span className="text-foreground">{link.label}</span>
             </Link>
           ))}
         </div>
       </div>
 
-      {/* Description */}
+      {/* ── Description ─────────────────────────────────────── */}
       {video.description && (
         <div className="rounded-xl border border-border bg-card p-5">
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Descripcion</h3>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Descripcion</p>
           <p className="text-sm leading-relaxed text-muted-foreground">{video.description}</p>
         </div>
       )}
+
+      {/* ── Create/Edit scene modal ──────────────────────────── */}
+      <SceneWorkModal
+        open={showCreateScene || !!editingScene}
+        onOpenChange={(open) => {
+          if (!open) { setShowCreateScene(false); setEditingScene(null); }
+        }}
+        videoId={video.id}
+        projectId={project.id}
+        nextSceneNumber={scenes.length + 1}
+        scene={editingScene}
+        allScenes={scenes}
+        imagePrompt={editingScene ? scenePrompts.find(p => p.scene_id === editingScene.id && p.prompt_type === 'image')?.prompt_text : undefined}
+        videoPrompt={editingScene ? scenePrompts.find(p => p.scene_id === editingScene.id && p.prompt_type === 'video')?.prompt_text : undefined}
+        onUpdate={() => {
+          queryClient.invalidateQueries({ queryKey: ['scene-prompts', video.id] });
+          queryClient.invalidateQueries({ queryKey: ['video'] });
+        }}
+      />
+
+      <SceneGeneratorModal
+        open={showSceneGenerator}
+        onOpenChange={setShowSceneGenerator}
+        videoId={video.id}
+        projectId={project.id}
+        videoTitle={video.title}
+        videoPlatform={video.platform ?? 'youtube'}
+        videoDuration={video.target_duration_seconds ?? 60}
+        projectStyle={project.style ?? 'pixar'}
+        existingSceneCount={scenes.length}
+      />
     </div>
   );
 }

@@ -5,7 +5,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import { useProject } from '@/contexts/ProjectContext';
 import { queryKeys } from '@/lib/query/keys';
-import { Button } from '@heroui/react';
 import {
   Loader2, Users, UserPlus, Shield, Mail, Check, Clock, Trash2,
 } from 'lucide-react';
@@ -114,16 +113,14 @@ export default function SharingSettingsPage() {
             <option value="editor">Editor</option>
             <option value="admin">Admin</option>
           </select>
-          <Button
-            variant="primary"
-            size="md"
-            startContent={<Mail className="h-4 w-4" />}
+          <button
             onClick={() => inviteMutation.mutate()}
             disabled={!inviteEmail.trim() || inviteMutation.isPending}
-            className="rounded-md"
+            className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
+            {inviteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
             {inviteMutation.isPending ? 'Enviando...' : 'Invitar'}
-          </Button>
+          </button>
         </div>
         {inviteMutation.isError && (
           <p className="mt-2 text-xs text-red-400">

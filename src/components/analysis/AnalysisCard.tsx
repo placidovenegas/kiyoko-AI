@@ -43,7 +43,7 @@ export function AnalysisCard({
   const config = TYPE_CONFIG[type];
 
   return (
-    <div className={cn('rounded-xl border bg-card overflow-hidden transition', config.accent, config.bg)}>
+    <div className={cn('rounded-2xl border bg-card overflow-hidden transition', config.accent, config.bg)}>
       <button
         onClick={() => setExpanded(!expanded)}
         className="flex w-full items-center gap-3 p-4 text-left"

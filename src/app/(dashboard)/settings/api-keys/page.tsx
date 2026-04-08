@@ -1,19 +1,21 @@
 'use client';
 
 import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useUIStore } from '@/stores/useUIStore';
 
 /**
- * `/settings/api-keys` es un entrypoint para abrir el modal en la sección correcta.
+ * `/settings/api-keys` es un entrypoint para abrir el modal en la seccion correcta.
  * La UI vive en `SettingsModal` y se renderiza en `src/app/(dashboard)/layout.tsx`.
  */
 export default function ApiKeysPage() {
-  const { openSettingsModal } = useUIStore();
+  const router = useRouter();
+  const openModal = useUIStore((s) => s.openSettingsModal);
 
   useEffect(() => {
-    openSettingsModal('api-keys');
-  }, [openSettingsModal]);
+    openModal('api-keys');
+    router.replace('/dashboard');
+  }, [openModal, router]);
 
   return null;
 }
-

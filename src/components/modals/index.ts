@@ -1,9 +1,12 @@
 // Modals
 export { CharacterCreateModal } from './character/CharacterCreateModal';
+export { CharacterPickerModal } from './character/CharacterPickerModal';
 export { BackgroundCreateModal } from './background/BackgroundCreateModal';
+export { BackgroundPickerModal } from './background/BackgroundPickerModal';
 export { VideoCreateModal } from './video/VideoCreateModal';
 export { TaskCreateModal } from './task/TaskCreateModal';
 export { SceneCreateModal } from './scene/SceneCreateModal';
+export { SceneWorkModal } from './scene/SceneWorkModal';
 
 // Types
 export type { ModalProps } from './shared/types';

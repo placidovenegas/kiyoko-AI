@@ -68,25 +68,28 @@ export function AudioMultiToggle({
           const isActive = activeFlags.includes(flag.key);
           const Icon = flag.icon;
           return (
-            <Tooltip key={flag.key} content={flag.description} placement="bottom">
-              <button
-                type="button"
-                onClick={() => toggleFlag(flag.key)}
-                disabled={disabled}
-                aria-pressed={isActive}
-                aria-label={flag.label}
-                className={cn(
-                  'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
-                  isActive
-                    ? 'bg-primary text-white'
-                    : 'bg-secondary text-muted-foreground hover:bg-card',
-                  disabled && 'cursor-not-allowed opacity-50',
-                )}
-              >
-                <Icon className="h-3.5 w-3.5" />
-                {flag.label}
-              </button>
+            <Tooltip key={flag.key}>
+              <Tooltip.Trigger>
+                <button
+                  type="button"
+                  onClick={() => toggleFlag(flag.key)}
+                  disabled={disabled}
+                  aria-pressed={isActive}
+                  aria-label={flag.label}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+                    isActive
+                      ? 'bg-primary text-white'
+                      : 'bg-secondary text-muted-foreground hover:bg-card',
+                    disabled && 'cursor-not-allowed opacity-50',
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {flag.label}
+                </button>
+              </Tooltip.Trigger>
+              <Tooltip.Content>{flag.description}</Tooltip.Content>
             </Tooltip>
           );
         })}

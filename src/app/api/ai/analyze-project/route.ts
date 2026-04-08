@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
       videoId: body.videoId,
     });
 
-    const response = await fetch(`${origin}/api/ai/analyze-video`, {
+    const forwardResponse = await fetch(`${origin}/api/ai/analyze-video`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify(body),
     });
 
-    return apiResponse(requestContext, response);
+    return apiResponse(requestContext, forwardResponse);
   } catch (error) {
     return apiError(requestContext, 'analyze-project', error, { message: 'Internal server error' });
   }

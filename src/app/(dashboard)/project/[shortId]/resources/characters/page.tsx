@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import {
   Copy,
   Image as ImageIcon,
+  Loader2,
   MoreHorizontal,
   Plus,
   Sparkles,
@@ -59,6 +60,27 @@ export default function CharactersPage() {
   const supabase = createClient();
   const queryClient = useQueryClient();
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [generatingCharacter, setGeneratingCharacter] = useState(false);
+
+  async function handleGenerateCharacter() {
+    if (!project?.id) return;
+    setGeneratingCharacter(true);
+    toast.loading('Generando personaje...', { id: 'gen-char' });
+    try {
+      const res = await fetch('/api/ai/generate-characters', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: project.id, count: 1 }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success('Personaje generado', { id: 'gen-char' });
+      queryClient.invalidateQueries({ queryKey: queryKeys.characters.byProject(project.id) });
+    } catch {
+      toast.error('Error al generar personaje', { id: 'gen-char' });
+    } finally {
+      setGeneratingCharacter(false);
+    }
+  }
 
   const { data: characters = [], isLoading } = useQuery({
     queryKey: queryKeys.characters.byProject(project?.id ?? ''),
@@ -149,14 +171,37 @@ export default function CharactersPage() {
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setShowCreateModal(true)}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            <Plus className="h-4 w-4" />
-            Nuevo personaje
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleGenerateCharacter}
+              disabled={generatingCharacter}
+              className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {generatingCharacter ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+              Generar con IA
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const prompts = characters.filter(c => c.prompt_snippet).map(c => `${c.name}:\n${c.prompt_snippet}`).join('\n\n');
+                navigator.clipboard.writeText(prompts);
+                toast.success('Todos los prompts copiados');
+              }}
+              className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-accent transition-colors"
+            >
+              <Copy className="size-4" />
+              Copiar todos los prompts
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowCreateModal(true)}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              <Plus className="h-4 w-4" />
+              Nuevo personaje
+            </button>
+          </div>
         </div>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
@@ -200,9 +245,6 @@ export default function CharactersPage() {
               <tbody className="divide-y divide-border">
                 {characters.map((character) => {
                   const href = `/project/${shortId}/resources/characters/${character.id}`;
-                  const hasPrompt = Boolean(character.prompt_snippet);
-                  const hasReference = Boolean(character.reference_image_url);
-
                   return (
                     <tr key={character.id} className="transition-colors hover:bg-background/60">
                       <td className="px-4 py-3">
@@ -222,24 +264,27 @@ export default function CharactersPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={cn('inline-flex rounded-full px-2.5 py-1 text-[11px] font-medium', hasReference ? 'bg-emerald-500/10 text-emerald-300' : 'bg-amber-500/10 text-amber-300')}>
-                          {hasReference ? 'Lista' : 'Pendiente'}
-                        </span>
+                        {character.reference_image_url ? (
+                          <a href={character.reference_image_url} target="_blank" rel="noopener noreferrer" className="text-xs text-emerald-400 bg-emerald-500/10 rounded-md px-1.5 py-0.5 hover:bg-emerald-500/20 transition-colors">
+                            Ver imagen
+                          </a>
+                        ) : (
+                          <span className="text-xs text-amber-400 bg-amber-500/10 rounded-md px-1.5 py-0.5">Pendiente</span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <span className={cn('inline-flex rounded-full px-2.5 py-1 text-[11px] font-medium', hasPrompt ? 'bg-emerald-500/10 text-emerald-300' : 'bg-amber-500/10 text-amber-300')}>
-                            {hasPrompt ? 'Disponible' : 'Sin prompt'}
-                          </span>
+                        {character.prompt_snippet ? (
                           <button
                             type="button"
-                            onClick={() => void copyPrompt(character.prompt_snippet)}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                            aria-label={`Copiar prompt de ${character.name}`}
+                            onClick={() => { navigator.clipboard.writeText(character.prompt_snippet!); toast.success('Prompt copiado'); }}
+                            className="inline-flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
                           >
-                            <Copy className="h-3.5 w-3.5" />
+                            <Copy className="h-3 w-3" />
+                            Copiar
                           </button>
-                        </div>
+                        ) : (
+                          <span className="text-xs text-amber-400 bg-amber-500/10 rounded-md px-1.5 py-0.5">Pendiente</span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-foreground">{sceneCounts[character.id] ?? 0}</td>
                       <td className="px-4 py-3">

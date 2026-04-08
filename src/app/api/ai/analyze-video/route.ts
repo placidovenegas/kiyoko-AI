@@ -240,7 +240,7 @@ Be constructive and specific. Evaluate each scene's prompt quality, the narrativ
 
     return apiError(requestContext, 'analyze-video', error, {
       message: 'Internal server error',
-      extra: { projectId: body?.projectId ?? null, videoId: body?.videoId ?? null },
+      extra: {},
     });
   }
 }

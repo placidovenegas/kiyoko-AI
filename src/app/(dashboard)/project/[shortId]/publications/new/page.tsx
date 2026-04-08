@@ -6,10 +6,11 @@ import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useProject } from '@/contexts/ProjectContext';
 import { queryKeys } from '@/lib/query/keys';
-import { Button } from '@heroui/react';
 import {
-  Loader2, Plus, CalendarDays, Hash, FileText, Layers, Send,
+  Loader2, Plus, CalendarDays, Hash, FileText, Layers, Send, Sparkles,
 } from 'lucide-react';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils/cn';
 import type { SocialProfile } from '@/types';
 
 function generateShortId(): string {
@@ -75,6 +76,31 @@ export default function NewPublicationPage() {
     },
   });
 
+  // AI content generation
+  const generateContent = useMutation({
+    mutationFn: async () => {
+      if (!project?.id) throw new Error('No project');
+      const selectedProfile = profiles.find((p) => p.id === profileId);
+      const res = await fetch('/api/ai/generate-publication-content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: project.id,
+          platform: selectedProfile?.platform ?? 'instagram',
+          publicationType: pubType,
+        }),
+      });
+      if (!res.ok) throw new Error('API error');
+      return res.json() as Promise<{ caption?: string; hashtags?: string[] }>;
+    },
+    onSuccess: (data) => {
+      if (data.caption) setCaption(data.caption);
+      if (data.hashtags?.length) setHashtags(data.hashtags.join(', '));
+      toast.success('Contenido generado con IA');
+    },
+    onError: () => toast.error('Error al generar contenido'),
+  });
+
   if (profilesLoading) {
     return (
       <div className="flex h-full items-center justify-center bg-background">
@@ -86,11 +112,11 @@ export default function NewPublicationPage() {
   const canSubmit = !!profileId && !!title.trim();
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto bg-background p-6">
+    <div className="mx-auto max-w-5xl px-4 py-6 space-y-6">
       {/* Header */}
-      <div className="mb-8 flex items-center gap-3">
+      <div className="flex items-center gap-3">
         <Plus className="h-5 w-5 text-primary" />
-        <h1 className="text-lg font-semibold text-foreground">Nueva publicacion</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Nueva publicacion</h1>
       </div>
 
       <div className="mx-auto w-full max-w-2xl space-y-6">
@@ -159,10 +185,28 @@ export default function NewPublicationPage() {
 
         {/* Caption */}
         <div className="rounded-xl border border-border bg-card p-5">
-          <label className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
-            <FileText className="h-4 w-4 text-primary" />
-            Caption
-          </label>
+          <div className="mb-2 flex items-center justify-between">
+            <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <FileText className="h-4 w-4 text-primary" />
+              Caption
+            </label>
+            <button
+              type="button"
+              onClick={() => generateContent.mutate()}
+              disabled={generateContent.isPending}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition',
+                'bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-50',
+              )}
+            >
+              {generateContent.isPending ? (
+                <Loader2 className="size-3 animate-spin" />
+              ) : (
+                <Sparkles className="size-3" />
+              )}
+              Generar con IA
+            </button>
+          </div>
           <textarea
             value={caption}
             onChange={(e) => setCaption(e.target.value)}
@@ -204,24 +248,22 @@ export default function NewPublicationPage() {
 
         {/* Submit */}
         <div className="flex justify-end gap-3 pt-2">
-          <Button
-            variant="ghost"
-            size="md"
+          <button
+            type="button"
             onClick={() => router.back()}
-            className="rounded-md"
+            className="inline-flex h-10 items-center justify-center rounded-xl border border-border bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
             Cancelar
-          </Button>
-          <Button
-            variant="primary"
-            size="md"
-            startContent={<Send className="h-4 w-4" />}
+          </button>
+          <button
+            type="button"
             onClick={() => createPub.mutate()}
             disabled={!canSubmit || createPub.isPending}
-            className="rounded-md"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none"
           >
+            <Send className="h-4 w-4" />
             {createPub.isPending ? 'Creando...' : 'Crear publicacion'}
-          </Button>
+          </button>
         </div>
 
         {createPub.isError && (

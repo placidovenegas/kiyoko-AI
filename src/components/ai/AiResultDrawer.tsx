@@ -1,7 +1,7 @@
 'use client';
 
+import { useEffect } from 'react';
 import { X, Sparkles } from 'lucide-react';
-import { Button } from '@heroui/react';
 
 export interface AiResultSection {
   title: string;
@@ -30,86 +30,75 @@ export function AiResultDrawer({
   open,
   result,
   onClose,
-  primaryActionLabel,
-  onPrimaryAction,
-  isPrimaryActionLoading,
-  secondaryActionLabel,
-  onSecondaryAction,
 }: AiResultDrawerProps) {
-  if (!open || !result) {
-    return null;
-  }
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [open, onClose]);
+
+  if (!open || !result) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-[2px]" onClick={onClose}>
-      <aside
-        className="flex h-full w-full max-w-xl flex-col border-l border-border bg-background shadow-2xl"
-        onClick={(event) => event.stopPropagation()}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
+      <div
+        className="relative z-10 w-full max-w-lg max-h-[80vh] flex flex-col rounded-2xl border border-border bg-card shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
       >
+        {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Sparkles className="size-5" />
+            <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Sparkles className="size-4" />
             </div>
-            <div>
-              <p className="text-sm font-semibold text-foreground">{result.title}</p>
-              <p className="text-xs text-muted-foreground">Resultado contextual</p>
-            </div>
+            <p className="text-sm font-semibold text-foreground">{result.title}</p>
           </div>
-          <Button variant="ghost" size="sm" isIconOnly aria-label="Cerrar panel" onClick={onClose}>
+          <button type="button" onClick={onClose} className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
             <X className="size-4" />
-          </Button>
+          </button>
         </div>
 
-        <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5">
-          <section className="rounded-2xl border border-border bg-card p-4">
-            <p className="text-sm leading-6 text-foreground">{result.summary}</p>
-          </section>
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+          <p className="text-sm leading-relaxed text-muted-foreground">{result.summary}</p>
 
           {result.sections.map((section) => (
-            <section key={section.title} className="rounded-2xl border border-border bg-card p-4">
-              <h3 className="text-sm font-semibold text-foreground">{section.title}</h3>
-              <div className="mt-3 space-y-2">
+            <div key={section.title}>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">{section.title}</h3>
+              <div className="space-y-1.5">
                 {section.items.map((item) => (
-                  <div key={item} className="rounded-xl bg-secondary/60 px-3 py-2 text-sm text-foreground">
+                  <p key={item} className="text-sm text-foreground leading-relaxed pl-3 border-l-2 border-primary/20">
                     {item}
-                  </div>
+                  </p>
                 ))}
               </div>
-            </section>
+            </div>
           ))}
 
           {!!result.suggestions?.length && (
-            <section className="rounded-2xl border border-border bg-card p-4">
-              <h3 className="text-sm font-semibold text-foreground">Siguientes pasos</h3>
-              <ol className="mt-3 space-y-2">
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Siguientes pasos</h3>
+              <ol className="space-y-1.5">
                 {result.suggestions.map((suggestion, index) => (
-                  <li key={suggestion} className="flex gap-3 rounded-xl bg-secondary/60 px-3 py-2 text-sm text-foreground">
-                    <span className="font-semibold text-primary">{index + 1}.</span>
+                  <li key={suggestion} className="flex gap-2 text-sm text-foreground leading-relaxed">
+                    <span className="shrink-0 text-primary font-semibold">{index + 1}.</span>
                     <span>{suggestion}</span>
                   </li>
                 ))}
               </ol>
-            </section>
+            </div>
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-3 border-t border-border px-5 py-4">
-          {secondaryActionLabel && onSecondaryAction ? (
-            <Button variant="outline" size="sm" onClick={onSecondaryAction}>
-              {secondaryActionLabel}
-            </Button>
-          ) : null}
-          <Button variant="ghost" size="sm" onClick={onClose}>
+        {/* Footer */}
+        <div className="border-t border-border px-5 py-3 flex justify-end">
+          <button type="button" onClick={onClose} className="rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
             Cerrar
-          </Button>
-          {primaryActionLabel && onPrimaryAction ? (
-            <Button variant="primary" size="sm" onClick={onPrimaryAction} isDisabled={isPrimaryActionLoading}>
-              {isPrimaryActionLoading ? 'Aplicando...' : primaryActionLabel}
-            </Button>
-          ) : null}
+          </button>
         </div>
-      </aside>
+      </div>
     </div>
   );
 }

@@ -46,7 +46,6 @@ export function SidebarVideoNav({ projectShortId, videoShortId }: { projectShort
         <div className="px-2 py-1">
           <ul className="flex flex-col gap-0.5">
             <NavItem href={base} icon={LayoutDashboard} label="Vista general" pathname={pathname} isCollapsed exact />
-            <NavItem href={`${base}/scenes`} icon={Clapperboard} label="Escenas" pathname={pathname} isCollapsed />
             <NavItem href={`${base}/timeline`} icon={GanttChart} label="Timeline" pathname={pathname} isCollapsed />
             <NavItem href={`${base}/narration`} icon={Mic} label="Narración" pathname={pathname} isCollapsed />
             <NavItem href={`${base}/analysis`} icon={BarChart3} label="Análisis" pathname={pathname} isCollapsed />
@@ -86,7 +85,6 @@ export function SidebarVideoNav({ projectShortId, videoShortId }: { projectShort
       <div className="px-1.5 py-1">
         <ul className="flex flex-col gap-0.5">
           <NavItem href={base} icon={LayoutDashboard} label="Vista general" pathname={pathname} isCollapsed={false} exact />
-          <NavItem href={`${base}/scenes`} icon={Clapperboard} label="Escenas" pathname={pathname} isCollapsed={false} />
           <NavItem href={`${base}/timeline`} icon={GanttChart} label="Timeline" pathname={pathname} isCollapsed={false} />
           <NavItem href={`${base}/narration`} icon={Mic} label="Narración" pathname={pathname} isCollapsed={false} />
           <NavItem href={`${base}/analysis`} icon={BarChart3} label="Análisis" pathname={pathname} isCollapsed={false} />

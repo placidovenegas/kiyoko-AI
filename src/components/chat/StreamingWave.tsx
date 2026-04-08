@@ -30,12 +30,16 @@ export function StreamingWave({ label = 'Generando' }: { label?: string }) {
           />
         </svg>
       </div>
-      {/* Pulsing dots — visual heartbeat next to logo */}
-      <span className="flex items-center gap-0.5" aria-hidden>
-        <span className="size-1 rounded-full bg-muted-foreground/40 animate-pulse" style={{ animationDelay: '0ms' }} />
-        <span className="size-1 rounded-full bg-muted-foreground/40 animate-pulse" style={{ animationDelay: '150ms' }} />
-        <span className="size-1 rounded-full bg-muted-foreground/40 animate-pulse" style={{ animationDelay: '300ms' }} />
-      </span>
+      {/* Typing dots */}
+      <div className="flex items-center gap-1">
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            className="size-1.5 rounded-full bg-primary animate-bounce"
+            style={{ animationDelay: `${i * 150}ms`, animationDuration: '1s' }}
+          />
+        ))}
+      </div>
       <span className="text-xs text-muted-foreground/70 select-none">{label}</span>
     </div>
   );

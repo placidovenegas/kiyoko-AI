@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
-import { Button } from '@heroui/react';
 import { queryKeys } from '@/lib/query/keys';
 import {
   Loader2, Bell, Save, Check,
@@ -116,16 +115,20 @@ function NotificationsSettings({ profile }: { profile: Profile }) {
           <Bell className="h-5 w-5 text-primary" />
           <h1 className="text-lg font-semibold text-foreground">Preferencias de notificaciones</h1>
         </div>
-        <Button
-          variant="primary"
-          size="md"
-          startContent={saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
+        <button
           onClick={() => saveMutation.mutate()}
           disabled={saveMutation.isPending}
-          className="rounded-md"
+          className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
         >
+          {saveMutation.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : saved ? (
+            <Check className="h-4 w-4" />
+          ) : (
+            <Save className="h-4 w-4" />
+          )}
           {saved ? 'Guardado' : saveMutation.isPending ? 'Guardando...' : 'Guardar'}
-        </Button>
+        </button>
       </div>
 
       <div className="mx-auto w-full max-w-2xl space-y-8">

@@ -7,7 +7,6 @@ import { createClient } from '@/lib/supabase/client';
 import { createPortal } from 'react-dom';
 import { useUIStore } from '@/stores/useUIStore';
 import { cn } from '@/lib/utils/cn';
-import { Button } from '@heroui/react';
 import {
   Search, FolderOpen, Film, Clapperboard, Users, Settings,
   LayoutDashboard, Calendar, Key, ArrowRight,
@@ -331,7 +330,7 @@ export function SearchModal() {
       });
       (scenes?.data ?? []).forEach((s: Record<string, unknown>) => {
         const vid = s.videos as { short_id: string; project_id: string; projects: { short_id: string; title: string } | null } | null;
-        items.push({ type: 'scene', id: s.id as string, title: `#${s.scene_number} ${s.title}`, subtitle: vid?.projects?.title, href: `/project/${vid?.projects?.short_id}/video/${vid?.short_id}/scenes` });
+        items.push({ type: 'scene', id: s.id as string, title: `#${s.scene_number} ${s.title}`, subtitle: vid?.projects?.title, href: `/project/${vid?.projects?.short_id}/video/${vid?.short_id}/scene/${s.short_id}` });
       });
       (chars?.data ?? []).forEach((c: Record<string, unknown>) => {
         const proj = c.projects as { short_id: string; title: string } | null;
@@ -567,9 +566,9 @@ export function SearchModal() {
                   Nueva pestaña
                 </span>
               </div>
-              <Button type="button" variant="ghost" size="sm" isIconOnly className="h-6 w-6 text-muted-foreground/40 hover:text-muted-foreground">
+              <button type="button" className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent transition-colors">
                 <Settings size={13} />
-              </Button>
+              </button>
             </div>
           </div>
 

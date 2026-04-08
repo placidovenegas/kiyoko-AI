@@ -144,7 +144,7 @@ export function KiyokoHeader({
           <button
             type="button"
             className={cn(
-              'flex items-center gap-1.5 px-2 py-1 rounded-lg transition-all',
+              'flex items-center gap-1.5 px-2 py-1 rounded-lg transition-all min-w-0',
               'hover:bg-accent/60',
               agentOpen ? 'bg-accent/80 shadow-sm' : 'bg-transparent',
             )}
@@ -155,6 +155,11 @@ export function KiyokoHeader({
             <span className={cn('text-[11px] font-medium hidden sm:inline', agent.color)}>
               {agent.label}
             </span>
+            {contextLabel && contextLabel !== 'Dashboard' && (
+              <span className="text-[11px] text-muted-foreground/70 truncate max-w-[120px] hidden sm:inline">
+                · {contextLabel}
+              </span>
+            )}
           </button>
         </Popover.Trigger>
 

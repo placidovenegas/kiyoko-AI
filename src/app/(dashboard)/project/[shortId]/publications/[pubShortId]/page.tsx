@@ -5,7 +5,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { queryKeys } from '@/lib/query/keys';
-import { Button } from '@heroui/react';
 import {
   Loader2, CalendarDays, Hash, FileText, Image as ImageIcon,
   Save, Instagram, Youtube, Twitter, Globe,
@@ -110,13 +109,13 @@ export default function PublicationDetailPage() {
   const PlatformIcon = platformIcons[pub.publication_type.toLowerCase()] ?? Globe;
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto bg-background p-6">
+    <div className="mx-auto max-w-7xl px-4 py-6 space-y-6">
       {/* Header */}
-      <div className="mb-6 flex items-start justify-between">
+      <div className="flex items-start justify-between">
         <div>
           <div className="mb-2 flex items-center gap-3">
             <PlatformIcon className="h-5 w-5 text-primary" />
-            <h1 className="text-lg font-semibold text-foreground">{pub.title}</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">{pub.title}</h1>
             <StatusBadge status={pub.status} />
           </div>
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
@@ -145,21 +144,21 @@ export default function PublicationDetailPage() {
               </h3>
               {editCaption === null ? (
                 <button
+                  type="button"
                   onClick={() => setEditCaption(pub.caption ?? '')}
                   className="text-xs text-primary hover:underline"
                 >
                   Editar
                 </button>
               ) : (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  startContent={<Save className="h-3 w-3" />}
+                <button
+                  type="button"
                   onClick={() => updatePub.mutate({ caption: editCaption })}
-                  className="rounded-md"
+                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-xl bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
                 >
+                  <Save className="h-3 w-3" />
                   Guardar
-                </Button>
+                </button>
               )}
             </div>
             {editCaption !== null ? (
@@ -185,16 +184,15 @@ export default function PublicationDetailPage() {
               </h3>
               {editHashtags === null ? (
                 <button
+                  type="button"
                   onClick={() => setEditHashtags((pub.hashtags ?? []).join(', '))}
                   className="text-xs text-primary hover:underline"
                 >
                   Editar
                 </button>
               ) : (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  startContent={<Save className="h-3 w-3" />}
+                <button
+                  type="button"
                   onClick={() =>
                     updatePub.mutate({
                       hashtags: editHashtags
@@ -203,10 +201,11 @@ export default function PublicationDetailPage() {
                         .filter(Boolean),
                     })
                   }
-                  className="rounded-md"
+                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-xl bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
                 >
+                  <Save className="h-3 w-3" />
                   Guardar
-                </Button>
+                </button>
               )}
             </div>
             {editHashtags !== null ? (

@@ -317,8 +317,8 @@ export function CharacterCreationCard({ prefill, projectId, onCreated, onCancel,
             <Input
               type="text"
               value={name}
-              isDisabled={saving}
-              onValueChange={setName}
+              disabled={saving}
+              onChange={(e) => setName(e.target.value)}
               placeholder="Nombre del personaje"
               className={cn(dock ? CHAT_DOCK_FIELD_CLASS : 'w-full px-3 py-1.5 rounded-md border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring/50')}
               autoFocus
@@ -377,10 +377,10 @@ export function CharacterCreationCard({ prefill, projectId, onCreated, onCancel,
           <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Que hace en la historia</label>
           <TextArea
             value={description}
-            isDisabled={saving}
-            onValueChange={setDescription}
+            disabled={saving}
+            onChange={(e) => setDescription(e.target.value)}
             placeholder="Ej: Chica aventurera que descubre ofertas de verano..."
-            minRows={2}
+            rows={2}
             className={cn('w-full mt-1', dock ? CHAT_DOCK_TEXTAREA_CLASS : 'px-3 py-1.5 rounded-md border border-border bg-background text-xs text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring/50')}
           />
         </div>
@@ -391,7 +391,7 @@ export function CharacterCreationCard({ prefill, projectId, onCreated, onCancel,
             <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Personalidad</label>
             {name && (
               <Button type="button" onPress={suggestPersonality} isDisabled={!!aiLoading || saving}
-                variant="ghost" color="primary" size="sm"
+                variant="ghost" size="sm"
                 className="flex items-center gap-1 text-[10px]">
                 {aiLoading === 'personality' ? <Loader2 size={9} className="animate-spin" /> : <Sparkles size={9} />} Sugerir
               </Button>
@@ -400,8 +400,8 @@ export function CharacterCreationCard({ prefill, projectId, onCreated, onCancel,
           <Input
             type="text"
             value={personality}
-            isDisabled={saving}
-            onValueChange={setPersonality}
+            disabled={saving}
+            onChange={(e) => setPersonality(e.target.value)}
             placeholder="Ej: Alegre, aventurera, espontanea"
             className={cn(dock ? CHAT_DOCK_FIELD_COMPACT_CLASS : 'w-full px-3 py-1.5 rounded-md border border-border bg-background text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring/50')}
           />
@@ -415,7 +415,7 @@ export function CharacterCreationCard({ prefill, projectId, onCreated, onCancel,
             </label>
             {name && (
               <Button type="button" onPress={suggestVisual} isDisabled={!!aiLoading || saving}
-                variant="ghost" color="primary" size="sm"
+                variant="ghost" size="sm"
                 className="flex items-center gap-1 text-[10px]">
                 {aiLoading === 'visual' ? <Loader2 size={9} className="animate-spin" /> : <Sparkles size={9} />} Generar
               </Button>
@@ -423,10 +423,10 @@ export function CharacterCreationCard({ prefill, projectId, onCreated, onCancel,
           </div>
           <TextArea
             value={visualDesc}
-            isDisabled={saving}
-            onValueChange={setVisualDesc}
+            disabled={saving}
+            onChange={(e) => setVisualDesc(e.target.value)}
             placeholder="Ej: young woman 22-27, wavy blonde hair, bright smile, beach outfit"
-            minRows={2}
+            rows={2}
             className={cn(dock ? CHAT_DOCK_TEXTAREA_MONO_CLASS : 'w-full px-3 py-1.5 rounded-md border border-border bg-background text-xs text-foreground font-mono placeholder:text-muted-foreground placeholder:font-sans resize-none focus:outline-none focus:ring-1 focus:ring-ring/50')}
           />
 
@@ -469,7 +469,7 @@ export function CharacterCreationCard({ prefill, projectId, onCreated, onCancel,
           Cancelar
         </Button>
         <Button type="button" onPress={handleSave} isDisabled={!isValid || saving}
-          variant="primary" color="primary" size="sm"
+          variant="primary" size="sm"
           className={cn('flex items-center gap-1.5 px-4 text-xs font-semibold',
             !(isValid && !saving) && 'bg-muted text-muted-foreground cursor-not-allowed')}>
           {saving ? <Loader2 size={12} className="animate-spin" /> : <Users size={12} />}

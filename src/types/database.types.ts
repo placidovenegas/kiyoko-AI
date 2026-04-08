@@ -1993,6 +1993,9 @@ export type Database = {
           title: string
           updated_at: string | null
           video_id: string
+          audio_config: Json | null
+          time_of_day: string | null
+          continuation_of_scene_id: string | null
         }
         Insert: {
           annotation_source?: string | null
@@ -2017,6 +2020,9 @@ export type Database = {
           title: string
           updated_at?: string | null
           video_id: string
+          audio_config?: Json | null
+          time_of_day?: string | null
+          continuation_of_scene_id?: string | null
         }
         Update: {
           annotation_source?: string | null
@@ -2041,6 +2047,9 @@ export type Database = {
           title?: string
           updated_at?: string | null
           video_id?: string
+          audio_config?: Json | null
+          time_of_day?: string | null
+          continuation_of_scene_id?: string | null
         }
         Relationships: [
           {

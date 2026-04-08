@@ -5,7 +5,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import { useProject } from '@/contexts/ProjectContext';
 import { queryKeys } from '@/lib/query/keys';
-import { Button } from '@heroui/react';
 import {
   Loader2, Plus, Instagram, Youtube, Twitter, Globe, Users, Hash, Trash2, X,
 } from 'lucide-react';
@@ -96,15 +95,13 @@ export default function SocialProfilesPage() {
             <span className="font-normal text-muted-foreground">({profiles.length})</span>
           </h1>
         </div>
-        <Button
-          variant="primary"
-          size="md"
-          startContent={<Plus className="h-4 w-4" />}
+        <button
           onClick={() => setShowForm(true)}
-          className="rounded-md"
+          className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
         >
+          <Plus className="h-4 w-4" />
           Nuevo perfil
-        </Button>
+        </button>
       </div>
 
       {/* Add form */}
@@ -112,9 +109,12 @@ export default function SocialProfilesPage() {
         <div className="mb-6 rounded-xl border border-primary/30 bg-card p-5">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-foreground">Nuevo perfil social</h3>
-            <Button variant="ghost" size="sm" isIconOnly className="h-6 w-6" onClick={() => setShowForm(false)}>
+            <button
+              onClick={() => setShowForm(false)}
+              className="flex h-6 w-6 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            >
               <X className="h-4 w-4" />
-            </Button>
+            </button>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
@@ -158,16 +158,14 @@ export default function SocialProfilesPage() {
             </div>
           </div>
           <div className="mt-4 flex justify-end">
-            <Button
-              variant="primary"
-              size="sm"
-              startContent={<Plus className="h-3.5 w-3.5" />}
+            <button
               onClick={() => createProfile.mutate()}
               disabled={!formName.trim() || createProfile.isPending}
-              className="rounded-md"
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
+              {createProfile.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
               {createProfile.isPending ? 'Creando...' : 'Crear perfil'}
-            </Button>
+            </button>
           </div>
         </div>
       )}
@@ -180,15 +178,13 @@ export default function SocialProfilesPage() {
           <p className="mb-6 max-w-sm text-center text-sm text-muted-foreground">
             Agrega perfiles de redes sociales para gestionar tus publicaciones.
           </p>
-          <Button
-            variant="primary"
-            size="lg"
-            startContent={<Plus className="h-4 w-4" />}
+          <button
             onClick={() => setShowForm(true)}
-            className="rounded-md"
+            className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
           >
+            <Plus className="h-4 w-4" />
             Crear primer perfil
-          </Button>
+          </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

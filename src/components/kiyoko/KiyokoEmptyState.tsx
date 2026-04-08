@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { motion } from 'framer-motion';
 import {
   Rocket,
   CheckCircle2,
@@ -17,6 +18,11 @@ import {
   ClipboardList,
   FolderOpen,
   Palette,
+  Wand2,
+  RefreshCw,
+  Expand,
+  MessageSquare,
+  User,
 } from 'lucide-react';
 import { fetchDashboardContextStats } from '@/lib/chat/fetch-dashboard-context-stats';
 import { KiyokoIcon } from '@/components/ui/logo';
@@ -28,42 +34,66 @@ import {
   type QuickAction,
 } from '@/lib/ai/chat-context';
 
+// ---- Animation variants ----
+
+const container = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.05 },
+  },
+};
+
+const item = {
+  hidden: { opacity: 0, y: 8 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.25 } },
+};
+
 // ---- Lucide icon map for quick action ids ----
 
 const ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
-  start_scratch:   Rocket,
-  have_resources:  CheckCircle2,
-  create_scenes:   Film,
-  add_character:   Users,
-  add_background:  Image,
-  gen_prompts:     Camera,
-  edit_scene:      Pencil,
-  cameras:         Camera,
-  storyboard:      BarChart3,
-  narration:       Volume2,
-  improve:         Sparkles,
-  tasks_summary:   ListTodo,
-  project_ideas:   Sparkles,
-  video_ideas:     Sparkles,
-  new_task:        ClipboardList,
+  start_scratch: Rocket,
+  have_resources: CheckCircle2,
+  create_scenes: Film,
+  add_character: Users,
+  add_background: Image,
+  gen_prompts: Camera,
+  edit_scene: Pencil,
+  cameras: Camera,
+  storyboard: BarChart3,
+  narration: Volume2,
+  improve: Sparkles,
+  tasks_summary: ListTodo,
+  project_ideas: Sparkles,
+  video_ideas: Sparkles,
+  new_task: ClipboardList,
   review_projects: FolderOpen,
-  explore_styles:  Palette,
+  explore_styles: Palette,
   // Fallbacks for base quick actions
-  new_project:     Rocket,
-  suggestions:     Sparkles,
-  new_video:       Film,
+  new_project: Rocket,
+  suggestions: Sparkles,
+  new_video: Film,
   project_summary: BarChart3,
   generate_scenes: Film,
   generate_narration: Volume2,
-  batch_prompts:   Camera,
-  analyze_video:   BarChart3,
+  batch_prompts: Camera,
+  analyze_video: BarChart3,
   generate_prompt: Sparkles,
-  improve_prompt:  Sparkles,
-  analyze_image:   Image,
-  change_camera:   Camera,
+  improve_prompt: Sparkles,
+  analyze_image: Image,
+  change_camera: Camera,
   analyze_character: Image,
   create_character: Users,
   create_background: Image,
+  // Scene-level actions
+  improve_prompts: Wand2,
+  change_camera_scene: Camera,
+  extend_scene: Expand,
+  regenerate_all: RefreshCw,
+  generate_prompts: Sparkles,
+  describe_scene: MessageSquare,
+  suggest_camera: Camera,
+  assign_character: User,
 };
 
 /**
@@ -77,10 +107,10 @@ function getVideoQuickActions(
 ): QuickAction[] {
   const ideasVideo: QuickAction = {
     id: 'video_ideas',
-    label: 'Ideas para el vídeo',
+    label: 'Ideas para el video',
     icon: '',
     prompt:
-      'Dame ideas creativas para este vídeo (gancho, tono, estructura, mensaje); usa el contexto del vídeo abierto',
+      'Dame ideas creativas para este video (gancho, tono, estructura, mensaje); usa el contexto del video abierto',
   };
 
   if (!hasScenes) {
@@ -117,6 +147,27 @@ function getVideoQuickActions(
   ];
 }
 
+/**
+ * Quick actions for scene level based on whether it has prompts or not.
+ */
+function getSceneQuickActions(hasPrompts: boolean): QuickAction[] {
+  if (hasPrompts) {
+    return [
+      { id: 'improve_prompts', label: 'Mejorar prompts', icon: '', prompt: 'Mejora los prompts de imagen y video de esta escena' },
+      { id: 'change_camera_scene', label: 'Cambiar camara', icon: '', prompt: 'Sugiere un angulo y movimiento de camara diferente para esta escena' },
+      { id: 'extend_scene', label: 'Extender escena', icon: '', prompt: 'Extiende esta escena con mas detalle y variaciones' },
+      { id: 'regenerate_all', label: 'Regenerar todo', icon: '', prompt: 'Regenera completamente los prompts de esta escena desde cero' },
+    ];
+  }
+
+  return [
+    { id: 'generate_prompts', label: 'Generar prompts', icon: '', prompt: 'Genera los prompts de imagen y video para esta escena' },
+    { id: 'describe_scene', label: 'Describir escena', icon: '', prompt: 'Ayudame a describir esta escena con mas detalle' },
+    { id: 'suggest_camera', label: 'Sugerir camara', icon: '', prompt: 'Sugiere el mejor angulo y movimiento de camara para esta escena' },
+    { id: 'assign_character', label: 'Asignar personaje', icon: '', prompt: 'Asigna un personaje a esta escena' },
+  ];
+}
+
 function contextToLocation(contextLevel: ContextLevel): ChatLocation {
   switch (contextLevel) {
     case 'project':
@@ -140,6 +191,17 @@ interface KiyokoEmptyStateProps {
   hasCharacters?: boolean;
   hasBackgrounds?: boolean;
   onQuickAction: (prompt: string) => void;
+  // Scene-level props
+  sceneTitle?: string;
+  sceneNumber?: number;
+  sceneDuration?: number;
+  scenePhase?: string;
+  sceneCameraAngle?: string;
+  sceneCameraMovement?: string;
+  sceneImagePrompt?: string;
+  sceneVideoPrompt?: string;
+  sceneCharacters?: string[];
+  sceneBackground?: string;
 }
 
 export function KiyokoEmptyState({
@@ -151,13 +213,28 @@ export function KiyokoEmptyState({
   hasCharacters = false,
   hasBackgrounds = false,
   onQuickAction,
+  sceneTitle,
+  sceneNumber,
+  sceneDuration,
+  scenePhase,
+  sceneCameraAngle,
+  sceneCameraMovement,
+  sceneImagePrompt,
+  sceneVideoPrompt,
+  sceneCharacters,
+  sceneBackground,
 }: KiyokoEmptyStateProps) {
+  const sceneHasPrompts = !!(sceneImagePrompt || sceneVideoPrompt);
+
   const quickActions = useMemo(() => {
+    if (contextLevel === 'scene') {
+      return getSceneQuickActions(sceneHasPrompts);
+    }
     if (contextLevel === 'video') {
       return getVideoQuickActions(hasScenes, hasPrompts, hasCharacters, hasBackgrounds);
     }
     return getBaseQuickActions(contextToLocation(contextLevel));
-  }, [contextLevel, hasScenes, hasPrompts, hasCharacters, hasBackgrounds]);
+  }, [contextLevel, hasScenes, hasPrompts, hasCharacters, hasBackgrounds, sceneHasPrompts]);
 
   const { data: dashStats } = useQuery({
     queryKey: ['kiyoko-chat-empty-dashboard'],
@@ -167,69 +244,176 @@ export function KiyokoEmptyState({
   });
 
   return (
-    <div className="flex flex-col items-center justify-center h-full text-center px-4 sm:px-6">
-      {/* Avatar */}
-      <div className="flex items-center justify-center size-14 rounded-2xl bg-primary/10 mb-3 border border-primary/15">
-        <KiyokoIcon size={28} className="text-primary" />
-      </div>
-
-      <p className="text-sm font-semibold text-foreground mb-0.5">Kiyoko AI</p>
-      <p className="text-[11px] text-muted-foreground mb-1">Tu directora creativa</p>
-
-      {contextLabel && (
-        <p className="text-[11px] text-muted-foreground/70 mb-1">{contextLabel}</p>
-      )}
-
-      {statusSummary && (
-        <p className="text-[11px] text-muted-foreground max-w-xs mb-3 leading-relaxed">
-          {statusSummary}
-        </p>
-      )}
-
-      {contextLevel === 'dashboard' && dashStats && (
-        <div className="text-[11px] text-muted-foreground max-w-md mb-3 leading-relaxed text-left space-y-1.5">
-          <p className="text-foreground/90 font-medium">Tu espacio de trabajo</p>
-          <p className="text-foreground/85">
-            {dashStats.projectCount === 1 ? '1 proyecto' : `${dashStats.projectCount} proyectos`} ·{' '}
-            {dashStats.videoCount === 1 ? '1 vídeo' : `${dashStats.videoCount} vídeos`} ·{' '}
-            {dashStats.sceneCount === 1 ? '1 escena' : `${dashStats.sceneCount} escenas`} ·{' '}
-            {dashStats.openTaskCount === 1
-              ? '1 tarea abierta'
-              : `${dashStats.openTaskCount} tareas abiertas`}{' '}
-            ({dashStats.totalTaskCount} tareas en total)
-          </p>
-          <p className="text-muted-foreground/90 text-[10px] pt-0.5">
-            Personajes y fondos se ven al abrir un proyecto; aquí el foco es cuenta y prioridades.
-          </p>
-          <p className="text-muted-foreground pt-0.5">Elige una acción o escribe abajo.</p>
+    <motion.div
+      variants={container}
+      initial="hidden"
+      animate="show"
+      className="flex flex-col items-center justify-center h-full text-center px-4 sm:px-6"
+    >
+      {/* Avatar with glow */}
+      <motion.div variants={item} className="relative mb-3">
+        <div className="absolute inset-0 rounded-2xl bg-primary/20 blur-lg animate-pulse" />
+        <div className="relative flex items-center justify-center size-14 rounded-2xl bg-primary/10 border border-primary/15">
+          <KiyokoIcon size={28} className="text-primary" />
         </div>
+      </motion.div>
+
+      <motion.p variants={item} className="text-sm font-semibold text-foreground mb-0.5">
+        Kiyoko AI
+      </motion.p>
+
+      {/* ---- Scene-level welcome ---- */}
+      {contextLevel === 'scene' && (
+        <>
+          {/* Scene header */}
+          <motion.div
+            variants={item}
+            className="rounded-xl border border-primary/20 bg-primary/5 p-3 w-full max-w-sm mt-3 text-left"
+          >
+            <p className="text-sm font-semibold text-foreground">
+              Escena #{sceneNumber ?? '?'}
+              {sceneTitle ? (
+                <span className="text-muted-foreground font-normal"> &quot;{sceneTitle}&quot;</span>
+              ) : null}
+            </p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              {sceneDuration ? `${sceneDuration}s` : '?s'}
+              {scenePhase ? ` \u00b7 ${scenePhase}` : ''}
+              {sceneCameraAngle ? ` \u00b7 ${sceneCameraAngle}` : ''}
+              {sceneCameraMovement ? ` \u00b7 ${sceneCameraMovement}` : ''}
+            </p>
+          </motion.div>
+
+          {/* Scene status badges */}
+          <motion.div variants={item} className="flex flex-wrap items-center justify-center gap-2 mt-2 text-[11px] text-muted-foreground">
+            <span className="flex items-center gap-1 rounded-md bg-card border border-border px-2 py-0.5">
+              <Users size={11} className="shrink-0" />
+              {sceneCharacters && sceneCharacters.length > 0
+                ? sceneCharacters.join(', ')
+                : 'Sin personajes'}
+            </span>
+            <span className="flex items-center gap-1 rounded-md bg-card border border-border px-2 py-0.5">
+              <Image size={11} className="shrink-0" />
+              {sceneBackground || 'Sin fondo'}
+            </span>
+            {sceneHasPrompts && (
+              <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-2 py-0.5">
+                Prompts listos
+              </span>
+            )}
+          </motion.div>
+
+          <motion.p variants={item} className="text-[11px] text-muted-foreground mt-3 mb-3">
+            {sceneHasPrompts
+              ? '\u00bfQue quieres hacer con esta escena?'
+              : 'Esta escena aun no tiene prompts. \u00bfPor donde empezamos?'}
+          </motion.p>
+        </>
       )}
 
-      {!statusSummary && contextLevel !== 'dashboard' && <div className="mb-3" />}
-      {contextLevel === 'dashboard' && !dashStats && !statusSummary && <div className="mb-3" />}
+      {/* ---- Video-level welcome ---- */}
+      {contextLevel === 'video' && (
+        <>
+          {contextLabel && (
+            <motion.p variants={item} className="text-[11px] text-muted-foreground/70 mt-1">
+              {contextLabel}
+            </motion.p>
+          )}
+          {statusSummary && (
+            <motion.p
+              variants={item}
+              className="text-[11px] text-muted-foreground max-w-xs mb-3 mt-1 leading-relaxed"
+            >
+              {statusSummary}
+            </motion.p>
+          )}
+          {!statusSummary && <div className="mb-3" />}
+        </>
+      )}
 
-      {/* Quick actions — Lucide icons */}
-      <div
+      {/* ---- Dashboard-level welcome ---- */}
+      {contextLevel === 'dashboard' && (
+        <>
+          <motion.p variants={item} className="text-[11px] text-muted-foreground mb-1">
+            Tu directora creativa
+          </motion.p>
+
+          {dashStats && (
+            <motion.div
+              variants={item}
+              className="text-[11px] text-muted-foreground max-w-md mb-3 leading-relaxed text-left space-y-1.5"
+            >
+              <p className="text-foreground/90 font-medium">Tu espacio de trabajo</p>
+              <p className="text-foreground/85">
+                {dashStats.projectCount === 1 ? '1 proyecto' : `${dashStats.projectCount} proyectos`} ·{' '}
+                {dashStats.videoCount === 1 ? '1 video' : `${dashStats.videoCount} videos`} ·{' '}
+                {dashStats.sceneCount === 1 ? '1 escena' : `${dashStats.sceneCount} escenas`} ·{' '}
+                {dashStats.openTaskCount === 1
+                  ? '1 tarea abierta'
+                  : `${dashStats.openTaskCount} tareas abiertas`}{' '}
+                ({dashStats.totalTaskCount} tareas en total)
+              </p>
+              <p className="text-muted-foreground/90 text-[10px] pt-0.5">
+                Personajes y fondos se ven al abrir un proyecto; aqui el foco es cuenta y prioridades.
+              </p>
+              <p className="text-muted-foreground pt-0.5">Elige una accion o escribe abajo.</p>
+            </motion.div>
+          )}
+
+          {!dashStats && !statusSummary && <div className="mb-3" />}
+        </>
+      )}
+
+      {/* ---- Project-level welcome ---- */}
+      {contextLevel === 'project' && (
+        <>
+          <motion.p variants={item} className="text-[11px] text-muted-foreground mb-1">
+            Tu directora creativa
+          </motion.p>
+          {contextLabel && (
+            <motion.p variants={item} className="text-[11px] text-muted-foreground/70 mb-1">
+              {contextLabel}
+            </motion.p>
+          )}
+          {statusSummary && (
+            <motion.p
+              variants={item}
+              className="text-[11px] text-muted-foreground max-w-xs mb-3 leading-relaxed"
+            >
+              {statusSummary}
+            </motion.p>
+          )}
+          {!statusSummary && <div className="mb-3" />}
+        </>
+      )}
+
+      {/* Quick actions */}
+      <motion.div
+        variants={item}
         className={cn(
           'grid gap-1.5 w-full',
-          contextLevel === 'dashboard' ? 'grid-cols-2 sm:grid-cols-3 max-w-lg' : 'grid-cols-2 max-w-sm',
+          contextLevel === 'dashboard'
+            ? 'grid-cols-2 sm:grid-cols-3 max-w-lg'
+            : 'grid-cols-2 max-w-sm',
         )}
       >
-        {quickActions.map((action) => {
+        {quickActions.map((action, i) => {
           const Icon = ICON_MAP[action.id] || Sparkles;
           return (
-            <button
+            <motion.button
               key={action.id}
+              variants={item}
+              custom={i}
               type="button"
               onClick={() => onQuickAction(action.prompt)}
               className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-left text-xs font-medium text-muted-foreground bg-card border border-border hover:border-primary/30 hover:text-primary dark:hover:text-primary hover:bg-primary/5 transition-all duration-150"
             >
               <Icon size={14} className="shrink-0" />
               <span>{action.label}</span>
-            </button>
+            </motion.button>
           );
         })}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

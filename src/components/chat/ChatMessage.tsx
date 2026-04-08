@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect, Component } from 'react';
 import type { ReactNode, ErrorInfo } from 'react';
+import { motion } from 'framer-motion';
 import { Copy, Check, RotateCcw, Volume2, Send, AlertCircle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Button } from '@heroui/react';
@@ -814,7 +815,12 @@ export function ChatMessage({ message, activeAgent, projectId, isLastMessage, is
   }
 
   return (
-    <div className={cn('group', isUser ? 'flex flex-col items-end' : '', 'px-1 sm:px-2')}>
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: 'easeOut' }}
+      className={cn('group', isUser ? 'flex flex-col items-end' : '', 'px-1 sm:px-2')}
+    >
       {/* ---- Message body ---- */}
       <div className={cn('space-y-1.5 min-w-0', isUser ? 'max-w-[80%]' : 'flex-1')}>
         {/* User message — bubble style like Notion */}
@@ -1179,6 +1185,6 @@ export function ChatMessage({ message, activeAgent, projectId, isLastMessage, is
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

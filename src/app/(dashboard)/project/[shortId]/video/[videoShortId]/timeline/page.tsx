@@ -1,13 +1,14 @@
 'use client';
 
-import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useVideo } from '@/contexts/VideoContext';
 import { useProject } from '@/contexts/ProjectContext';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { Clock, Film, Layers, ChevronRight } from 'lucide-react';
+import { Clock, Film, Layers, ChevronRight, Sparkles, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import type { NarrativeArc, Scene } from '@/types';
 
 const ARC_PHASE_COLORS: Record<string, { bg: string; border: string; text: string; label: string }> = {
@@ -36,6 +37,48 @@ export default function TimelinePage() {
   const params = useParams();
   const shortId = params.shortId as string;
   const videoShortId = params.videoShortId as string;
+  const queryClient = useQueryClient();
+
+  const [generatingArc, setGeneratingArc] = useState(false);
+  const [generatingTimeline, setGeneratingTimeline] = useState(false);
+
+  async function handleGenerateArc() {
+    if (!video) return;
+    setGeneratingArc(true);
+    try {
+      const res = await fetch('/api/ai/generate-arc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: project?.id, videoId: video.id }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success('Arco narrativo generado');
+      queryClient.invalidateQueries({ queryKey: ['narrative-arcs', video.id] });
+    } catch {
+      toast.error('Error al generar arco narrativo');
+    } finally {
+      setGeneratingArc(false);
+    }
+  }
+
+  async function handleGenerateTimeline() {
+    if (!video) return;
+    setGeneratingTimeline(true);
+    try {
+      const res = await fetch('/api/ai/generate-timeline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: project?.id, videoId: video.id }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success('Desglose temporal generado');
+      queryClient.invalidateQueries({ queryKey: ['narrative-arcs', video.id] });
+    } catch {
+      toast.error('Error al generar desglose temporal');
+    } finally {
+      setGeneratingTimeline(false);
+    }
+  }
 
   // Fetch narrative arcs
   const { data: arcs = [], isLoading: arcsLoading } = useQuery({
@@ -106,7 +149,7 @@ export default function TimelinePage() {
   }
 
   return (
-    <div className="h-full overflow-y-auto space-y-6 p-6">
+    <div className="mx-auto max-w-5xl px-4 py-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -114,6 +157,24 @@ export default function TimelinePage() {
           <p className="mt-1 text-sm text-muted-foreground">
             {scenes.length} escenas / {formatSeconds(totalDuration)} total
           </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleGenerateArc}
+            disabled={generatingArc}
+            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {generatingArc ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            {generatingArc ? 'Generando...' : 'Generar arco con IA'}
+          </button>
+          <button
+            onClick={handleGenerateTimeline}
+            disabled={generatingTimeline}
+            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {generatingTimeline ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            {generatingTimeline ? 'Generando...' : 'Generar desglose temporal'}
+          </button>
         </div>
       </div>
 
@@ -124,10 +185,10 @@ export default function TimelinePage() {
           <h3 className="mb-1 text-lg font-semibold text-foreground">Sin escenas</h3>
           <p className="mb-4 text-sm text-muted-foreground">Crea escenas para visualizar la linea de tiempo</p>
           <Link
-            href={`/project/${shortId}/video/${videoShortId}/scenes`}
+            href={`/project/${shortId}/video/${videoShortId}`}
             className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-primary/90"
           >
-            <Film className="h-4 w-4" /> Ir a escenas
+            <Film className="h-4 w-4" /> Ir a vista general
           </Link>
         </div>
       )}
