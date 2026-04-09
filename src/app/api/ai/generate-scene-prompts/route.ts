@@ -12,7 +12,10 @@ import {
 // Types
 // ---------------------------------------------------------------------------
 
-interface GenerateScenePromptsBody { sceneId: string; }
+interface GenerateScenePromptsBody {
+  sceneId: string;
+  promptType?: 'image' | 'video' | 'both';
+}
 
 interface GeneratedPrompts {
   prompt_image: string;
@@ -48,7 +51,7 @@ export async function POST(request: NextRequest) {
     const { data: body, response } = await parseApiJson<GenerateScenePromptsBody>(request, ctx);
     if (response || !body) return response;
 
-    const { sceneId } = body;
+    const { sceneId, promptType = 'both' } = body;
     if (!sceneId) return apiBadRequest(ctx, 'Missing required field: sceneId');
 
     // ── Fetch scene + relationships ─────────────────────────────────────
@@ -108,6 +111,10 @@ export async function POST(request: NextRequest) {
       nextImagePrompt = np?.prompt_text ?? null;
     }
 
+    // ── Fetch timeline entry for context ──────────────────────────────
+    const { data: timelineEntry } = await supabase.from('timeline_entries')
+      .select('description').eq('scene_id', sceneId).maybeSingle();
+
     // ── Fetch style preset ─────────────────────────────────────────────
     const { data: stylePreset } = await supabase.from('style_presets')
       .select('prompt_prefix, prompt_suffix, negative_prompt')
@@ -152,8 +159,23 @@ export async function POST(request: NextRequest) {
       } : null,
     });
 
+    // Inject timeline breakdown if available
+    const timelineContext = timelineEntry?.description
+      ? `\n\nTIMELINE BREAKDOWN (base the video prompt on this second-by-second description):\n${timelineEntry.description}\n`
+      : '';
+    const finalMessage = userMessage + timelineContext;
+
+    // Inject promptType instruction
+    const typeInstruction = promptType === 'image'
+      ? '\n\nIMPORTANT: Generate ONLY the image prompt. Set prompt_video to empty string.'
+      : promptType === 'video'
+        ? '\n\nIMPORTANT: Generate ONLY the video prompt. Set prompt_image to empty string.'
+        : '';
+    const fullMessage = finalMessage + typeInstruction;
+
     logServerEvent('generate-scene-prompts', ctx, 'Generating scene prompts', {
       userId: user.id, sceneId, videoId: scene.video_id,
+      promptType, hasTimeline: !!timelineEntry?.description,
       hasAdjacentContext: !!(prevImagePrompt || nextImagePrompt),
       hasStylePreset: !!stylePreset,
     });
@@ -196,7 +218,7 @@ export async function POST(request: NextRequest) {
         };
       }
     } else if (hasApiKey) {
-      const result = await callQwen(SYSTEM_SCENE_GENERATOR, userMessage, DEFAULT_QWEN_MODEL, 0.8);
+      const result = await callQwen(SYSTEM_SCENE_GENERATOR, fullMessage, DEFAULT_QWEN_MODEL, 0.8);
       const parsed = result as Record<string, unknown>;
 
       if (typeof parsed.prompt_image !== 'string' || typeof parsed.prompt_video !== 'string') {
@@ -237,7 +259,10 @@ export async function POST(request: NextRequest) {
     // Extensions: only video prompt. Inserts + originals: both.
     const promptsToInsert = [];
 
-    if (!isExtension && prompts.prompt_image) {
+    const shouldGenerateImage = !isExtension && promptType !== 'video' && prompts.prompt_image;
+    const shouldGenerateVideo = promptType !== 'image' && prompts.prompt_video;
+
+    if (shouldGenerateImage) {
       promptsToInsert.push({
         scene_id: sceneId, prompt_type: 'image' as const,
         prompt_text: prompts.prompt_image, version: nextImageVersion,
@@ -246,7 +271,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    if (prompts.prompt_video) {
+    if (shouldGenerateVideo) {
       promptsToInsert.push({
         scene_id: sceneId, prompt_type: 'video' as const,
         prompt_text: prompts.prompt_video, version: nextVideoVersion,

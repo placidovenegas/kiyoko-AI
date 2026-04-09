@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/client';
 import { generateShortId } from '@/lib/utils/nanoid';
 import { SceneWorkForm } from './SceneWorkForm';
 import { SceneWorkChat } from './SceneWorkChat';
+import { ScenePreviewStep } from './ScenePreviewStep';
 import type { SceneForm, IaMessage, SuggestionData, CameraAngle, CameraMovement } from './scene-work-types';
 import { PHASES, ANGLES, MOVEMENTS, DEFAULT_FORM } from './scene-work-types';
 import type { Scene, Character, Background } from '@/types';
@@ -57,6 +58,9 @@ export function SceneWorkModal({
   const [insertPosition, setInsertPosition] = useState<'end' | number>('end');
   const [saving, setSaving] = useState(false);
   const [generatingPrompts, setGeneratingPrompts] = useState(false);
+  const [step, setStep] = useState<'form' | 'preview'>('form');
+  const [timelineText, setTimelineText] = useState('');
+  const [generatingTimeline, setGeneratingTimeline] = useState(false);
 
   const [iaInput, setIaInput] = useState('');
   const [iaMessages, setIaMessages] = useState<IaMessage[]>([]);
@@ -87,6 +91,8 @@ export function SceneWorkModal({
       setIaMessages([]);
       setIaInput('');
       setInsertPosition('end');
+      setStep('form');
+      setTimelineText('');
     }
   }, [open, scene, sceneCameras, sceneCharacters, sceneBackgrounds]);
 
@@ -264,6 +270,71 @@ ${aiResult ? 'He generado esta escena con IA:' : 'Te sugiero esta escena:'}`;
     setIaProcessing(false);
   }
 
+  /* ── Generate timeline preview ───────────────────────────── */
+  async function generateTimelinePreview() {
+    if (!form.title.trim()) { toast.error('El titulo es obligatorio'); return; }
+    setGeneratingTimeline(true);
+    setStep('preview');
+
+    const dur = form.duration;
+    const angleLabel = ANGLES.find(a => a.value === form.cameraAngle)?.label ?? 'Medio';
+    const moveLabel = MOVEMENTS.find(m => m.value === form.cameraMovement)?.label ?? 'Estatica';
+    const charNames = characters.filter(c => form.characterIds.includes(c.id)).map(c => c.name);
+    const bgNames = backgrounds.filter(b => form.backgroundIds.includes(b.id)).map(b => b.name);
+    const who = charNames.length > 0 ? charNames.join(' y ') : 'El protagonista';
+    const where = bgNames.length > 0 ? `en ${bgNames[0]}` : '';
+
+    // Try AI first
+    try {
+      const instruction = `Genera un desglose segundo a segundo (timeline) para esta escena de ${dur}s:
+Titulo: ${form.title}
+Descripcion: ${form.description || 'No especificada'}
+Camara: ${angleLabel} con ${moveLabel}
+Personajes: ${who}
+Fondo: ${where || 'No especificado'}
+Dialogo: ${form.dialogue || 'Sin dialogo'}
+Fase: ${form.arcPhase}
+
+Formato EXACTO (una linea por cada bloque de 2-3 segundos):
+[00:00-00:02]: Que pasa en los primeros 2 segundos
+[00:02-00:04]: Que pasa despues
+...
+
+Responde SOLO con las lineas del timeline, nada mas.`;
+
+      const res = await fetch('/api/ai/generate-scenes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, instruction }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data?.description) {
+          setTimelineText(json.data.description);
+          setGeneratingTimeline(false);
+          return;
+        }
+      }
+    } catch { /* fallback to local */ }
+
+    // Local fallback: generate based on form data
+    const lines: string[] = [];
+    const blockSize = Math.max(2, Math.min(3, Math.floor(dur / 3)));
+    let t = 0;
+    const actions = [
+      `${who} entra en escena ${where}. ${angleLabel}, ${moveLabel.toLowerCase()}.`,
+      form.description || `${who} realiza la accion principal. La camara sigue el movimiento.`,
+      form.dialogue ? `${who} dice: "${form.dialogue.slice(0, 60)}"` : `Resolucion de la escena. ${form.arcPhase === 'peak' ? 'Momento de maxima intensidad.' : 'La accion se resuelve.'}`,
+    ];
+    for (let i = 0; i < actions.length && t < dur; i++) {
+      const end = Math.min(t + blockSize, dur);
+      lines.push(`[${String(t).padStart(2, '0')}:00-${String(end).padStart(2, '0')}:00]: ${actions[i]}`);
+      t = end;
+    }
+    setTimelineText(lines.join('\n'));
+    setGeneratingTimeline(false);
+  }
+
   /* ── Save + auto-generate prompts ───────────────────────── */
   async function handleSave() {
     if (!form.title.trim()) { toast.error('El titulo es obligatorio'); return; }
@@ -315,6 +386,22 @@ ${aiResult ? 'He generado esta escena con IA:' : 'Te sugiero esta escena:'}`;
           }
         }
         toast.success('Escena creada');
+
+        // Save timeline entry if we have one from preview step
+        if (sceneId && timelineText.trim()) {
+          await supabase.from('timeline_entries').insert({
+            project_id: projectId,
+            video_id: videoId,
+            scene_id: sceneId,
+            title: form.title,
+            description: timelineText,
+            start_time: '00:00',
+            end_time: `00:${String(form.duration).padStart(2, '0')}`,
+            duration_seconds: form.duration,
+            arc_phase: form.arcPhase as 'hook' | 'build' | 'peak' | 'close',
+            sort_order: 0,
+          });
+        }
       }
 
       // Invalidate queries
@@ -396,13 +483,25 @@ ${aiResult ? 'He generado esta escena con IA:' : 'Te sugiero esta escena:'}`;
         {/* ── Body ── */}
         <div className="flex flex-1 min-h-0 overflow-hidden">
           <div className="flex-1 overflow-y-auto px-5 py-4">
-            <SceneWorkForm
-              form={form} update={update}
-              characters={characters} backgrounds={backgrounds}
-              allScenes={allScenes.map(s => ({ id: s.id, title: s.title ?? '', scene_number: s.scene_number ?? 0 }))}
-              imagePrompt={imagePrompt} videoPrompt={videoPrompt}
-              isEdit={isEdit}
-            />
+            {step === 'form' ? (
+              <SceneWorkForm
+                form={form} update={update}
+                characters={characters} backgrounds={backgrounds}
+                allScenes={allScenes.map(s => ({ id: s.id, title: s.title ?? '', scene_number: s.scene_number ?? 0 }))}
+                imagePrompt={imagePrompt} videoPrompt={videoPrompt}
+                isEdit={isEdit}
+              />
+            ) : (
+              <ScenePreviewStep
+                form={form}
+                timelineText={timelineText}
+                onTimelineChange={setTimelineText}
+                onRegenerate={generateTimelinePreview}
+                regenerating={generatingTimeline}
+                characters={characters}
+                backgrounds={backgrounds}
+              />
+            )}
           </div>
           <div className="w-[340px] shrink-0 border-l border-border bg-background/50 hidden lg:flex flex-col">
             <SceneWorkChat
@@ -417,7 +516,7 @@ ${aiResult ? 'He generado esta escena con IA:' : 'Te sugiero esta escena:'}`;
 
         {/* ── Footer ── */}
         <div className="flex items-center justify-between border-t border-border px-5 py-3 shrink-0">
-          {prevScene && (
+          {step === 'preview' && prevScene && (
             <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-muted-foreground">
               <span className="text-foreground font-medium">{prevScene.title}</span>
               <span className="text-muted-foreground/40">→</span>
@@ -429,15 +528,39 @@ ${aiResult ? 'He generado esta escena con IA:' : 'Te sugiero esta escena:'}`;
           {!prevScene && <div />}
 
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => onOpenChange(false)}
-              className="rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
-              Cancelar
-            </button>
-            <button type="button" onClick={handleSave} disabled={!form.title.trim() || saving}
-              className="rounded-xl bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center gap-2">
-              {saving ? <Loader2 className="size-4 animate-spin" /> : <Wand2 className="size-4" />}
-              {isEdit ? 'Guardar y regenerar prompts' : 'Crear y generar prompts'}
-            </button>
+            {step === 'form' ? (
+              <>
+                <button type="button" onClick={() => onOpenChange(false)}
+                  className="rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+                  Cancelar
+                </button>
+                {isEdit ? (
+                  <button type="button" onClick={handleSave} disabled={!form.title.trim() || saving}
+                    className="rounded-xl bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center gap-2">
+                    {saving ? <Loader2 className="size-4 animate-spin" /> : <Wand2 className="size-4" />}
+                    Guardar y regenerar prompts
+                  </button>
+                ) : (
+                  <button type="button" onClick={generateTimelinePreview} disabled={!form.title.trim() || generatingTimeline}
+                    className="rounded-xl bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center gap-2">
+                    {generatingTimeline ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+                    Vista previa
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                <button type="button" onClick={() => setStep('form')}
+                  className="rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors flex items-center gap-1">
+                  ← Editar
+                </button>
+                <button type="button" onClick={handleSave} disabled={!form.title.trim() || saving}
+                  className="rounded-xl bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center gap-2">
+                  {saving ? <Loader2 className="size-4 animate-spin" /> : <Wand2 className="size-4" />}
+                  Crear y generar prompts
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>

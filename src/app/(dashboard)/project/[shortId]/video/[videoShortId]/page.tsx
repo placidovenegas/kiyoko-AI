@@ -188,7 +188,7 @@ function StoryboardCard({
   bgs: SceneBackgroundWithBg[];
   clips: SceneClipRow[];
   timelineEntry: TimelineEntryRow | undefined;
-  onGeneratePrompts: () => void;
+  onGeneratePrompts: (type?: 'image' | 'video' | 'both') => void;
   onEditScene: () => void;
   onReorderScene: (draggedId: string, targetId: string) => void;
   onDuplicate: () => void;
@@ -376,7 +376,7 @@ function StoryboardCard({
                 <Copy className="h-3 w-3" />
               </button>
             )}
-            <button type="button" disabled={isGenerating} onClick={onGeneratePrompts} className="rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50" title="Generar con IA">
+            <button type="button" disabled={isGenerating} onClick={() => onGeneratePrompts('image')} className="rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50" title="Regenerar prompt de imagen">
               {isGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
             </button>
           </div>
@@ -395,8 +395,7 @@ function StoryboardCard({
                 <Copy className="h-3 w-3" />
               </button>
             )}
-            <button type="button" disabled={isGenerating} onClick={onGeneratePrompts} className="rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50" title="Generar con IA"
-            >
+            <button type="button" disabled={isGenerating} onClick={() => onGeneratePrompts('video')} className="rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50" title="Regenerar prompt de video">
               {isGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
             </button>
           </div>
@@ -428,7 +427,7 @@ function StoryboardCard({
         <button
           type="button"
           disabled={isGenerating}
-          onClick={onGeneratePrompts}
+          onClick={() => onGeneratePrompts('both')}
           className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors flex items-center gap-1.5 disabled:opacity-50"
         >
           {isGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
@@ -484,7 +483,7 @@ function StoryboardCard({
                 Editar escena
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={onGeneratePrompts} disabled={isGenerating}>
+              <DropdownMenuItem onClick={() => onGeneratePrompts('both')} disabled={isGenerating}>
                 <Sparkles className="h-4 w-4" />
                 {isGenerating ? 'Generando...' : 'Regenerar prompts'}
               </DropdownMenuItem>
@@ -528,19 +527,21 @@ export default function VideoOverviewPage() {
   const [aiDescription, setAiDescription] = useState('');
   const [sceneFilter, setSceneFilter] = useState<'all' | string>('all');
 
-  async function handleGeneratePrompts(sceneId: string) {
+  async function handleGeneratePrompts(sceneId: string, promptType: 'image' | 'video' | 'both' = 'both') {
     setGeneratingSceneId(sceneId);
+    const label = promptType === 'image' ? 'imagen' : promptType === 'video' ? 'video' : 'prompts';
+    toast.ai(`Generando ${label} con IA...`, { id: `gen-${sceneId}` });
     try {
       const res = await fetch('/api/ai/generate-scene-prompts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sceneId }),
+        body: JSON.stringify({ sceneId, promptType }),
       });
       if (!res.ok) throw new Error();
-      toast.success('Prompts generados');
+      toast.success(`Prompt de ${label} generado`, { id: `gen-${sceneId}` });
       queryClient.invalidateQueries({ queryKey: ['scene-prompts', video?.id] });
     } catch {
-      toast.error('Error al generar prompts');
+      toast.error(`Error al generar ${label}`, { id: `gen-${sceneId}` });
     } finally {
       setGeneratingSceneId(null);
     }
