@@ -2,6 +2,8 @@
 
 import { useCallback, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { TextField, Input, TextArea, Select, ListBox, Label } from '@heroui/react';
+import type { Key } from 'react';
 import { Check, FolderKanban, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CreationSaveProgress, type CreationSaveStep } from '@/components/chat/CreationSaveProgress';
@@ -192,57 +194,36 @@ export function ProjectCreationCard({
         <span>Nuevo proyecto</span>
       </div>
 
-      <div className="space-y-2">
-        <label className="text-[11px] font-medium text-muted-foreground">Titulo</label>
-        <input
-          type="text"
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          placeholder="Nombre del proyecto"
-          disabled={saving}
-          className={CHAT_DOCK_FIELD_CLASS}
-        />
-      </div>
+      <TextField variant="secondary" value={title} onChange={setTitle} isDisabled={saving}>
+        <Label>Titulo</Label>
+        <Input placeholder="Nombre del proyecto" />
+      </TextField>
 
-      <div className="space-y-2">
-        <label className="text-[11px] font-medium text-muted-foreground">Cliente (opcional)</label>
-        <input
-          type="text"
-          value={clientName}
-          onChange={(event) => setClientName(event.target.value)}
-          placeholder="Marca o cliente"
-          disabled={saving}
-          className={CHAT_DOCK_FIELD_CLASS}
-        />
-      </div>
+      <TextField variant="secondary" value={clientName} onChange={setClientName} isDisabled={saving}>
+        <Label>Cliente (opcional)</Label>
+        <Input placeholder="Marca o cliente" />
+      </TextField>
 
-      <div className="space-y-2">
-        <label className="text-[11px] font-medium text-muted-foreground">Descripcion</label>
-        <textarea
-          value={description}
-          onChange={(event) => setDescription(event.target.value)}
-          placeholder="De que trata el proyecto, tono, entregables..."
-          disabled={saving}
-          rows={3}
-          className={cn(CHAT_DOCK_TEXTAREA_CLASS, 'min-h-18')}
-        />
-      </div>
+      <TextField variant="secondary" value={description} onChange={setDescription} isDisabled={saving}>
+        <Label>Descripcion</Label>
+        <TextArea placeholder="De que trata el proyecto, tono, entregables..." rows={3} />
+      </TextField>
 
-      <div className="space-y-2">
-        <label className="text-[11px] font-medium text-muted-foreground">Estilo visual</label>
-        <select
-          value={style}
-          onChange={(event) => setStyle(event.target.value)}
-          disabled={saving}
-          className={CHAT_DOCK_FIELD_CLASS}
-        >
+      <Select
+        variant="secondary"
+        aria-label="Estilo visual"
+        selectedKey={style}
+        onSelectionChange={(key: Key | null) => { if (key) setStyle(String(key)); }}
+        isDisabled={saving}
+      >
+        <Label>Estilo visual</Label>
+        <Select.Trigger><Select.Value /><Select.Indicator /></Select.Trigger>
+        <Select.Popover><ListBox>
           {STYLES.map((item) => (
-            <option key={item.value} value={item.value}>
-              {item.label}
-            </option>
+            <ListBox.Item key={item.value} id={item.value}>{item.label}</ListBox.Item>
           ))}
-        </select>
-      </div>
+        </ListBox></Select.Popover>
+      </Select>
 
       {saving && <CreationSaveProgress step={saveStep} entityName={title.trim() || 'Proyecto'} />}
 

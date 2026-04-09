@@ -15,6 +15,8 @@ import {
   Zap,
 } from 'lucide-react';
 import type { Project } from '@/types';
+import { TextField, Input, Select, ListBox, Label } from '@heroui/react';
+import type { Key } from 'react';
 import { useDashboard } from '@/providers/DashboardBootstrap';
 import { useDashboardOverview } from '@/hooks/useDashboardOverview';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -181,25 +183,23 @@ export function DashboardHomeView() {
               <span className="text-xs font-medium text-primary bg-primary/10 rounded-full px-2 py-0.5">{filtered.length}</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Buscar..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="h-8 w-44 rounded-lg border border-border bg-background pl-8 pr-3 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/30 focus:ring-1 focus:ring-primary/10"
-                />
-                <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-              </div>
-              <select
-                value={sort}
-                onChange={(e) => setSort(e.target.value as 'recent' | 'name_asc')}
-                className="h-8 appearance-none rounded-lg border border-border bg-card px-3 pr-7 text-xs text-foreground outline-none cursor-pointer hover:border-primary/30 focus:border-primary/30 focus:ring-1 focus:ring-primary/10 transition-colors"
-                style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`, backgroundPosition: 'right 8px center', backgroundRepeat: 'no-repeat' }}
+              <TextField variant="secondary" value={search} onChange={setSearch} className="w-44">
+                <Label className="sr-only">Buscar proyectos</Label>
+                <Input placeholder="Buscar..." />
+              </TextField>
+              <Select
+                variant="secondary"
+                aria-label="Ordenar proyectos"
+                selectedKey={sort}
+                onSelectionChange={(key: Key | null) => { if (key) setSort(String(key) as 'recent' | 'name_asc'); }}
               >
-                <option value="recent">Recientes</option>
-                <option value="name_asc">A-Z</option>
-              </select>
+                <Label className="sr-only">Ordenar</Label>
+                <Select.Trigger><Select.Value /><Select.Indicator /></Select.Trigger>
+                <Select.Popover><ListBox>
+                  <ListBox.Item key="recent" id="recent">Recientes</ListBox.Item>
+                  <ListBox.Item key="name_asc" id="name_asc">A-Z</ListBox.Item>
+                </ListBox></Select.Popover>
+              </Select>
             </div>
           </div>
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { TextField, Input, TextArea, Label } from '@heroui/react';
 import { Film, Sparkles, Loader2, Check } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { createClient } from '@/lib/supabase/client';
@@ -242,19 +243,10 @@ export function VideoCreationCard({ prefill, projectId, onCreated, onCancel, san
               Sugerir
             </button>
           </div>
-          <input
-            type="text"
-            value={title}
-            disabled={saving}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Titulo del video"
-            className={cn(
-              dock
-                ? CHAT_DOCK_FIELD_CLASS
-                : 'w-full px-3 py-2 rounded-md border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring/50',
-            )}
-            autoFocus
-          />
+          <TextField variant="secondary" value={title} onChange={setTitle} isDisabled={saving} autoFocus>
+            <Label className="sr-only">Titulo</Label>
+            <Input placeholder="Titulo del video" />
+          </TextField>
         </div>
 
         {/* Platform */}
@@ -328,18 +320,10 @@ export function VideoCreationCard({ prefill, projectId, onCreated, onCancel, san
               </button>
             )}
           </div>
-          <textarea
-            value={description}
-            disabled={saving}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Descripcion breve del video (opcional)"
-            rows={2}
-            className={cn(
-              dock
-                ? CHAT_DOCK_TEXTAREA_CLASS
-                : 'w-full px-3 py-1.5 rounded-md border border-border bg-background text-xs text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring/50',
-            )}
-          />
+          <TextField variant="secondary" value={description} onChange={setDescription} isDisabled={saving}>
+            <Label className="sr-only">Descripcion</Label>
+            <TextArea placeholder="Descripcion breve del video (opcional)" rows={2} />
+          </TextField>
         </div>
 
         {/* Summary badge */}

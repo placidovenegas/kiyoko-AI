@@ -2,6 +2,8 @@
 
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { TextField, Input, Select, ListBox, Label } from '@heroui/react';
+import type { Key } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { queryKeys } from '@/lib/query/keys';
 import { Search, X, Loader2, UserRound } from 'lucide-react';
@@ -93,16 +95,10 @@ export function CharacterPickerModal({
 
         {/* Search */}
         <div className="px-5 pt-4 pb-2">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar personaje..."
-              className="w-full rounded-lg border border-border bg-background py-2 pl-9 pr-3 text-sm outline-none focus:border-primary/30 focus:ring-1 focus:ring-primary/10"
-            />
-          </div>
+          <TextField variant="secondary" value={search} onChange={setSearch}>
+            <Label className="sr-only">Buscar personaje</Label>
+            <Input placeholder="Buscar personaje..." />
+          </TextField>
         </div>
 
         {/* Character list */}
@@ -170,19 +166,23 @@ export function CharacterPickerModal({
 
                       {!isAssigned && (
                         <div className="mt-2 flex items-center gap-2">
-                          <select
-                            value={roles[character.id] ?? 'secundario'}
-                            onChange={(e) =>
-                              setRoles((prev) => ({ ...prev, [character.id]: e.target.value }))
-                            }
-                            className="rounded-lg border border-border bg-card px-2 py-1 text-xs outline-none focus:border-primary/30 appearance-none cursor-pointer"
+                          <Select
+                            variant="secondary"
+                            aria-label="Rol del personaje"
+                            selectedKey={roles[character.id] ?? 'secundario'}
+                            onSelectionChange={(key: Key | null) => {
+                              if (key) setRoles((prev) => ({ ...prev, [character.id]: String(key) }));
+                            }}
+                            className="min-w-[120px]"
                           >
-                            {ROLE_OPTIONS.map((opt) => (
-                              <option key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </option>
-                            ))}
-                          </select>
+                            <Label className="sr-only">Rol</Label>
+                            <Select.Trigger><Select.Value /><Select.Indicator /></Select.Trigger>
+                            <Select.Popover><ListBox>
+                              {ROLE_OPTIONS.map((opt) => (
+                                <ListBox.Item key={opt.value} id={opt.value}>{opt.label}</ListBox.Item>
+                              ))}
+                            </ListBox></Select.Popover>
+                          </Select>
                           <button
                             type="button"
                             onClick={() => handleAssign(character.id)}

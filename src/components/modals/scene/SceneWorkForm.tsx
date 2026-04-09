@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
-import { Select, ListBox, Label } from '@heroui/react';
+import { Select, ListBox, Label, TextField, Input, TextArea, Slider } from '@heroui/react';
 import { Music, MessageSquare, Film, Copy, Check, Image, Video } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { CharacterChips, BackgroundChips } from './SceneCharBgPicker';
@@ -102,35 +102,29 @@ export function SceneWorkForm({ form, update, characters, backgrounds, imageProm
   return (
     <div className="space-y-4 max-w-lg">
       {/* Title */}
-      <div className="space-y-1.5">
-        <p className="text-[11px] font-medium text-muted-foreground">Titulo <span className="text-danger-500">*</span></p>
-        <input type="text" value={form.title} onChange={e => update('title', e.target.value)}
-          placeholder="Ej. Ana entra en la oficina" autoFocus
-          className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground/50 focus:border-primary/30 focus:ring-1 focus:ring-primary/10" />
-      </div>
+      <TextField variant="secondary" value={form.title} onChange={v => update('title', v)} autoFocus isRequired>
+        <Label>Titulo</Label>
+        <Input placeholder="Ej. Ana entra en la oficina" />
+      </TextField>
 
       {/* Description */}
-      <div className="space-y-1.5">
-        <p className="text-[11px] font-medium text-muted-foreground">Descripcion visual</p>
-        <textarea value={form.description} onChange={e => update('description', e.target.value)}
-          placeholder="Describe que se ve en la escena..." rows={2}
-          className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground outline-none resize-y placeholder:text-muted-foreground/50 focus:border-primary/30 focus:ring-1 focus:ring-primary/10" />
-      </div>
+      <TextField variant="secondary" value={form.description} onChange={v => update('description', v)}>
+        <Label>Descripcion visual</Label>
+        <TextArea placeholder="Describe que se ve en la escena..." rows={2} />
+      </TextField>
 
       {/* Phase + Duration inline */}
       <div className="grid grid-cols-2 gap-4">
         <PillSelect label="Fase narrativa" options={PHASES} value={form.arcPhase} onChange={v => update('arcPhase', v)} />
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <p className="text-[11px] font-medium text-muted-foreground">Duracion</p>
-            <span className="text-sm font-semibold text-primary tabular-nums">{form.duration}s</span>
-          </div>
-          <input type="range" min={1} max={30} step={1} value={form.duration}
-            onChange={e => update('duration', parseInt(e.target.value, 10))}
-            className="w-full accent-primary h-1.5" />
-          <div className="flex justify-between text-[10px] text-muted-foreground/50">
-            <span>1s</span><span>15s</span><span>30s</span>
-          </div>
+          <Slider aria-label="Duracion" minValue={1} maxValue={30} step={1} value={form.duration}
+            onChange={v => update('duration', typeof v === 'number' ? v : v[0])}>
+            <div className="flex items-center justify-between">
+              <Label>Duracion</Label>
+              <Slider.Output className="text-sm font-semibold text-primary tabular-nums">{() => `${form.duration}s`}</Slider.Output>
+            </div>
+            <Slider.Track><Slider.Fill /><Slider.Thumb /></Slider.Track>
+          </Slider>
         </div>
       </div>
 
@@ -162,12 +156,10 @@ export function SceneWorkForm({ form, update, characters, backgrounds, imageProm
       </div>
 
       {/* Dialogue */}
-      <div className="space-y-1.5">
-        <p className="text-[11px] font-medium text-muted-foreground">Dialogo / Narracion</p>
-        <textarea value={form.dialogue} onChange={e => update('dialogue', e.target.value)}
-          placeholder="Que se dice o narra en esta escena..." rows={2}
-          className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground outline-none resize-y placeholder:text-muted-foreground/50 focus:border-primary/30 focus:ring-1 focus:ring-primary/10" />
-      </div>
+      <TextField variant="secondary" value={form.dialogue} onChange={v => update('dialogue', v)}>
+        <Label>Dialogo / Narracion</Label>
+        <TextArea placeholder="Que se dice o narra en esta escena..." rows={2} />
+      </TextField>
 
       {/* Characters */}
       {characters.length > 0 && (
