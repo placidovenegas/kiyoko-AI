@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/toast';
 import { Select, ListBox } from '@heroui/react';
 import { X, Sparkles, Loader2, Wand2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -330,7 +330,7 @@ ${aiResult ? 'He generado esta escena con IA:' : 'Te sugiero esta escena:'}`;
       // Auto-generate prompts in background (after modal closes)
       if (sceneId) {
         setGeneratingPrompts(true);
-        toast.loading('Generando prompts de imagen y video...', { id: 'gen-prompts' });
+        toast.ai('Generando prompts con IA...', { id: 'gen-prompts' });
         try {
           const res = await fetch('/api/ai/generate-scene-prompts', {
             method: 'POST',

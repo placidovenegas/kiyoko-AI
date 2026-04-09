@@ -85,8 +85,12 @@ export const toast = {
 
   ai: (message: string, opts?: Parameters<typeof sonnerToast>[1]) =>
     sonnerToast.loading(message, {
-      icon: icon(<Sparkles className="size-4 shrink-0 animate-pulse text-primary" />),
-      className: 'border-primary/30 bg-primary/5',
+      icon: icon(
+        <span className="flex size-6 items-center justify-center rounded-lg bg-primary/10 shrink-0">
+          <Sparkles className="size-3.5 animate-pulse text-primary" />
+        </span>
+      ),
+      className: 'border-primary/20 !py-2.5 !px-3.5 !min-w-0 !max-w-72 !rounded-xl',
       ...opts,
     }),
 

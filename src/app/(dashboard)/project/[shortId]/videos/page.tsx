@@ -272,13 +272,6 @@ export default function VideosPage() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => toast.success('Generación de video con IA próximamente')}
-            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          >
-            <Sparkles className="h-4 w-4" />
-            Generar video con IA
-          </button>
-          <button
             onClick={() => setCreateModalOpen(true)}
             className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary/90"
           >

@@ -9,7 +9,7 @@ import { useProject } from '@/contexts/ProjectContext';
 import { queryKeys } from '@/lib/query/keys';
 import { CharacterCreateModal } from '@/components/modals';
 import type { Character } from '@/types';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/toast';
 import {
   Copy,
   Image as ImageIcon,
@@ -65,7 +65,7 @@ export default function CharactersPage() {
   async function handleGenerateCharacter() {
     if (!project?.id) return;
     setGeneratingCharacter(true);
-    toast.loading('Generando personaje...', { id: 'gen-char' });
+    toast.ai('Generando personaje con IA...', { id: 'gen-char' });
     try {
       const res = await fetch('/api/ai/generate-characters', {
         method: 'POST',

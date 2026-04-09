@@ -13,7 +13,7 @@ import { generateShortId } from '@/lib/utils/nanoid';
 import { ArcBar } from '@/components/video/ArcBar';
 import { SceneGeneratorModal } from '@/components/modals/scene/SceneGeneratorModal';
 // SceneWorkModal replaces both SceneCreateModal and SceneEditorModal
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/toast';
 import {
   Film, Clock, Monitor, Mic, FileOutput, Music, Image as ImageIcon,
   Video, Loader2, BarChart3, Layers, CheckCircle2, Target,
@@ -548,7 +548,7 @@ export default function VideoOverviewPage() {
 
   async function handleGenerateAll() {
     setGeneratingAll(true);
-    toast.loading(`Generando prompts para ${scenes.length} escenas...`, { id: 'gen-all' });
+    toast.ai(`Generando prompts con IA (${scenes.length} escenas)...`, { id: 'gen-all' });
     try {
       // Generate in batches of 3 for balance between speed and rate limits
       const batchSize = 3;
@@ -971,12 +971,6 @@ export default function VideoOverviewPage() {
               Nueva escena
             </button>
 
-            <Link
-              href={`${basePath}`}
-              className="text-xs font-medium text-primary hover:underline"
-            >
-              Ver todas
-            </Link>
           </div>
         </div>
 
