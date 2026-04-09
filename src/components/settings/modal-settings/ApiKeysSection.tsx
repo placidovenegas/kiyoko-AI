@@ -5,7 +5,7 @@ import { Button, TextField, Input } from '@heroui/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils/cn';
 import { toast } from 'sonner';
-import { Loader2, Plus, Trash2, Eye, EyeOff, ExternalLink, Check, Shield } from 'lucide-react';
+import { Loader2, Plus, Trash2, Eye, EyeOff, ExternalLink, Check, Shield, Zap } from 'lucide-react';
 import { SectionTitle, SectionDescription, SettingsCard, SectionLoading } from './shared';
 
 // Stack B: 3 proveedores esenciales + 1 premium opcional
@@ -50,6 +50,32 @@ export function ApiKeysSection() {
     onSuccess: () => { toast.success('API key guardada'); setAddingProvider(null); setNewKeyValue(''); queryClient.invalidateQueries({ queryKey: ['api-keys-data'] }); },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const [testingProvider, setTestingProvider] = useState<string | null>(null);
+  const [testResults, setTestResults] = useState<Record<string, 'success' | 'error'>>({});
+
+  async function testConnection(provider: string) {
+    setTestingProvider(provider);
+    try {
+      const res = await fetch('/api/user/api-keys/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider }),
+      });
+      const data = await res.json();
+      if (data.valid) {
+        setTestResults(prev => ({ ...prev, [provider]: 'success' }));
+        toast.success(`${provider} conectado correctamente`);
+      } else {
+        setTestResults(prev => ({ ...prev, [provider]: 'error' }));
+        toast.error(data.error || `Error al conectar con ${provider}`);
+      }
+    } catch {
+      setTestResults(prev => ({ ...prev, [provider]: 'error' }));
+      toast.error('Error de conexion');
+    }
+    setTestingProvider(null);
+  }
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -104,9 +130,17 @@ export function ApiKeysSection() {
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   {userKey ? (
-                    <Button variant="danger-soft" size="sm" isIconOnly onPress={() => deleteMutation.mutate(userKey.id)}>
-                      <Trash2 size={13} />
-                    </Button>
+                    <>
+                      <Button variant="ghost" size="sm" isIconOnly
+                        onPress={() => testConnection(provider.id)}
+                        isDisabled={testingProvider === provider.id}
+                        className={cn(testResults[provider.id] === 'success' && 'text-emerald-500', testResults[provider.id] === 'error' && 'text-red-500')}>
+                        {testingProvider === provider.id ? <Loader2 size={13} className="animate-spin" /> : <Zap size={13} />}
+                      </Button>
+                      <Button variant="danger-soft" size="sm" isIconOnly onPress={() => deleteMutation.mutate(userKey.id)}>
+                        <Trash2 size={13} />
+                      </Button>
+                    </>
                   ) : (
                     <Button
                       variant={isAdding ? 'secondary' : 'ghost'}
@@ -167,9 +201,17 @@ export function ApiKeysSection() {
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   {userKey ? (
-                    <Button variant="danger-soft" size="sm" isIconOnly onPress={() => deleteMutation.mutate(userKey.id)}>
-                      <Trash2 size={13} />
-                    </Button>
+                    <>
+                      <Button variant="ghost" size="sm" isIconOnly
+                        onPress={() => testConnection(provider.id)}
+                        isDisabled={testingProvider === provider.id}
+                        className={cn(testResults[provider.id] === 'success' && 'text-emerald-500', testResults[provider.id] === 'error' && 'text-red-500')}>
+                        {testingProvider === provider.id ? <Loader2 size={13} className="animate-spin" /> : <Zap size={13} />}
+                      </Button>
+                      <Button variant="danger-soft" size="sm" isIconOnly onPress={() => deleteMutation.mutate(userKey.id)}>
+                        <Trash2 size={13} />
+                      </Button>
+                    </>
                   ) : (
                     <Button variant={isAdding ? 'secondary' : 'ghost'} size="sm"
                       onPress={() => { setAddingProvider(isAdding ? null : provider.id); setNewKeyValue(''); setShowKey(false); }}>
