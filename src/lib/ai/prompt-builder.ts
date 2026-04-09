@@ -25,7 +25,7 @@ export function getStyleTag(style: string | null | undefined): string {
 
 /* ── Camera commands for Grok ────────────────────────────── */
 
-const CAMERA_ANGLE_CMD: Record<string, string> = {
+export const CAMERA_ANGLE_CMD: Record<string, string> = {
   wide: 'Extreme Wide Shot',
   medium: 'Medium Shot',
   close_up: 'Close-up',
@@ -38,7 +38,7 @@ const CAMERA_ANGLE_CMD: Record<string, string> = {
   over_shoulder: 'Over-the-shoulder shot',
 };
 
-const CAMERA_MOVE_CMD: Record<string, string> = {
+export const CAMERA_MOVE_CMD: Record<string, string> = {
   static: 'Camera holds still / static shot',
   dolly_in: 'Camera slowly pushes in toward subject',
   dolly_out: 'Camera pulls back from subject',

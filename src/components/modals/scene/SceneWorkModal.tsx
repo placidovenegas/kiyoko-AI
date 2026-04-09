@@ -79,6 +79,8 @@ export function SceneWorkModal({
         dialogue: scene.dialogue ?? '',
         music: false, dialogue_audio: false, sfx: false, voiceover: false,
         characterIds: charIds, backgroundIds: bgIds,
+        sceneKind: (scene.scene_type as SceneForm['sceneKind']) ?? 'original',
+        parentSceneId: scene.parent_scene_id ?? null,
       });
     } else {
       setForm(DEFAULT_FORM);
@@ -291,7 +293,9 @@ ${aiResult ? 'He generado esta escena con IA:' : 'Te sugiero esta escena:'}`;
           description: form.description, duration_seconds: form.duration,
           arc_phase: form.arcPhase as 'hook' | 'build' | 'peak' | 'close',
           scene_number: num, sort_order: num, short_id: generateShortId(),
-          status: 'draft', scene_type: 'original', dialogue: form.dialogue,
+          status: 'draft', dialogue: form.dialogue,
+          scene_type: form.sceneKind as 'original' | 'extension' | 'insert',
+          parent_scene_id: form.parentSceneId || null,
         }).select('id').single();
 
         if (newScene) {
@@ -395,6 +399,7 @@ ${aiResult ? 'He generado esta escena con IA:' : 'Te sugiero esta escena:'}`;
             <SceneWorkForm
               form={form} update={update}
               characters={characters} backgrounds={backgrounds}
+              allScenes={allScenes.map(s => ({ id: s.id, title: s.title ?? '', scene_number: s.scene_number ?? 0 }))}
               imagePrompt={imagePrompt} videoPrompt={videoPrompt}
               isEdit={isEdit}
             />

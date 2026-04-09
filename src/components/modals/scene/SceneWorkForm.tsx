@@ -90,21 +90,65 @@ interface FormProps {
   update: <K extends keyof SceneForm>(key: K, val: SceneForm[K]) => void;
   characters: Character[];
   backgrounds: Background[];
+  allScenes: Array<{ id: string; title: string; scene_number: number }>;
   imagePrompt?: string | null;
   videoPrompt?: string | null;
   isEdit: boolean;
 }
 
-export function SceneWorkForm({ form, update, characters, backgrounds, imagePrompt, videoPrompt, isEdit }: FormProps) {
+export function SceneWorkForm({ form, update, characters, backgrounds, allScenes, imagePrompt, videoPrompt, isEdit }: FormProps) {
   const updateChar = useCallback((ids: string[]) => update('characterIds', ids), [update]);
   const updateBg = useCallback((ids: string[]) => update('backgroundIds', ids), [update]);
 
+  const isExtension = form.sceneKind === 'extension';
+  const isInsert = form.sceneKind === 'insert';
+
   return (
     <div className="space-y-4 max-w-lg">
+      {/* Scene kind selector */}
+      {!isEdit && (
+        <div className="space-y-1.5">
+          <p className="text-[11px] font-medium text-muted-foreground">Tipo de escena</p>
+          <div className="flex gap-1.5">
+            {([
+              { value: 'original', label: 'Original', desc: 'Escena completa con imagen + video' },
+              { value: 'extension', label: 'Extension', desc: 'Continua el clip anterior (solo video)' },
+              { value: 'insert', label: 'Insert', desc: 'Plano detalle intercalado (corto)' },
+            ] as const).map(k => (
+              <button key={k.value} type="button" onClick={() => { update('sceneKind', k.value); if (k.value !== 'original') update('duration', k.value === 'insert' ? 2 : 5); }}
+                className={cn('flex-1 rounded-lg border px-3 py-2 text-left transition-all',
+                  form.sceneKind === k.value ? 'border-primary/40 bg-primary/5' : 'border-border hover:border-primary/20')}>
+                <p className={cn('text-xs font-medium', form.sceneKind === k.value ? 'text-primary' : 'text-foreground')}>{k.label}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">{k.desc}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Parent scene selector (for extensions and inserts) */}
+      {!isEdit && (isExtension || isInsert) && allScenes.length > 0 && (
+        <Select variant="secondary" aria-label="Escena padre"
+          selectedKey={form.parentSceneId ?? ''} onSelectionChange={(key: Key | null) => update('parentSceneId', key ? String(key) : null)}>
+          <Label>{isExtension ? 'Extension de' : 'Insert en'}</Label>
+          <Select.Trigger><Select.Value /><Select.Indicator /></Select.Trigger>
+          <Select.Popover><ListBox>
+            {allScenes.map(s => <ListBox.Item key={s.id} id={s.id}>#{s.scene_number} {s.title}</ListBox.Item>)}
+          </ListBox></Select.Popover>
+        </Select>
+      )}
+
+      {/* Extension info banner */}
+      {isExtension && (
+        <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-[11px] text-amber-400">
+          Solo se genera prompt de video. El clip continua desde el ultimo frame de la escena padre.
+        </div>
+      )}
+
       {/* Title */}
       <TextField variant="secondary" value={form.title} onChange={v => update('title', v)} autoFocus isRequired>
         <Label>Titulo</Label>
-        <Input placeholder="Ej. Ana entra en la oficina" />
+        <Input placeholder={isExtension ? 'Ej. Camara rota alrededor' : isInsert ? 'Ej. Detalle espadas chocando' : 'Ej. Ana entra en la oficina'} />
       </TextField>
 
       {/* Description */}
@@ -161,13 +205,13 @@ export function SceneWorkForm({ form, update, characters, backgrounds, imageProm
         <TextArea placeholder="Que se dice o narra en esta escena..." rows={2} />
       </TextField>
 
-      {/* Characters */}
-      {characters.length > 0 && (
+      {/* Characters (not for extensions — they inherit from parent) */}
+      {!isExtension && characters.length > 0 && (
         <CharacterChips selected={form.characterIds} all={characters} onChange={updateChar} />
       )}
 
-      {/* Backgrounds */}
-      {backgrounds.length > 0 && (
+      {/* Backgrounds (not for extensions) */}
+      {!isExtension && backgrounds.length > 0 && (
         <BackgroundChips selected={form.backgroundIds} all={backgrounds} onChange={updateBg} />
       )}
 

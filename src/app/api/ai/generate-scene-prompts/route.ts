@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { callQwen, DEFAULT_QWEN_MODEL } from '@/lib/ai/providers/openrouter';
 import { SYSTEM_SCENE_GENERATOR } from '@/lib/ai/prompts/system-scene-generator';
-import { buildPromptMessage, DEFAULT_NEGATIVE_PROMPT, getStyleTag } from '@/lib/ai/prompt-builder';
+import { buildPromptMessage, DEFAULT_NEGATIVE_PROMPT, getStyleTag, CAMERA_ANGLE_CMD, CAMERA_MOVE_CMD } from '@/lib/ai/prompt-builder';
 import {
   apiBadRequest, apiError, apiJson, apiUnauthorized,
   createApiRequestContext, logServerEvent, parseApiJson,
@@ -158,11 +158,44 @@ export async function POST(request: NextRequest) {
       hasStylePreset: !!stylePreset,
     });
 
+    // ── Determine if extension (video-only) or insert (short image+video) ──
+    const isExtension = scene.scene_type === 'extension';
+    const isInsert = scene.scene_type === 'insert';
+
+    // For extensions: fetch parent scene's last image prompt to reference
+    let parentImagePrompt: string | null = null;
+    if (isExtension && scene.parent_scene_id) {
+      const { data: pp } = await supabase.from('scene_prompts')
+        .select('prompt_text').eq('scene_id', scene.parent_scene_id)
+        .eq('prompt_type', 'image').eq('is_current', true).maybeSingle();
+      parentImagePrompt = pp?.prompt_text ?? null;
+    }
+
     // ── Call AI or mock ─────────────────────────────────────────────────
     let prompts: GeneratedPrompts;
     const hasApiKey = !!process.env.OPENROUTER_API_KEY;
 
-    if (hasApiKey) {
+    if (isExtension) {
+      // Extensions: only video prompt with [CONTINUING FROM PREVIOUS CLIP]
+      const extensionInstruction = `${userMessage}\n\nIMPORTANT: This is an EXTENSION scene. Generate ONLY a video prompt.\nStart with "[CONTINUING FROM PREVIOUS CLIP]"\nThe video continues from the last frame of the parent scene.\nDo NOT generate an image prompt — set prompt_image to empty string.\n${parentImagePrompt ? `Parent scene image for reference: "${parentImagePrompt.slice(0, 200)}"` : ''}\nDescribe only the NEW movement/action from this point forward.\nRespond: { "prompt_image": "", "prompt_video": "...", "negative_prompt": "..." }`;
+
+      if (hasApiKey) {
+        const result = await callQwen(SYSTEM_SCENE_GENERATOR, extensionInstruction, DEFAULT_QWEN_MODEL, 0.8);
+        const parsed = result as Record<string, unknown>;
+        prompts = {
+          prompt_image: '',
+          prompt_video: typeof parsed.prompt_video === 'string' ? parsed.prompt_video : `[CONTINUING FROM PREVIOUS CLIP]\n${getStyleTag(projectData.style)}, cinematic 16:9, 24fps. Continue from last frame.\n${scene.description ?? ''}`,
+          negative_prompt: typeof parsed.negative_prompt === 'string' ? parsed.negative_prompt : DEFAULT_NEGATIVE_PROMPT,
+        };
+      } else {
+        const cam = camera ? `${CAMERA_ANGLE_CMD[camera.camera_angle ?? 'medium'] ?? 'Medium Shot'} with ${CAMERA_MOVE_CMD[camera.camera_movement ?? 'static'] ?? 'static shot'}` : 'Medium Shot with static shot';
+        prompts = {
+          prompt_image: '',
+          prompt_video: `[CONTINUING FROM PREVIOUS CLIP]\n[STYLE]: ${getStyleTag(projectData.style)}, cinematic 16:9, 24fps.\n[DURATION]: ${scene.duration_seconds ?? 5} seconds.\n[CAMERA]: ${cam}.\n\n[TIMELINE]:\n[00:00-00:${String(scene.duration_seconds ?? 5).padStart(2, '0')}]: Continue from last frame. ${scene.description ?? 'Action continues.'}\n\n[AUDIO]: Ambient sound only. NO music.\n[NEGATIVE]: ${DEFAULT_NEGATIVE_PROMPT}`,
+          negative_prompt: DEFAULT_NEGATIVE_PROMPT,
+        };
+      }
+    } else if (hasApiKey) {
       const result = await callQwen(SYSTEM_SCENE_GENERATOR, userMessage, DEFAULT_QWEN_MODEL, 0.8);
       const parsed = result as Record<string, unknown>;
 
@@ -201,20 +234,30 @@ export async function POST(request: NextRequest) {
     const generator = hasApiKey ? 'qwen-flash' : 'mock';
     const negativePrompt = prompts.negative_prompt ?? DEFAULT_NEGATIVE_PROMPT;
 
-    const { error: insertError } = await supabase.from('scene_prompts').insert([
-      {
+    // Extensions: only video prompt. Inserts + originals: both.
+    const promptsToInsert = [];
+
+    if (!isExtension && prompts.prompt_image) {
+      promptsToInsert.push({
         scene_id: sceneId, prompt_type: 'image' as const,
         prompt_text: prompts.prompt_image, version: nextImageVersion,
         is_current: true, status: 'generated', generator,
         negative_prompt: negativePrompt, target_tool: 'grok',
-      },
-      {
+      });
+    }
+
+    if (prompts.prompt_video) {
+      promptsToInsert.push({
         scene_id: sceneId, prompt_type: 'video' as const,
         prompt_text: prompts.prompt_video, version: nextVideoVersion,
         is_current: true, status: 'generated', generator,
         negative_prompt: negativePrompt, target_tool: 'grok',
-      },
-    ]);
+      });
+    }
+
+    const { error: insertError } = promptsToInsert.length > 0
+      ? await supabase.from('scene_prompts').insert(promptsToInsert)
+      : { error: null };
 
     if (insertError) {
       return apiError(ctx, 'generate-scene-prompts', insertError, { message: 'Failed to save prompts', status: 500 });

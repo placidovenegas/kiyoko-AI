@@ -3,6 +3,8 @@ import type { Database } from '@/types/database.types';
 export type CameraAngle = Database['public']['Enums']['camera_angle'];
 export type CameraMovement = Database['public']['Enums']['camera_movement'];
 
+export type SceneKind = 'original' | 'extension' | 'insert';
+
 export interface SceneForm {
   title: string;
   description: string;
@@ -17,6 +19,8 @@ export interface SceneForm {
   voiceover: boolean;
   characterIds: string[];
   backgroundIds: string[];
+  sceneKind: SceneKind;
+  parentSceneId: string | null;
 }
 
 export interface SuggestionData {
@@ -100,4 +104,5 @@ export const DEFAULT_FORM: SceneForm = {
   cameraAngle: 'medium', cameraMovement: 'static', dialogue: '',
   music: false, dialogue_audio: false, sfx: false, voiceover: false,
   characterIds: [], backgroundIds: [],
+  sceneKind: 'original', parentSceneId: null,
 };

@@ -1777,12 +1777,14 @@ export type Database = {
           is_filler: boolean | null
           metadata: Json | null
           notes: string | null
+          parent_scene_id: string | null
           project_id: string
           scene_number: number
           scene_type: Database["public"]["Enums"]["scene_type"]
           short_id: string | null
           sort_order: number | null
           status: Database["public"]["Enums"]["scene_status"]
+          sub_order: number | null
           time_of_day: string | null
           title: string
           updated_at: string | null
@@ -1804,12 +1806,14 @@ export type Database = {
           is_filler?: boolean | null
           metadata?: Json | null
           notes?: string | null
+          parent_scene_id?: string | null
           project_id: string
           scene_number?: number
           scene_type?: Database["public"]["Enums"]["scene_type"]
           short_id?: string | null
           sort_order?: number | null
           status?: Database["public"]["Enums"]["scene_status"]
+          sub_order?: number | null
           time_of_day?: string | null
           title: string
           updated_at?: string | null
@@ -1831,12 +1835,14 @@ export type Database = {
           is_filler?: boolean | null
           metadata?: Json | null
           notes?: string | null
+          parent_scene_id?: string | null
           project_id?: string
           scene_number?: number
           scene_type?: Database["public"]["Enums"]["scene_type"]
           short_id?: string | null
           sort_order?: number | null
           status?: Database["public"]["Enums"]["scene_status"]
+          sub_order?: number | null
           time_of_day?: string | null
           title?: string
           updated_at?: string | null
@@ -1846,6 +1852,13 @@ export type Database = {
           {
             foreignKeyName: "scenes_continuation_of_scene_id_fkey"
             columns: ["continuation_of_scene_id"]
+            isOneToOne: false
+            referencedRelation: "scenes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scenes_parent_scene_id_fkey"
+            columns: ["parent_scene_id"]
             isOneToOne: false
             referencedRelation: "scenes"
             referencedColumns: ["id"]
@@ -2657,7 +2670,14 @@ export type Database = {
         | "generated"
         | "approved"
         | "rejected"
-      scene_type: "original" | "improved" | "new" | "filler" | "video"
+      scene_type:
+        | "original"
+        | "improved"
+        | "new"
+        | "filler"
+        | "video"
+        | "extension"
+        | "insert"
       target_platform:
         | "youtube"
         | "instagram_reels"
@@ -2874,7 +2894,15 @@ export const Constants = {
         "approved",
         "rejected",
       ],
-      scene_type: ["original", "improved", "new", "filler", "video"],
+      scene_type: [
+        "original",
+        "improved",
+        "new",
+        "filler",
+        "video",
+        "extension",
+        "insert",
+      ],
       target_platform: [
         "youtube",
         "instagram_reels",
