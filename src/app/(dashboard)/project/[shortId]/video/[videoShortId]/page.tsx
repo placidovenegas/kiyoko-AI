@@ -526,6 +526,7 @@ export default function VideoOverviewPage() {
   const [showSceneGenerator, setShowSceneGenerator] = useState(false);
   const [editingScene, setEditingScene] = useState<Scene | null>(null);
   const [aiDescription, setAiDescription] = useState('');
+  const [sceneFilter, setSceneFilter] = useState<'all' | string>('all');
 
   async function handleGeneratePrompts(sceneId: string) {
     setGeneratingSceneId(sceneId);
@@ -807,6 +808,32 @@ export default function VideoOverviewPage() {
     copyToClipboard(text, 'Todos los prompts');
   }
 
+  /** Copy all prompts formatted for Grok Imagine (ready to paste) */
+  function copyForGrok() {
+    const blocks: string[] = [];
+
+    scenes.forEach((scene) => {
+      const ip = scenePrompts.find((p) => p.scene_id === scene.id && p.prompt_type === 'image');
+      const vp = scenePrompts.find((p) => p.scene_id === scene.id && p.prompt_type === 'video');
+      if (!ip && !vp) return;
+
+      blocks.push(`━━━ ESCENA #${scene.scene_number}: ${scene.title} (${scene.duration_seconds ?? 5}s) ━━━`);
+      if (ip?.prompt_text) {
+        blocks.push(`\n📸 IMAGEN:\n${ip.prompt_text}`);
+      }
+      if (vp?.prompt_text) {
+        blocks.push(`\n🎬 VIDEO:\n${vp.prompt_text}`);
+      }
+      blocks.push('');
+    });
+
+    if (blocks.length === 0) { toast.info('No hay prompts para copiar'); return; }
+    const text = `🎬 ${video!.title} — Prompts para Grok Imagine\n${scenes.length} escenas · ${video!.platform ?? 'video'}\n\n${blocks.join('\n')}`;
+    copyToClipboard(text, 'Prompts formateados para Grok');
+  }
+
+  const filteredScenes = sceneFilter === 'all' ? scenes : scenes.filter(s => s.status === sceneFilter);
+
   /* Loading */
   if (loading) {
     return (
@@ -953,6 +980,24 @@ export default function VideoOverviewPage() {
           </div>
         </div>
 
+        {/* Scene filters */}
+        {scenes.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {(['all', 'draft', 'prompt_ready', 'generated', 'approved'] as const).map(f => {
+              const count = f === 'all' ? scenes.length : scenes.filter(s => s.status === f).length;
+              if (f !== 'all' && count === 0) return null;
+              const labels: Record<string, string> = { all: 'Todas', draft: 'Borrador', prompt_ready: 'Con prompt', generated: 'Generadas', approved: 'Aprobadas' };
+              return (
+                <button key={f} type="button" onClick={() => setSceneFilter(f)}
+                  className={cn('rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors',
+                    sceneFilter === f ? 'bg-primary/10 text-primary border border-primary/20' : 'text-muted-foreground hover:text-foreground hover:bg-accent')}>
+                  {labels[f]} {count > 0 && <span className="ml-1 opacity-60">{count}</span>}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {/* Content */}
         {scenesLoading ? (
           <div className="flex h-40 items-center justify-center">
@@ -1022,7 +1067,7 @@ export default function VideoOverviewPage() {
         ) : viewMode === 'storyboard' ? (
           /* ── Storyboard view ── */
           <div className="space-y-3">
-            {scenes.map((scene, sceneIndex) => {
+            {filteredScenes.map((scene, sceneIndex) => {
               const imagePrompt = scenePrompts.find((p) => p.scene_id === scene.id && p.prompt_type === 'image');
               const videoPrompt = scenePrompts.find((p) => p.scene_id === scene.id && p.prompt_type === 'video');
               const thumbnail = sceneMedia.find((m) => m.scene_id === scene.id);
@@ -1167,13 +1212,15 @@ export default function VideoOverviewPage() {
                   : <Sparkles className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />}
                 <span className="text-foreground">Generar todos los prompts</span>
               </button>
-              <button
-                type="button"
-                onClick={copyAllPrompts}
-                className="group flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm transition-all hover:border-primary/30"
-              >
+              <button type="button" onClick={copyAllPrompts}
+                className="group flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm transition-all hover:border-primary/30">
                 <Copy className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                 <span className="text-foreground">Copiar todos los prompts</span>
+              </button>
+              <button type="button" onClick={copyForGrok}
+                className="group flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-sm transition-all hover:border-primary/40 hover:bg-primary/10">
+                <Sparkles className="h-4 w-4 text-primary" />
+                <span className="text-primary font-medium">Copiar para Grok</span>
               </button>
             </>
           )}
