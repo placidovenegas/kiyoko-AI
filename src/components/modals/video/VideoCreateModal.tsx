@@ -37,6 +37,11 @@ const VALID_DURS = [3, 4, 5, 6, 8, 10];
 function snap(d: number) { return VALID_DURS.reduce((p, c) => Math.abs(c - d) < Math.abs(p - d) ? c : p); }
 
 function fmt(s: number): string { return String(Math.min(s, 59)).padStart(2, '0'); }
+function joinNames(names: string[]): string {
+  if (names.length === 0) return '';
+  if (names.length === 1) return names[0];
+  return names.slice(0, -1).join(', ') + ' y ' + names[names.length - 1];
+}
 
 function genTimeline(title: string, desc: string, dur: number, cam: string, move: string, phase: string, chars: string[] = []): string {
   const blocks: string[] = [];
@@ -57,7 +62,7 @@ function genTimeline(title: string, desc: string, dur: number, cam: string, move
   const c = camL[cam] ?? 'Plano medio';
   const m = movL[move] ?? 'Camara estatica';
 
-  const secText = secondary.length > 0 ? `. ${secondary.join(' y ')} ${secondary.length > 1 ? 'aparecen' : 'aparece'} en segundo plano` : '';
+  const secText = secondary.length > 0 ? `. ${joinNames(secondary)} ${secondary.length > 1 ? 'aparecen' : 'aparece'} en segundo plano` : '';
 
   let t = 0;
   if (phase === 'hook') {
@@ -106,7 +111,7 @@ function mockScenes(dur: number, desc: string, proj: string, charNames: string[]
   const scenes: GenScene[] = [];
   const main = charNames[0] ?? 'el protagonista';
   const sec = charNames.length > 1 ? charNames.slice(1) : [];
-  const secJoin = sec.length > 0 ? sec.join(' y ') : '';
+  const secJoin = sec.length > 0 ? joinNames(sec) : '';
 
   // Scene templates with character-aware descriptions
   const templates = [
@@ -354,7 +359,7 @@ export function VideoCreateModal({ open, onOpenChange, projectId, projectShortId
     const structure: Array<{ type: string; pct: number; title: string; desc: string; phase: string; cam: string; move: string }> = [
       { type: 'intro', pct: 0.08, title: 'Intro', desc: `Plano general atmosferico. ${main} aparece en silueta. La camara avanza lentamente revelando el escenario. Iluminacion suave.`, phase: 'hook', cam: 'wide', move: 'dolly_in' },
       { type: 'verse', pct: 0.15, title: 'Estrofa 1', desc: `${main} canta en plano medio. ${sec.length > 0 ? `${sec[0]} aparece en segundo plano.` : 'Expresion emotiva.'} Camara tracking siguiendo al artista. Narrativa visual.`, phase: 'build', cam: 'medium', move: 'tracking' },
-      { type: 'chorus', pct: 0.12, title: 'Estribillo 1', desc: `Explosion de energia. ${main} en primer plano cantando con pasion. ${sec.length > 0 ? `${sec.join(' y ')} bailan o celebran detras.` : 'Camara gira alrededor.'} Maxima intensidad visual.`, phase: 'peak', cam: 'close_up', move: 'orbit' },
+      { type: 'chorus', pct: 0.12, title: 'Estribillo 1', desc: `Explosion de energia. ${main} en primer plano cantando con pasion. ${sec.length > 0 ? `${joinNames(sec)} bailan o celebran detras.` : 'Camara gira alrededor.'} Maxima intensidad visual.`, phase: 'peak', cam: 'close_up', move: 'orbit' },
       { type: 'verse', pct: 0.15, title: 'Estrofa 2', desc: `La historia se desarrolla. ${main} ${sec.length > 0 ? `interactua con ${sec[0]}` : 'camina por el escenario'}. Plano medio con tracking suave. Momentos emotivos.`, phase: 'build', cam: 'medium', move: 'tracking' },
       { type: 'chorus', pct: 0.12, title: 'Estribillo 2', desc: `Repeticion con mas fuerza. ${main} en close-up con expresion intensa. ${sec.length > 0 ? `${sec[0]} reacciona emocionado.` : 'La gente se mueve detras.'} Iluminacion dramatica.`, phase: 'peak', cam: 'close_up', move: 'dolly_in' },
       { type: 'bridge', pct: 0.10, title: 'Puente', desc: `Cambio de ritmo. ${main} solo, mirando al horizonte. Plano general diferente. Momento reflexivo. Camara lenta. Iluminacion fria.`, phase: 'build', cam: 'wide', move: 'crane' },
