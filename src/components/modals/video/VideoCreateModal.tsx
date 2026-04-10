@@ -7,6 +7,7 @@ import { TextField, Input, TextArea, Label } from '@heroui/react';
 import {
   Film, Sparkles, X, Loader2, Monitor, Smartphone, Clock,
   ChevronRight, ChevronLeft, Plus, RefreshCw, Check, Send, Wand2, Clapperboard,
+  Music, Upload,
 } from 'lucide-react';
 import { toast } from '@/components/ui/toast';
 import type { ModalProps } from '../shared/types';
@@ -76,6 +77,12 @@ export function VideoCreateModal({ open, onOpenChange, projectId, projectShortId
   const [chatFocused, setChatFocused] = useState(false);
   const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant'; text: string }>>([]);
 
+  // Audio
+  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [analyzingAudio, setAnalyzingAudio] = useState(false);
+  const [audioSections, setAudioSections] = useState<Array<{ type: string; durationSeconds: number; mood: string; energy: string; suggestedSceneType: string }>>([]);
+
   const upd = useCallback(<K extends keyof VideoFormData>(k: K, v: VideoFormData[K]) => setForm(f => ({ ...f, [k]: v })), []);
   function close() { setForm({ ...DEFAULT_VIDEO }); setStep(1); setScenes([]); setEditIdx(null); setChatInput(''); setSugVis(3); onOpenChange(false); }
   function useSug(s: Suggestion) {
@@ -134,6 +141,73 @@ export function VideoCreateModal({ open, onOpenChange, projectId, projectShortId
       : `He aplicado tus cambios a ${targetLabel}.`;
     setChatMessages(prev => [...prev, { role: 'assistant', text: feedback }]);
     setChatBusy(false);
+  }
+
+  /* ── Audio upload + analyze ─────────────────────────────── */
+  async function handleAudioUpload(file: File) {
+    setAudioFile(file);
+    setAnalyzingAudio(true);
+    toast.ai('Analizando cancion...', { id: 'audio' });
+
+    try {
+      // Upload to Supabase Storage
+      const supabase = createClient();
+      const ext = file.name.split('.').pop() ?? 'mp3';
+      const path = `audio/${projectId}/${generateShortId()}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from('media').upload(path, file);
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage.from('media').getPublicUrl(path);
+      const publicUrl = urlData.publicUrl;
+      setAudioUrl(publicUrl);
+
+      // We need a video ID to analyze. Create the video first if not exists.
+      const video = await mut.mutateAsync(form);
+      if (!video?.id) throw new Error('No se pudo crear video');
+
+      // Analyze audio
+      const res = await fetch('/api/ai/analyze-audio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoId: video.id, audioUrl: publicUrl }),
+      });
+
+      if (!res.ok) throw new Error('Error en analisis');
+      const { analysis } = await res.json();
+
+      if (analysis?.sections) {
+        setAudioSections(analysis.sections);
+
+        // Generate scenes from audio sections
+        const audioScenes: GenScene[] = analysis.sections.map((sec: { type: string; durationSeconds: number; mood: string; energy: string; suggestedSceneType: string; lyrics?: string }, i: number) => {
+          const typeLabels: Record<string, string> = {
+            intro: 'Intro', verse: 'Estrofa', chorus: 'Estribillo',
+            bridge: 'Puente', outro: 'Outro', instrumental: 'Instrumental',
+            buildup: 'Buildup', drop: 'Drop',
+          };
+          return {
+            title: `${typeLabels[sec.type] ?? sec.type} ${sec.type === 'verse' || sec.type === 'chorus' ? `${i + 1}` : ''}`.trim(),
+            description: `${sec.mood}. ${sec.lyrics ? `Letra: "${sec.lyrics.slice(0, 60)}..."` : 'Instrumental.'}`,
+            arc_phase: sec.suggestedSceneType,
+            duration_seconds: snap(sec.durationSeconds),
+            camera_angle: sec.energy === 'very_high' || sec.energy === 'high' ? 'close_up' : sec.energy === 'low' ? 'wide' : 'medium',
+            camera_movement: sec.energy === 'very_high' ? 'orbit' : sec.energy === 'high' ? 'dolly_in' : sec.energy === 'low' ? 'static' : 'tracking',
+          };
+        });
+
+        setScenes(audioScenes);
+        toast.success(`${audioScenes.length} escenas generadas desde la cancion (${analysis.bpm} BPM)`, { id: 'audio' });
+
+        // Add chat message
+        setChatMessages(prev => [...prev, {
+          role: 'assistant',
+          text: `He analizado la cancion: ${analysis.genre}, ${analysis.bpm} BPM, ${analysis.mood}. ${analysis.sections.length} secciones detectadas. Las escenas estan alineadas con la estructura musical.`,
+        }]);
+      }
+    } catch (e) {
+      toast.error('Error al analizar audio', { id: 'audio' });
+    }
+    setAnalyzingAudio(false);
   }
 
   async function createAll() {
@@ -240,8 +314,8 @@ export function VideoCreateModal({ open, onOpenChange, projectId, projectShortId
               {step === 2 && (
                 <div className="space-y-3">
                   {/* Empty state */}
-                  {scenes.length === 0 && !generating && (
-                    <div className="flex flex-col items-center justify-center py-16 space-y-5">
+                  {scenes.length === 0 && !generating && !analyzingAudio && (
+                    <div className="flex flex-col items-center justify-center py-10 space-y-6">
                       <div className="relative">
                         <div className="absolute inset-0 rounded-2xl bg-primary/20 blur-lg animate-pulse" />
                         <div className="relative flex size-16 items-center justify-center rounded-2xl bg-primary/10 border border-primary/15">
@@ -249,15 +323,44 @@ export function VideoCreateModal({ open, onOpenChange, projectId, projectShortId
                         </div>
                       </div>
                       <div className="text-center space-y-1.5">
-                        <p className="text-base font-semibold text-foreground">Genera las escenas con IA</p>
+                        <p className="text-base font-semibold text-foreground">Genera las escenas</p>
                         <p className="text-xs text-muted-foreground max-w-sm">
-                          Kiyoko creara un storyboard completo con arco narrativo, camara y descripciones optimizadas para {PLATFORMS.find(p => p.value === form.platform)?.label}.
+                          Storyboard con arco narrativo optimizado para {PLATFORMS.find(p => p.value === form.platform)?.label}.
                         </p>
                       </div>
-                      <button type="button" onClick={genScenes}
-                        className="rounded-xl bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors flex items-center gap-2 shadow-lg shadow-primary/20">
-                        <Sparkles className="size-4" /> Generar escenas
-                      </button>
+
+                      <div className="flex items-center gap-3">
+                        <button type="button" onClick={genScenes}
+                          className="rounded-xl bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors flex items-center gap-2 shadow-lg shadow-primary/20">
+                          <Sparkles className="size-4" /> Desde descripcion
+                        </button>
+
+                        <span className="text-[10px] text-muted-foreground">o</span>
+
+                        <label className="rounded-xl border border-border bg-card px-5 py-2.5 text-sm font-medium text-foreground hover:border-primary/30 hover:bg-primary/5 transition-colors flex items-center gap-2 cursor-pointer">
+                          <Music className="size-4 text-primary" /> Desde cancion
+                          <input type="file" accept="audio/*" className="hidden"
+                            onChange={e => { const f = e.target.files?.[0]; if (f) handleAudioUpload(f); }} />
+                        </label>
+                      </div>
+
+                      {/* Audio file indicator */}
+                      {audioFile && !analyzingAudio && (
+                        <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
+                          <Music className="size-3.5 text-primary" />
+                          <span className="text-xs text-foreground">{audioFile.name}</span>
+                          <button type="button" onClick={() => { setAudioFile(null); setAudioUrl(null); setAudioSections([]); }}
+                            className="text-muted-foreground hover:text-foreground ml-1"><X className="size-3" /></button>
+                        </div>
+                      )}
+                    </div>
+                  )
+
+                  {/* Analyzing audio */}
+                  {analyzingAudio && (
+                    <div className="flex flex-col items-center justify-center py-16 space-y-4">
+                      <StreamingWave label="Analizando cancion" />
+                      {audioFile && <p className="text-[10px] text-muted-foreground">{audioFile.name}</p>}
                     </div>
                   )}
 
