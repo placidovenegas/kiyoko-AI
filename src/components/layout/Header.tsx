@@ -86,6 +86,12 @@ export function Header() {
 
   function handleQuickAction() {
     if (ctx.quickAction?.action === 'project') openProjectCreatePanel();
+    else if (ctx.quickAction?.action === 'video') {
+      // Dispatch custom event that project page listens to
+      window.dispatchEvent(new CustomEvent('kiyoko:create-video'));
+    } else if (ctx.quickAction?.action === 'scene') {
+      window.dispatchEvent(new CustomEvent('kiyoko:create-scene'));
+    }
   }
 
   // Shared style for all right-side buttons — matches search input style
@@ -135,7 +141,7 @@ export function Header() {
         </button>
 
         {/* Quick create */}
-        {ctx.quickAction && ctx.quickAction.action === 'project' && (
+        {ctx.quickAction && (
           <Tooltip content={ctx.quickAction.tooltip} placement="bottom">
             <button type="button" onClick={handleQuickAction} className={btnStyle} aria-label={ctx.quickAction.tooltip}>
               <Plus className="size-3.5" />

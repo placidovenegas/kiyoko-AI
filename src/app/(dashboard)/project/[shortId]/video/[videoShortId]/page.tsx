@@ -31,7 +31,7 @@ import { VIDEO_STATUS_LABELS, VIDEO_STATUS_BADGE, SCENE_STATUS_DOT, PHASE_STYLES
 
 /* ── Expandable prompt text ────────────────────────────── */
 import { ExpandablePrompt } from '@/components/shared/ExpandablePrompt';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { SceneWorkModal } from '@/components/modals';
 import type { NarrativeArc, Scene, ScenePrompt, SceneMedia, Character, Background } from '@/types';
 
@@ -526,6 +526,13 @@ export default function VideoOverviewPage() {
   const [editingScene, setEditingScene] = useState<Scene | null>(null);
   const [aiDescription, setAiDescription] = useState('');
   const [sceneFilter, setSceneFilter] = useState<'all' | string>('all');
+
+  // Listen for navbar + button
+  useEffect(() => {
+    const handler = () => setShowCreateScene(true);
+    window.addEventListener('kiyoko:create-scene', handler);
+    return () => window.removeEventListener('kiyoko:create-scene', handler);
+  }, []);
 
   async function handleGeneratePrompts(sceneId: string, promptType: 'image' | 'video' | 'both' = 'both') {
     setGeneratingSceneId(sceneId);

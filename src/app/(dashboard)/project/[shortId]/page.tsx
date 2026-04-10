@@ -32,6 +32,8 @@ import { cn } from '@/lib/utils/cn';
 import { useUIStore } from '@/stores/useUIStore';
 import type { Video } from '@/types';
 import { PROJECT_STATUS_LABELS, VIDEO_STATUS_LABELS } from '@/lib/constants/status';
+import { useState, useEffect } from 'react';
+import { VideoCreateModal } from '@/components/modals';
 
 const PLATFORM_ICONS: Record<string, LucideIcon> = {
   youtube: VideoIcon,
@@ -201,6 +203,14 @@ function VideoRow({
 export default function ProjectOverviewPage() {
   const { project, videos, characters, backgrounds, stylePresets, loading } = useProject();
   const openProjectSettingsModal = useUIStore((s) => s.openProjectSettingsModal);
+  const [showCreateVideo, setShowCreateVideo] = useState(false);
+
+  // Listen for navbar + button
+  useEffect(() => {
+    const handler = () => setShowCreateVideo(true);
+    window.addEventListener('kiyoko:create-video', handler);
+    return () => window.removeEventListener('kiyoko:create-video', handler);
+  }, []);
 
   /* ── Queries ─────────────────────────────────────────── */
 
@@ -320,9 +330,9 @@ export default function ProjectOverviewPage() {
 
       {/* ── Quick action buttons ───────────────────────────── */}
       <div className="flex flex-wrap items-center gap-2">
-        <Link href={`/project/${sid}/videos`} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:border-primary/30 hover:bg-primary/5 transition-colors">
+        <button type="button" onClick={() => setShowCreateVideo(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:border-primary/30 hover:bg-primary/5 transition-colors">
           <Plus className="size-3.5 text-primary" />Crear video
-        </Link>
+        </button>
         <Link href={`/project/${sid}/resources/characters`} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:border-primary/30 hover:bg-primary/5 transition-colors">
           <UserRound className="size-3.5 text-muted-foreground" />Personajes
         </Link>
@@ -404,6 +414,16 @@ export default function ProjectOverviewPage() {
           </div>
         </div>
       </section>
+
+      {/* Video create modal */}
+      {project && (
+        <VideoCreateModal
+          open={showCreateVideo}
+          onOpenChange={setShowCreateVideo}
+          projectId={project.id}
+          projectShortId={project.short_id}
+        />
+      )}
     </div>
   );
 }
