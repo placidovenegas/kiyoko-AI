@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useDashboard } from '@/providers/DashboardBootstrap';
@@ -9,9 +9,11 @@ import {
   ChevronLeft, ChevronRight, Search, Settings2,
   FolderKanban, Film, LayoutGrid, Plus,
 } from 'lucide-react';
-import { cn } from '@/lib/utils/cn';
+import { Tooltip as HeroTooltip } from '@heroui/react';
 import { useUIStore } from '@/stores/useUIStore';
 import { NotificationBell } from './NotificationBell';
+
+const Tooltip = HeroTooltip as React.FC<{ content?: string; placement?: string; children: React.ReactNode }>;
 
 /* ── Route context ──────────────────────────────────────── */
 
@@ -22,19 +24,18 @@ interface RouteContext {
   label: string;
   icon: typeof LayoutGrid;
   showSettings: 'project' | 'video' | null;
-  quickAction: { label: string; action: string } | null;
+  quickAction: { tooltip: string; action: string } | null;
 }
 
 function deriveContext(pathname: string): RouteContext {
   const s = (pathname.replace(/\/+$/, '') || '/').split('/').filter(Boolean);
-
   if (s[0] === 'project' && s[1] && s[2] === 'video' && s[3]) {
-    return { scope: 'video', label: 'Video', icon: Film, showSettings: 'video', quickAction: { label: 'Escena', action: 'scene' } };
+    return { scope: 'video', label: 'Video', icon: Film, showSettings: 'video', quickAction: { tooltip: 'Nueva escena', action: 'scene' } };
   }
   if (s[0] === 'project' && s[1]) {
-    return { scope: 'project', label: 'Proyecto', icon: FolderKanban, showSettings: 'project', quickAction: { label: 'Video', action: 'video' } };
+    return { scope: 'project', label: 'Proyecto', icon: FolderKanban, showSettings: 'project', quickAction: { tooltip: 'Nuevo video', action: 'video' } };
   }
-  return { scope: 'dashboard', label: 'Dashboard', icon: LayoutGrid, showSettings: null, quickAction: { label: 'Proyecto', action: 'project' } };
+  return { scope: 'dashboard', label: 'Dashboard', icon: LayoutGrid, showSettings: null, quickAction: { tooltip: 'Nuevo proyecto', action: 'project' } };
 }
 
 /* ── Breadcrumbs ────────────────────────────────────────── */
@@ -83,19 +84,21 @@ export function Header() {
 
   function handleQuickAction() {
     if (ctx.quickAction?.action === 'project') openProjectCreatePanel();
-    // video/scene creation is handled by the page itself via URL state
   }
 
-  const iconBtn = 'flex items-center justify-center size-7 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors';
+  // Shared style for all right-side buttons — matches search input style
+  const btnStyle = 'flex items-center justify-center size-7 rounded-lg bg-accent/50 border border-border/50 text-muted-foreground hover:bg-accent hover:border-border hover:text-foreground transition-all';
 
   return (
-    <div className="flex items-center h-full w-full gap-2">
+    <div className="flex items-center h-full w-full gap-2 px-1">
       {/* Left: back + breadcrumbs */}
-      <div className="flex items-center gap-1 min-w-0 shrink-0">
+      <div className="flex items-center gap-1 min-w-0 flex-1">
         {showBack && (
-          <button type="button" onClick={goBack} className={iconBtn} aria-label="Volver">
-            <ChevronLeft className="size-4" />
-          </button>
+          <Tooltip content="Volver" placement="bottom">
+            <button type="button" onClick={goBack} className={btnStyle} aria-label="Volver">
+              <ChevronLeft className="size-3.5" />
+            </button>
+          </Tooltip>
         )}
 
         <nav className="hidden md:flex items-center gap-0.5 text-xs min-w-0">
@@ -118,40 +121,43 @@ export function Header() {
         </nav>
       </div>
 
-      {/* Center: search — always centered */}
-      <div className="flex-1 flex justify-center">
+      {/* Right: search + actions */}
+      <div className="flex items-center gap-1.5 shrink-0">
+        {/* Search */}
         <button type="button"
           onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }))}
-          className="flex items-center gap-2 h-7 px-3 rounded-md w-52 bg-accent/50 border border-border/50 text-xs text-muted-foreground hover:bg-accent hover:border-border transition-all">
+          className="flex items-center gap-2 h-7 px-2.5 rounded-lg bg-accent/50 border border-border/50 text-xs text-muted-foreground hover:bg-accent hover:border-border transition-all">
           <Search size={12} className="shrink-0 opacity-50" />
-          <span className="flex-1 text-left">{t('common.search')}</span>
-          <kbd className="text-[9px] text-muted-foreground/40 bg-background/50 border border-border/50 rounded px-1 py-px">⌘K</kbd>
+          <span className="hidden sm:inline text-[11px]">{t('common.search')}</span>
+          <kbd className="hidden sm:inline text-[9px] text-muted-foreground/40 bg-background/50 border border-border/50 rounded px-1 py-px">⌘K</kbd>
         </button>
-      </div>
 
-      {/* Right: quick action + settings + notifications */}
-      <div className="flex items-center gap-1 shrink-0">
-        {/* Quick create button */}
+        {/* Quick create */}
         {ctx.quickAction && ctx.quickAction.action === 'project' && (
-          <button type="button" onClick={handleQuickAction}
-            className="hidden sm:flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
-            <Plus className="size-3" />
-            {ctx.quickAction.label}
-          </button>
+          <Tooltip content={ctx.quickAction.tooltip} placement="bottom">
+            <button type="button" onClick={handleQuickAction} className={btnStyle} aria-label={ctx.quickAction.tooltip}>
+              <Plus className="size-3.5" />
+            </button>
+          </Tooltip>
         )}
 
         {/* Settings */}
         {ctx.showSettings === 'project' && (
-          <button type="button" onClick={() => openProjectSettingsModal('general')} className={iconBtn} aria-label="Ajustes" title="Ajustes del proyecto">
-            <Settings2 size={14} />
-          </button>
+          <Tooltip content="Ajustes del proyecto" placement="bottom">
+            <button type="button" onClick={() => openProjectSettingsModal('general')} className={btnStyle} aria-label="Ajustes">
+              <Settings2 size={14} />
+            </button>
+          </Tooltip>
         )}
         {ctx.showSettings === 'video' && (
-          <button type="button" onClick={() => openVideoSettingsModal('general')} className={iconBtn} aria-label="Ajustes" title="Ajustes del video">
-            <Settings2 size={14} />
-          </button>
+          <Tooltip content="Ajustes del video" placement="bottom">
+            <button type="button" onClick={() => openVideoSettingsModal('general')} className={btnStyle} aria-label="Ajustes">
+              <Settings2 size={14} />
+            </button>
+          </Tooltip>
         )}
 
+        {/* Notifications */}
         <NotificationBell />
       </div>
     </div>

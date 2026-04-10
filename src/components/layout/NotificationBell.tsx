@@ -39,14 +39,11 @@ export function NotificationBell() {
 
   return (
     <div className="relative">
-      <Button
+      <button
         type="button"
-        variant="ghost"
-        size="sm"
-        isIconOnly
-        onPress={() => setOpen(!open)}
+        onClick={() => setOpen(!open)}
         aria-label={`Notificaciones${unreadCount > 0 ? ` (${unreadCount} sin leer)` : ''}`}
-        className="relative size-8"
+        className="relative flex items-center justify-center size-7 rounded-lg bg-accent/50 border border-border/50 text-muted-foreground hover:bg-accent hover:border-border hover:text-foreground transition-all"
       >
         <Bell className="h-4 w-4" />
         {unreadCount > 0 ? (
@@ -54,7 +51,7 @@ export function NotificationBell() {
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         ) : null}
-      </Button>
+      </button>
 
       {open ? (
         <>
