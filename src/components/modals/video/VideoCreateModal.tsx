@@ -354,7 +354,7 @@ export function VideoCreateModal({ open, onOpenChange, projectId, projectShortId
                         </div>
                       )}
                     </div>
-                  )
+                  )}
 
                   {/* Analyzing audio */}
                   {analyzingAudio && (

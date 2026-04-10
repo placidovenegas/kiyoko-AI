@@ -208,7 +208,7 @@ export async function POST(request: NextRequest) {
     // Save to video
     await supabase.from('videos').update({
       audio_file_url: audioUrl,
-      audio_analysis: analysis as unknown as Record<string, unknown>,
+      audio_analysis: JSON.parse(JSON.stringify(analysis)),
     }).eq('id', videoId);
 
     logServerEvent('analyze-audio', ctx, 'Audio analyzed', {
