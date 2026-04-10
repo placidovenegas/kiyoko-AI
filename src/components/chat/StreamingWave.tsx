@@ -30,17 +30,7 @@ export function StreamingWave({ label = 'Generando' }: { label?: string }) {
           />
         </svg>
       </div>
-      {/* Typing dots */}
-      <div className="flex items-center gap-1">
-        {[0, 1, 2].map((i) => (
-          <span
-            key={i}
-            className="size-1.5 rounded-full bg-primary animate-bounce"
-            style={{ animationDelay: `${i * 150}ms`, animationDuration: '1s' }}
-          />
-        ))}
-      </div>
-      <span className="text-xs text-muted-foreground/70 select-none">{label}</span>
+      <span className="text-xs text-muted-foreground/70 select-none animate-pulse">{label}</span>
     </div>
   );
 }
