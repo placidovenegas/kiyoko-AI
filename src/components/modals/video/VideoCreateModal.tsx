@@ -74,6 +74,7 @@ export function VideoCreateModal({ open, onOpenChange, projectId, projectShortId
   const [chatInput, setChatInput] = useState('');
   const [chatBusy, setChatBusy] = useState(false);
   const [chatFocused, setChatFocused] = useState(false);
+  const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant'; text: string }>>([]);
 
   const upd = useCallback(<K extends keyof VideoFormData>(k: K, v: VideoFormData[K]) => setForm(f => ({ ...f, [k]: v })), []);
   function close() { setForm({ ...DEFAULT_VIDEO }); setStep(1); setScenes([]); setEditIdx(null); setChatInput(''); setSugVis(3); onOpenChange(false); }
@@ -106,18 +107,33 @@ export function VideoCreateModal({ open, onOpenChange, projectId, projectShortId
   async function chatSend() {
     const t = chatInput.trim(); if (!t || chatBusy) return;
     const sel = scenes.map((s, i) => s.selected ? i : -1).filter(i => i >= 0);
-    if (sel.length === 0) { toast.error('Selecciona escenas primero'); return; }
-    setChatInput(''); setChatBusy(true); toast.ai('Actualizando escenas...', { id: 'cu' });
+    // If no scenes selected, apply to ALL scenes
+    const targets = sel.length > 0 ? sel : scenes.map((_, i) => i);
+    const targetLabel = sel.length > 0 ? `escena${sel.length > 1 ? 's' : ''} #${sel.map(i => i + 1).join(', #')}` : 'todas las escenas';
+
+    setChatInput('');
+    setChatMessages(prev => [...prev, { role: 'user', text: t }]);
+    setChatBusy(true);
+
     const up = [...scenes];
-    for (const idx of sel) {
+    const changes: string[] = [];
+    for (const idx of targets) {
       const s = up[idx];
       try {
         const r = await fetch('/api/ai/generate-scenes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId, instruction: `Actualiza: "${s.title}" (${s.arc_phase}, ${s.duration_seconds}s). Feedback: "${t}". Estilo ${projStyle}. 3-10s.` }) });
-        if (r.ok) { const j = await r.json(); if (j.success && j.data) { up[idx] = { ...j.data, duration_seconds: snap(j.data.duration_seconds ?? s.duration_seconds), selected: false }; continue; } }
+        if (r.ok) { const j = await r.json(); if (j.success && j.data) { up[idx] = { ...j.data, duration_seconds: snap(j.data.duration_seconds ?? s.duration_seconds), selected: false }; changes.push(`#${idx + 1} "${j.data.title}"`); continue; } }
       } catch {}
       up[idx] = { ...s, description: `${s.description} — ${t}`, selected: false };
+      changes.push(`#${idx + 1} actualizada`);
     }
-    setScenes(up); toast.success('Escenas actualizadas', { id: 'cu' }); setChatBusy(false);
+    setScenes(up);
+
+    // Show feedback in chat
+    const feedback = changes.length > 0
+      ? `He actualizado ${targetLabel}: ${changes.join(', ')}.`
+      : `He aplicado tus cambios a ${targetLabel}.`;
+    setChatMessages(prev => [...prev, { role: 'assistant', text: feedback }]);
+    setChatBusy(false);
   }
 
   async function createAll() {
@@ -332,6 +348,7 @@ export function VideoCreateModal({ open, onOpenChange, projectId, projectShortId
 
             {step === 2 && scenes.length > 0 && (
               <div className="w-72 shrink-0 border-l border-border bg-background/30 flex flex-col hidden lg:flex">
+                {/* Header */}
                 <div className="px-4 py-3 border-b border-border">
                   <div className="flex items-center gap-2">
                     <div className="flex size-6 items-center justify-center rounded-md bg-primary/10">
@@ -340,34 +357,45 @@ export function VideoCreateModal({ open, onOpenChange, projectId, projectShortId
                     <div>
                       <p className="text-xs font-semibold text-foreground">Kiyoko IA</p>
                       <p className="text-[9px] text-muted-foreground">
-                        {selCount > 0 ? `${selCount} escena${selCount > 1 ? 's' : ''} seleccionada${selCount > 1 ? 's' : ''}` : 'Selecciona para editar'}
+                        {selCount > 0 ? `${selCount} seleccionada${selCount > 1 ? 's' : ''} — solo esas se actualizan` : 'Sin seleccion — se actualizan todas'}
                       </p>
                     </div>
                   </div>
                 </div>
-                <div className="flex-1 px-4 py-3 overflow-y-auto">
-                  <p className="text-[10px] text-muted-foreground leading-relaxed">
-                    Marca las escenas que quieras cambiar y describe que mejorar. La IA actualizara solo las seleccionadas.
-                  </p>
+
+                {/* Messages */}
+                <div className="flex-1 px-3 py-2 overflow-y-auto space-y-2">
+                  {chatMessages.length === 0 && !chatBusy && (
+                    <p className="text-[10px] text-muted-foreground/60 leading-relaxed py-2">
+                      Describe que cambiar. Si marcas escenas, solo esas se actualizan. Si no, se actualizan todas.
+                    </p>
+                  )}
+                  {chatMessages.map((msg, i) => (
+                    <div key={i} className={cn('rounded-lg px-2.5 py-1.5 text-[11px] leading-relaxed',
+                      msg.role === 'user' ? 'bg-primary/10 text-foreground ml-4' : 'bg-card border border-border text-muted-foreground mr-2')}>
+                      {msg.text}
+                    </div>
+                  ))}
                   {chatBusy && (
-                    <div className="mt-4">
+                    <div className="py-1">
                       <StreamingWave label="Actualizando" />
                     </div>
                   )}
                 </div>
+
+                {/* Input */}
                 <div className="px-3 py-3 border-t border-border">
                   <div className={cn('rounded-xl border transition-all duration-150',
-                    chatFocused ? 'border-primary/60 shadow-[0_0_0_2px_rgba(20,184,166,0.08)]' : 'border-border',
-                    selCount === 0 && 'opacity-40')}>
+                    chatFocused ? 'border-primary/60 shadow-[0_0_0_2px_rgba(20,184,166,0.08)]' : 'border-border')}>
                     <textarea value={chatInput} onChange={e => setChatInput(e.target.value)}
                       onFocus={() => setChatFocused(true)} onBlur={() => setChatFocused(false)}
                       onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); chatSend(); } }}
-                      placeholder={selCount > 0 ? 'Que cambiarias...' : 'Selecciona escenas'} rows={2} disabled={selCount === 0}
-                      className="w-full resize-none bg-transparent px-3 pt-2.5 pb-1 text-xs text-foreground outline-none placeholder:text-muted-foreground/40 disabled:cursor-not-allowed" />
+                      placeholder="Que cambiarias..." rows={2}
+                      className="w-full resize-none bg-transparent px-3 pt-2.5 pb-1 text-xs text-foreground outline-none placeholder:text-muted-foreground/40" />
                     <div className="flex items-center justify-end px-2 pb-2">
-                      <button type="button" onClick={chatSend} disabled={!chatInput.trim() || selCount === 0 || chatBusy}
+                      <button type="button" onClick={chatSend} disabled={!chatInput.trim() || chatBusy}
                         className={cn('flex size-7 items-center justify-center rounded-lg transition-colors',
-                          chatInput.trim() && selCount > 0 ? 'bg-primary text-white hover:bg-primary/90' : 'text-muted-foreground/30')}>
+                          chatInput.trim() ? 'bg-primary text-white hover:bg-primary/90' : 'text-muted-foreground/30')}>
                         {chatBusy ? <Loader2 className="size-3 animate-spin" /> : <Send className="size-3" />}
                       </button>
                     </div>
