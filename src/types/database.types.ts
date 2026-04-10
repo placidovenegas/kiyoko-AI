@@ -2499,6 +2499,8 @@ export type Database = {
       videos: {
         Row: {
           aspect_ratio: string | null
+          audio_analysis: Json | null
+          audio_file_url: string | null
           created_at: string | null
           description: string | null
           id: string
@@ -2523,6 +2525,8 @@ export type Database = {
         }
         Insert: {
           aspect_ratio?: string | null
+          audio_analysis?: Json | null
+          audio_file_url?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
@@ -2547,6 +2551,8 @@ export type Database = {
         }
         Update: {
           aspect_ratio?: string | null
+          audio_analysis?: Json | null
+          audio_file_url?: string | null
           created_at?: string | null
           description?: string | null
           id?: string

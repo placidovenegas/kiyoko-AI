@@ -797,6 +797,53 @@ La tabla `prompt_templates` ya existe. Mejorar:
 - 1 vista de dashboard
 - 1 componente shared
 
+## 16. VIDEOCLIPS DESDE AUDIO — Generacion de escenas desde cancion
+
+### Contexto
+El usuario sube un MP3/WAV y la IA genera las escenas del videoclip alineadas con la musica.
+
+### Flujo
+1. En el modal de crear video, opcion "Subir cancion" en el paso de escenas
+2. Se sube el audio a Supabase Storage
+3. La IA (Gemini multimodal) analiza el audio y detecta:
+   - BPM / tempo
+   - Secciones: intro, estrofa, estribillo, puente, outro
+   - Timestamps de cada seccion
+   - Mood/energia por seccion
+   - Letra (si hay) con timestamps
+4. Genera escenas alineadas con la estructura musical:
+   - Intro → hook scene (5s)
+   - Estrofa → build scenes (duración de la estrofa)
+   - Estribillo → peak scene (energía máxima, cámara dinámica)
+   - Puente → build scene (transición)
+   - Outro → close scene
+5. Las duraciones coinciden con los timestamps del audio
+6. El usuario puede editar/regenerar como siempre
+
+### BD
+- `videos.audio_file_url` (TEXT) — URL del archivo subido ✅ (migrado)
+- `videos.audio_analysis` (JSONB) — resultado del análisis ✅ (migrado)
+
+### API
+- [ ] Crear `/api/ai/analyze-audio/route.ts`:
+  - Recibe: `{ videoId, audioUrl }`
+  - Usa Gemini multimodal para analizar el audio
+  - Devuelve: `{ bpm, sections: [{ type, start, end, mood, lyrics }] }`
+  - Guarda en `videos.audio_analysis`
+
+### UI
+- [ ] En VideoCreateModal paso 2: botón "Subir cancion" junto a "Generar escenas"
+- [ ] Upload component con drag & drop (acepta MP3, WAV, max 50MB)
+- [ ] Preview del audio con play/pause
+- [ ] Al subir: analizar → generar escenas alineadas
+- [ ] Mostrar secciones del audio junto a las escenas generadas
+- [ ] Las escenas muestran la sección musical correspondiente (estribillo, estrofa, etc.)
+
+### Prioridad
+Media-alta — es una feature diferenciadora que ninguna herramienta tiene.
+
+---
+
 ### Por limpieza de legacy (3-4 archivos)
 - `src/components/layout/Sidebar.tsx` (deprecated)
 - `src/components/modals/scene/SceneCreateModal.tsx` (reemplazado por SceneWorkModal)

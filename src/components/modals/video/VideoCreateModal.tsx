@@ -173,18 +173,11 @@ export function VideoCreateModal({ open, onOpenChange, projectId, projectShortId
         <div className="flex-1 flex flex-col min-w-0">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-border px-6 py-3 shrink-0">
-            <div className="flex items-center gap-3">
-              {step === 2 && (
-                <button type="button" onClick={() => setStep(1)} className="flex size-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
-                  <ChevronLeft className="size-4" />
-                </button>
-              )}
-              <div>
-                <p className="text-sm font-semibold text-foreground">{step === 1 ? 'Nuevo video' : 'Escenas del video'}</p>
-                <p className="text-[10px] text-muted-foreground">
-                  {step === 1 ? 'Define los detalles del video' : `${form.title} · ${PLATFORMS.find(p => p.value === form.platform)?.label} · ${form.target_duration_seconds}s`}
-                </p>
-              </div>
+            <div>
+              <p className="text-sm font-semibold text-foreground">{step === 1 ? 'Nuevo video' : 'Escenas del video'}</p>
+              <p className="text-[10px] text-muted-foreground">
+                {step === 1 ? 'Define los detalles del video' : `${form.title} · ${PLATFORMS.find(p => p.value === form.platform)?.label} · ${form.target_duration_seconds}s`}
+              </p>
             </div>
             <button type="button" onClick={close} className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"><X className="size-4" /></button>
           </div>
@@ -407,9 +400,16 @@ export function VideoCreateModal({ open, onOpenChange, projectId, projectShortId
 
           {/* Footer */}
           <div className="flex items-center justify-between border-t border-border px-6 py-3 shrink-0">
-            <div className="text-[10px] text-muted-foreground">
-              {step === 1 && ok && <span>Paso 1 de 2</span>}
-              {step === 2 && <span>Paso 2 de 2 · {scenes.length > 0 ? `${scenes.length} escenas · ${totDur}s` : 'Sin escenas aun'}</span>}
+            <div className="flex items-center gap-3">
+              {step === 2 && (
+                <button type="button" onClick={() => setStep(1)}
+                  className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+                  <ChevronLeft className="size-3" /> Atras
+                </button>
+              )}
+              <span className="text-[10px] text-muted-foreground">
+                {step === 1 ? (ok ? 'Paso 1 de 2' : '') : `Paso 2 de 2${scenes.length > 0 ? ` · ${scenes.length} escenas · ${totDur}s` : ''}`}
+              </span>
             </div>
             <div className="flex items-center gap-2">
               {step === 1 && (
