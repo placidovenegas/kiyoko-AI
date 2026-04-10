@@ -25,10 +25,51 @@ import { StreamingWave } from '@/components/chat/StreamingWave';
 /* ── Types ────────────────────────────────────────────────── */
 
 interface Suggestion { title: string; desc: string; platform: string; dur: number }
-interface GenScene { title: string; description: string; arc_phase: string; duration_seconds: number; camera_angle?: string; camera_movement?: string; selected?: boolean }
+interface GenScene { title: string; description: string; arc_phase: string; duration_seconds: number; camera_angle?: string; camera_movement?: string; selected?: boolean; timeline?: string; expanded?: boolean }
 
 const VALID_DURS = [3, 4, 5, 6, 8, 10];
 function snap(d: number) { return VALID_DURS.reduce((p, c) => Math.abs(c - d) < Math.abs(p - d) ? c : p); }
+
+function genTimeline(title: string, desc: string, dur: number, cam: string, move: string, phase: string): string {
+  const blocks: string[] = [];
+  let t = 0;
+  const blockSize = Math.max(2, Math.min(3, Math.floor(dur / 3)));
+
+  const camLabels: Record<string, string> = { wide: 'Plano general', medium: 'Plano medio', close_up: 'Primer plano', extreme_close_up: 'Primerísimo plano' };
+  const moveLabels: Record<string, string> = { static: 'Camara estatica', dolly_in: 'Camara avanza lentamente', dolly_out: 'Camara retrocede', tracking: 'Camara sigue al sujeto', orbit: 'Camara gira alrededor', crane: 'Camara asciende con grua' };
+  const camL = camLabels[cam] ?? 'Plano medio';
+  const moveL = moveLabels[move] ?? 'Camara estatica';
+
+  if (phase === 'hook') {
+    blocks.push(`[00:00-00:0${Math.min(blockSize, dur)}]: ${camL}. ${title} — ${desc}. ${moveL} estableciendo la escena.`);
+    t = blockSize;
+    if (t < dur) { blocks.push(`[00:0${t}-00:0${Math.min(t + blockSize, dur)}]: La accion se intensifica. Elementos visuales clave aparecen para captar atencion inmediata.`); t += blockSize; }
+    if (t < dur) { blocks.push(`[00:0${t}-00:${String(dur).padStart(2, '0')}]: Transicion al siguiente momento. ${moveL} se detiene en el punto focal.`); }
+  } else if (phase === 'peak') {
+    blocks.push(`[00:00-00:0${Math.min(blockSize, dur)}]: ${camL}. Momento de maxima intensidad. ${moveL} con energia.`);
+    t = blockSize;
+    if (t < dur) { blocks.push(`[00:0${t}-00:0${Math.min(t + blockSize, dur)}]: ${desc}. La accion alcanza su punto mas alto. Expresiones intensas, movimiento dinamico.`); t += blockSize; }
+    if (t < dur) { blocks.push(`[00:0${t}-00:${String(dur).padStart(2, '0')}]: Climax visual. ${moveL}. Todo converge en un instante de impacto maximo.`); }
+  } else if (phase === 'close') {
+    blocks.push(`[00:00-00:0${Math.min(blockSize, dur)}]: ${camL}. ${desc}. El ritmo se calma.`);
+    t = blockSize;
+    if (t < dur) { blocks.push(`[00:0${t}-00:0${Math.min(t + blockSize, dur)}]: ${moveL} retrocediendo. La escena se resuelve con serenidad.`); t += blockSize; }
+    if (t < dur) { blocks.push(`[00:0${t}-00:${String(dur).padStart(2, '0')}]: Cierre. Ultimo momento visual antes de la transicion. Fade suave.`); }
+  } else {
+    blocks.push(`[00:00-00:0${Math.min(blockSize, dur)}]: ${camL}. ${title} — ${desc}. ${moveL} acompanando la narracion.`);
+    t = blockSize;
+    if (t < dur) { blocks.push(`[00:0${t}-00:0${Math.min(t + blockSize, dur)}]: La escena se desarrolla. Detalles visuales que enriquecen la narrativa. ${moveL}.`); t += blockSize; }
+    if (t < dur) { blocks.push(`[00:0${t}-00:${String(dur).padStart(2, '0')}]: Preparacion para la siguiente escena. El movimiento se suaviza hacia la transicion.`); }
+  }
+  return blocks.join('\n');
+}
+
+function addTimelines(scenes: GenScene[]): GenScene[] {
+  return scenes.map(s => ({
+    ...s,
+    timeline: s.timeline ?? genTimeline(s.title, s.description, s.duration_seconds, s.camera_angle ?? 'medium', s.camera_movement ?? 'static', s.arc_phase),
+  }));
+}
 
 function makeSugs(name: string): Suggestion[] {
   return [
@@ -93,9 +134,9 @@ export function VideoCreateModal({ open, onOpenChange, projectId, projectShortId
     setGenerating(true); toast.ai('Generando escenas...', { id: 'gs' });
     try {
       const r = await fetch('/api/ai/generate-scenes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId, instruction: `Escenas para "${form.title}" ${form.target_duration_seconds}s ${form.platform} estilo ${projStyle}. ${form.description ?? ''}` }) });
-      if (r.ok) { const j = await r.json(); if (j.success && j.data) { setScenes([{ ...j.data, duration_seconds: snap(j.data.duration_seconds ?? 5) }]); toast.success('Generada', { id: 'gs' }); setGenerating(false); return; } }
+      if (r.ok) { const j = await r.json(); if (j.success && j.data) { setScenes(addTimelines([{ ...j.data, duration_seconds: snap(j.data.duration_seconds ?? 5) }])); toast.success('Generada', { id: 'gs' }); setGenerating(false); return; } }
     } catch {}
-    setScenes(mockScenes(form.target_duration_seconds, form.description, projTitle));
+    setScenes(addTimelines(mockScenes(form.target_duration_seconds, form.description, projTitle)));
     toast.success('Escenas generadas', { id: 'gs' }); setGenerating(false);
   }
 
@@ -174,7 +215,7 @@ export function VideoCreateModal({ open, onOpenChange, projectId, projectShortId
       if (uploadError) {
         // Storage might not be configured — use mock analysis
         const mockSections = generateAudioScenes(audioDur);
-        setScenes(mockSections);
+        setScenes(addTimelines(mockSections));
         setAudioSections(mockSections.map(s => ({ type: s.arc_phase, durationSeconds: s.duration_seconds, mood: s.description, energy: 'medium', suggestedSceneType: s.arc_phase })));
         toast.success(`Cancion analizada — ${mockSections.length} escenas generadas`, { id: 'audio-analyze' });
         setAnalyzingAudio(false);
@@ -302,14 +343,24 @@ export function VideoCreateModal({ open, onOpenChange, projectId, projectShortId
                   </div>
 
                   <div className="space-y-2">
-                    <p className="text-[11px] font-medium text-muted-foreground">Duracion</p>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] font-medium text-muted-foreground">Duracion</p>
+                      {audioFile && <span className="text-[10px] text-primary font-medium">Cancion: {form.target_duration_seconds}s</span>}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5">
                       {DURATIONS.map(d => (
                         <button key={d.value} type="button" onClick={() => upd('target_duration_seconds', d.value)}
                           className={cn('rounded-lg border px-3.5 py-1.5 text-xs font-medium transition-all', form.target_duration_seconds === d.value ? 'border-primary/40 bg-primary/5 text-primary' : 'border-border text-muted-foreground hover:border-primary/20')}>
                           {d.label}
                         </button>
                       ))}
+                      <TextField variant="secondary"
+                        value={!DURATIONS.some(d => d.value === form.target_duration_seconds) ? String(form.target_duration_seconds) : ''}
+                        onChange={v => { const n = parseInt(v, 10); if (n > 0) upd('target_duration_seconds', n); }}
+                        className="w-20">
+                        <Label className="sr-only">Duracion custom</Label>
+                        <Input type="number" placeholder="Otra" className="text-center" />
+                      </TextField>
                     </div>
                   </div>
 
@@ -433,13 +484,47 @@ export function VideoCreateModal({ open, onOpenChange, projectId, projectShortId
                             <button type="button" onClick={() => regenOne(i)} title="Regenerar"
                               className="text-muted-foreground/30 hover:text-foreground transition-colors shrink-0"><RefreshCw className="size-3" /></button>
                           </div>
+                          {/* Description */}
                           {editIdx === i ? (
-                            <div className="px-3.5 pb-3">
+                            <div className="px-3.5 pb-2">
                               <textarea value={s.description} onChange={e => setScenes(p => p.map((sc, j) => j === i ? { ...sc, description: e.target.value } : sc))}
                                 rows={2} className="w-full text-xs text-muted-foreground bg-background border border-border rounded-lg px-3 py-2 outline-none focus:border-primary/30 resize-none" />
                             </div>
                           ) : (
-                            <p className="px-3.5 pb-2.5 text-[11px] text-muted-foreground/60 line-clamp-1 cursor-pointer hover:text-muted-foreground transition-colors" onClick={() => setEditIdx(i)}>{s.description}</p>
+                            <button type="button" onClick={() => setScenes(p => p.map((sc, j) => j === i ? { ...sc, expanded: !sc.expanded } : sc))}
+                              className="w-full px-3.5 pb-2 text-left">
+                              <p className="text-[11px] text-muted-foreground/60 line-clamp-1 hover:text-muted-foreground transition-colors">{s.description}</p>
+                            </button>
+                          )}
+
+                          {/* Expandable timeline */}
+                          {s.expanded && !editIdx && s.timeline && (
+                            <div className="mx-3.5 mb-3 rounded-lg border border-border/50 bg-background/50 px-3 py-2.5 space-y-1.5">
+                              <div className="flex items-center justify-between">
+                                <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                                  <Clock className="size-2.5" /> Timeline
+                                </p>
+                                <button type="button" onClick={() => setEditIdx(i)} className="text-[9px] text-primary hover:underline">Editar</button>
+                              </div>
+                              {s.timeline.split('\n').map((line, li) => {
+                                const match = line.match(/^\[(\d{2}:\d{2})-(\d{2}:\d{2})\]:\s*(.*)/);
+                                if (!match) return <p key={li} className="text-[10px] text-muted-foreground">{line}</p>;
+                                return (
+                                  <div key={li} className="flex gap-2">
+                                    <span className="text-[9px] font-mono text-primary/60 shrink-0 w-16 pt-0.5">{match[1]}-{match[2]}</span>
+                                    <p className="text-[10px] text-muted-foreground leading-relaxed">{match[3]}</p>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {/* Click to expand hint */}
+                          {!s.expanded && s.timeline && !editIdx && (
+                            <button type="button" onClick={() => setScenes(p => p.map((sc, j) => j === i ? { ...sc, expanded: true } : sc))}
+                              className="w-full px-3.5 pb-2 flex items-center gap-1 text-[9px] text-muted-foreground/40 hover:text-muted-foreground transition-colors">
+                              <ChevronRight className="size-2.5" /> Ver timeline
+                            </button>
                           )}
                         </div>
                       ))}
