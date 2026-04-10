@@ -35,14 +35,22 @@ function fmt(s: number): string { return String(Math.min(s, 59)).padStart(2, '0'
 function genTimeline(title: string, desc: string, dur: number, cam: string, move: string, phase: string, chars: string[] = []): string {
   const blocks: string[] = [];
   const bs = Math.max(2, Math.min(3, Math.floor(dur / 3)));
+  const isExtension = title.toLowerCase().includes('continuacion');
+  const main = chars[0] ?? 'el protagonista';
+  const secondary = chars.length > 1 ? chars.slice(1) : [];
+
+  // Extension clips (6s) — simplified 2-block timeline
+  if (isExtension) {
+    const half = Math.ceil(dur / 2);
+    blocks.push(`[00:00-00:${fmt(half)}]: Continuacion directa del clip anterior. ${main} continua la accion.${secondary.length > 0 ? ` ${secondary[0]} reacciona.` : ''} La camara sigue el mismo movimiento.`);
+    blocks.push(`[00:${fmt(half)}-00:${fmt(dur)}]: ${main} ${secondary.length > 0 ? `y ${secondary[0]} interactuan` : 'completa la accion'}. FREEZE en el momento clave.`);
+    return blocks.join('\n');
+  }
   const camL: Record<string, string> = { wide: 'Plano general', medium: 'Plano medio', close_up: 'Primer plano', extreme_close_up: 'Primerisimo plano' };
   const movL: Record<string, string> = { static: 'Camara estatica', dolly_in: 'Camara avanza lentamente', dolly_out: 'Camara retrocede', tracking: 'Camara sigue al sujeto', orbit: 'Camara gira alrededor', crane: 'Camara asciende con grua' };
   const c = camL[cam] ?? 'Plano medio';
   const m = movL[move] ?? 'Camara estatica';
 
-  // Build character actions based on who's in the scene
-  const main = chars[0] ?? 'el protagonista';
-  const secondary = chars.length > 1 ? chars.slice(1) : [];
   const secText = secondary.length > 0 ? `. ${secondary.join(' y ')} ${secondary.length > 1 ? 'aparecen' : 'aparece'} en segundo plano` : '';
 
   let t = 0;
@@ -50,22 +58,22 @@ function genTimeline(title: string, desc: string, dur: number, cam: string, move
     blocks.push(`[00:${fmt(t)}-00:${fmt(t + bs)}]: ${c}. ${main} entra en escena${secText}. ${m} estableciendo el escenario. ${desc}.`);
     t += bs;
     if (t < dur) { blocks.push(`[00:${fmt(t)}-00:${fmt(Math.min(t + bs, dur))}]: ${main} mira directamente a camara con expresion intensa. Elementos visuales dinamicos captan la atencion del espectador.`); t += bs; }
-    if (t < dur) { blocks.push(`[00:${fmt(t)}-00:${fmt(dur)}]: ${m} se detiene en ${main}. Transicion suave al siguiente momento.`); }
+    if (t < dur) { blocks.push(`[00:${fmt(t)}-00:${fmt(dur)}]: ${m} se detiene en ${main}. FREEZE. Transicion al siguiente clip.`); }
   } else if (phase === 'peak') {
     blocks.push(`[00:${fmt(t)}-00:${fmt(t + bs)}]: ${c}. Momento culminante. ${main} en el centro de la accion con expresion intensa${secText}.`);
     t += bs;
     if (t < dur) { blocks.push(`[00:${fmt(t)}-00:${fmt(Math.min(t + bs, dur))}]: ${m} con energia. ${main} ${chars.length > 1 ? `interactua con ${secondary[0]}` : 'realiza la accion principal'}. Maxima intensidad visual y emocional.`); t += bs; }
-    if (t < dur) { blocks.push(`[00:${fmt(t)}-00:${fmt(dur)}]: Climax. ${main} en primer plano, expresion de impacto. Todo converge en este instante.`); }
+    if (t < dur) { blocks.push(`[00:${fmt(t)}-00:${fmt(dur)}]: Climax. ${main} en primer plano, expresion de impacto. FREEZE.`); }
   } else if (phase === 'close') {
     blocks.push(`[00:${fmt(t)}-00:${fmt(t + bs)}]: ${c}. ${main} en calma${secText}. ${desc}. El ritmo se ralentiza.`);
     t += bs;
     if (t < dur) { blocks.push(`[00:${fmt(t)}-00:${fmt(Math.min(t + bs, dur))}]: ${m} retrocediendo. ${main} ${secondary.length > 0 ? `y ${secondary.join(', ')} comparten un ultimo momento` : 'cierra la escena con serenidad'}.`); t += bs; }
-    if (t < dur) { blocks.push(`[00:${fmt(t)}-00:${fmt(dur)}]: Ultimo plano de ${main}. Fade suave hacia negro.`); }
+    if (t < dur) { blocks.push(`[00:${fmt(t)}-00:${fmt(dur)}]: Ultimo plano de ${main}. FREEZE. Fade suave hacia negro.`); }
   } else {
     blocks.push(`[00:${fmt(t)}-00:${fmt(t + bs)}]: ${c}. ${main} protagoniza la escena${secText}. ${desc}. ${m}.`);
     t += bs;
     if (t < dur) { blocks.push(`[00:${fmt(t)}-00:${fmt(Math.min(t + bs, dur))}]: ${main} ${secondary.length > 0 ? `junto a ${secondary[0]}` : 'desarrolla la accion'}. Detalles visuales que enriquecen la narrativa. ${m}.`); t += bs; }
-    if (t < dur) { blocks.push(`[00:${fmt(t)}-00:${fmt(dur)}]: ${main} prepara la transicion. El movimiento se suaviza hacia la siguiente escena.`); }
+    if (t < dur) { blocks.push(`[00:${fmt(t)}-00:${fmt(dur)}]: ${main} prepara la transicion. FREEZE. Corte al siguiente clip.`); }
   }
   return blocks.join('\n');
 }
@@ -89,15 +97,54 @@ function makeSugs(name: string): Suggestion[] {
 }
 
 function mockScenes(dur: number, desc: string, proj: string): GenScene[] {
-  const ph = ['hook', 'build', 'build', 'peak', 'close'];
-  const ti = ['Apertura', 'Presentacion', 'Desarrollo', 'Climax', 'Cierre y CTA'];
-  const ds = [`Toma impactante.${proj ? ` ${proj}.` : ''}`, 'Escenario y elementos.', desc || 'Contenido central.', 'Momento de mayor impacto.', 'Mensaje final y CTA.'];
-  const n = dur <= 15 ? 3 : dur <= 30 ? 4 : dur <= 60 ? 5 : 6;
-  let rem = dur;
-  return Array.from({ length: n }, (_, i) => {
-    const sd = snap(i === n - 1 ? rem : Math.floor(dur / n)); rem -= sd;
-    return { title: ti[Math.min(i, 4)], description: ds[Math.min(i, 4)], arc_phase: ph[Math.min(i, 4)], duration_seconds: sd, camera_angle: i === 0 ? 'wide' : 'medium', camera_movement: i === 0 ? 'dolly_in' : 'tracking' };
-  });
+  // Follow Grok production rules: clips (10s) + extensions (6s)
+  // Pattern: clip → extension → clip → extension → ...
+  const scenes: GenScene[] = [];
+  const phases = ['hook', 'build', 'build', 'peak', 'close'];
+  const titles = ['Apertura — plano general', 'Presentacion', 'Desarrollo', 'Climax — momento clave', 'Cierre y CTA'];
+  const descs = [
+    `Toma impactante estableciendo el escenario.${proj ? ` ${proj}.` : ''}`,
+    `Se presentan los elementos principales. ${desc || 'Contexto visual.'}`,
+    desc || 'Contenido central del video. Accion principal.',
+    'Momento de mayor impacto visual y emocional.',
+    'Cierre con mensaje final y llamada a la accion.',
+  ];
+
+  // Calculate how many clip+extension pairs we need
+  const pairDur = 16; // 10s clip + 6s extension
+  const pairs = Math.max(2, Math.ceil(dur / pairDur));
+  let t = 0;
+
+  for (let i = 0; i < pairs && t < dur; i++) {
+    const pi = Math.min(i, phases.length - 1);
+    const isLast = i === pairs - 1;
+
+    // Clip principal (10s)
+    const clipDur = isLast ? Math.min(10, dur - t) : 10;
+    if (clipDur > 0) {
+      scenes.push({
+        title: titles[pi], description: descs[pi], arc_phase: phases[pi],
+        duration_seconds: snap(clipDur),
+        camera_angle: i === 0 ? 'wide' : pi >= 3 ? 'close_up' : 'medium',
+        camera_movement: i === 0 ? 'dolly_in' : pi >= 3 ? 'orbit' : 'tracking',
+      });
+      t += clipDur;
+    }
+
+    // Extension (6s) — solo si hay tiempo y no es el ultimo
+    if (t < dur && !isLast) {
+      const extDur = Math.min(6, dur - t);
+      scenes.push({
+        title: `${titles[pi]} — continuacion`, description: `Continuacion directa. La camara sigue el movimiento anterior.`,
+        arc_phase: phases[pi], duration_seconds: snap(extDur),
+        camera_angle: scenes[scenes.length - 1]?.camera_angle ?? 'medium',
+        camera_movement: 'tracking',
+      });
+      t += extDur;
+    }
+  }
+
+  return scenes;
 }
 
 /* ── Component ────────────────────────────────────────────── */

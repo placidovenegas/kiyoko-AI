@@ -114,10 +114,74 @@ Si se proporcionan prompts de escenas adyacentes:
 TIPOS DE ESCENA
 ═══════════════════════════════════════════════════
 
-- original: Escena del brief original
-- improved: Original mejorada con adiciones
+- original: Escena del brief original (clip principal, 10s)
+- extension: Continuacion del clip anterior (6s, [CONTINUING FROM PREVIOUS CLIP])
+- insert: Plano detalle intercalado (3-6s, imagen propia)
+- improved: Original mejorada
 - new: Nueva sugerida para fortalecer narrativa
-- filler: Transición/título
-- video: Específica para vídeo
+
+═══════════════════════════════════════════════════
+REGLAS DE PRODUCCION — Clips y Extensiones
+═══════════════════════════════════════════════════
+
+Los videos se componen de CLIPS PRINCIPALES (10s) y EXTENSIONES (6s):
+
+CLIP PRINCIPAL (10s):
+- Requiere imagen base nueva
+- Se usa cuando: nueva escena, cambio de plano, cambio de ubicacion
+- Template: [STYLE] + [DURATION]: 10 seconds + [CAMERA] con 3 fases + [TIMELINE] con 3 bloques
+- Terminar siempre con FREEZE en el ultimo bloque
+
+EXTENSION (6s):
+- Empieza con [CONTINUING FROM PREVIOUS CLIP]
+- Usa el ultimo frame del clip anterior (no imagen nueva)
+- Se usa cuando: la camara continua, la accion es directa
+- Template: [CONTINUING FROM PREVIOUS CLIP] + [DURATION]: 6 seconds + [TIMELINE] con 2 bloques
+- Maximo 1 extension por clip principal. NUNCA dos extensiones seguidas.
+
+Para 60 segundos: 4-6 clips principales + 4-6 extensiones = 60-72s
+Patron: clip(10s) → extension(6s) → clip(10s) → extension(6s) → ...
+
+═══════════════════════════════════════════════════
+BLOQUE DE CONSISTENCIA — Obligatorio en cada prompt
+═══════════════════════════════════════════════════
+
+Incluir SIEMPRE en prompts con personajes:
+[CONSISTENCY - CRITICAL]:
+- Exact same characters from reference images.
+- [Nombre]: [prompt_snippet del personaje — usar SIEMPRE el snippet exacto]
+- Mantener cara, proporciones, ropa, iluminacion, sombras entre clips.
+- No face drift. No body morphing. No cambios de ropa. No cambios de proporciones.
+
+═══════════════════════════════════════════════════
+TEMPLATE COMPLETO — Clip principal (10s)
+═══════════════════════════════════════════════════
+
+[STYLE]: {estilo}, 8K, cinematic 16:9, 24fps, highly detailed.
+[DURATION]: 10 seconds.
+[CAMERA]: {plano1} (0:00-0:03) → {movimiento} (0:03-0:07) → {plano2} (0:07-0:10).
+[REFERENCES]: @[IMAGEN_PERSONAJE1] + @[IMAGEN_FONDO]
+[CONSISTENCY - CRITICAL]: {bloque con prompt_snippets}
+[TIMELINE]:
+[00:00-0:03]: {personaje hace X en Y lugar}. {expresion facial}.
+[00:03-0:07]: {accion principal}. {interaccion entre personajes}.
+[00:07-0:10]: {resolucion de la accion + FREEZE}.
+[AUDIO]: {ambiente/dialogo/sfx}. NO music.
+[NEGATIVE]: No face drift, no sudden position changes, no abrupt camera cuts, no text on screen.
+
+═══════════════════════════════════════════════════
+TEMPLATE COMPLETO — Extension (6s)
+═══════════════════════════════════════════════════
+
+[CONTINUING FROM PREVIOUS CLIP]
+[STYLE]: {mismo estilo}, 8K, cinematic 16:9, 24fps.
+[DURATION]: 6 seconds.
+[CAMERA]: Direct continuation of the previous camera movement.
+[REFERENCES]: Same as previous clip.
+[CONSISTENCY - CRITICAL]: Same as previous clip.
+[TIMELINE]:
+[00:00-0:03]: Direct continuation. {personaje continua la accion}.
+[00:03-0:06]: {nueva micro-accion + FREEZE}.
+[AUDIO]: Continuacion natural del audio anterior.
 
 IMPORTANTE: Responder SIEMPRE en JSON con la estructura solicitada.`;
