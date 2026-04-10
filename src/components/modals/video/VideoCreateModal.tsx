@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { TextField, Input, TextArea, Label } from '@heroui/react';
 import {
-  Film, Sparkles, X, Loader2, Monitor, Smartphone, Clock, Camera, ChevronRight,
-  ChevronDown, RefreshCw, Check, Lightbulb,
+  Film, Sparkles, X, Loader2, Monitor, Smartphone, Clock, Camera,
+  ChevronRight, ChevronDown, RefreshCw, Check, Send,
 } from 'lucide-react';
 import { toast } from '@/components/ui/toast';
 import type { ModalProps } from '../shared/types';
@@ -22,498 +22,340 @@ import type { Database } from '@/types/database.types';
 
 /* ── Types ────────────────────────────────────────────────── */
 
-interface VideoSuggestion {
-  title: string;
-  description: string;
-  platform: string;
-  duration: number;
+interface Suggestion { title: string; desc: string; platform: string; dur: number }
+interface GenScene { title: string; description: string; arc_phase: string; duration_seconds: number; camera_angle?: string; camera_movement?: string; selected?: boolean }
+
+const VALID_DURS = [3, 4, 5, 6, 8, 10];
+function snap(d: number) { return VALID_DURS.reduce((p, c) => Math.abs(c - d) < Math.abs(p - d) ? c : p); }
+
+function makeSuggestions(name: string): Suggestion[] {
+  return [
+    { title: `Presentacion de ${name}`, desc: 'Promocional con servicios y equipo', platform: 'youtube', dur: 60 },
+    { title: 'Reel Antes/Despues', desc: 'Transformaciones rapidas para redes', platform: 'instagram_reels', dur: 30 },
+    { title: 'Spot publicitario', desc: 'Anuncio corto con gancho y CTA', platform: 'tv_commercial', dur: 15 },
+    { title: 'Detras de camaras', desc: 'Equipo en accion, momentos reales', platform: 'tiktok', dur: 30 },
+    { title: 'Testimonio cliente', desc: 'Experiencia emocional de un cliente', platform: 'youtube', dur: 60 },
+    { title: 'Tutorial / How-to', desc: 'Paso a paso educativo', platform: 'youtube', dur: 180 },
+  ].sort(() => Math.random() - 0.5);
 }
 
-interface GeneratedScene {
-  title: string;
-  description: string;
-  arc_phase: string;
-  duration_seconds: number;
-  camera_angle?: string;
-  camera_movement?: string;
-}
-
-/* ── Suggestion templates ────────────────────────────────── */
-
-function generateSuggestions(projectTitle: string, projectStyle: string, charCount: number, bgCount: number, projectDesc: string): VideoSuggestion[] {
-  const base = projectTitle || 'el proyecto';
-  const all: VideoSuggestion[] = [
-    { title: `Presentacion de ${base}`, description: `Video promocional mostrando los servicios y el equipo de ${base}. Ideal para redes y web.`, platform: 'youtube', duration: 60 },
-    { title: `Reel — Antes y Despues`, description: `Transformaciones rapidas con transiciones dinamicas. Perfecto para Instagram y TikTok.`, platform: 'instagram_reels', duration: 30 },
-    { title: `Spot publicitario ${base}`, description: `Anuncio corto y directo con gancho visual, mensaje clave y CTA final.`, platform: 'tv_commercial', duration: 15 },
-    { title: `Detras de camaras`, description: `Muestra el proceso de trabajo, el equipo en accion y momentos reales del dia a dia.`, platform: 'tiktok', duration: 30 },
-    { title: `Testimonio de cliente`, description: `Video emocional con la experiencia de un cliente, su historia y el resultado final.`, platform: 'youtube', duration: 60 },
-    { title: `Tutorial / How-to`, description: `Paso a paso educativo mostrando un proceso o tecnica. Contenido de valor.`, platform: 'youtube', duration: 180 },
-    { title: `Showreel del portfolio`, description: `Compilacion de los mejores trabajos con transiciones rapidas y musica energica.`, platform: 'instagram_reels', duration: 30 },
-    { title: `Lanzamiento de producto`, description: `Revelar un nuevo producto o servicio con suspense, detalle y CTA.`, platform: 'youtube', duration: 60 },
+function mockScenes(dur: number, desc: string, proj: string): GenScene[] {
+  const ph = ['hook', 'build', 'build', 'peak', 'close'];
+  const ti = ['Apertura', 'Presentacion', 'Desarrollo', 'Climax', 'Cierre y CTA'];
+  const ds = [
+    `Toma impactante que capta atencion.${proj ? ` ${proj}.` : ''}`,
+    'Se presenta el escenario y elementos principales.',
+    desc || 'Contenido central del video.',
+    'Momento de mayor impacto visual.',
+    'Cierre con mensaje final y CTA.',
   ];
-  // Shuffle and return
-  return all.sort(() => Math.random() - 0.5);
+  const n = dur <= 15 ? 3 : dur <= 30 ? 4 : dur <= 60 ? 5 : 6;
+  let rem = dur;
+  return Array.from({ length: n }, (_, i) => {
+    const raw = i === n - 1 ? rem : Math.floor(dur / n);
+    const sd = snap(raw); rem -= sd;
+    const pi = Math.min(i, ph.length - 1);
+    return { title: ti[pi], description: ds[pi], arc_phase: ph[pi], duration_seconds: sd, camera_angle: i === 0 ? 'wide' : 'medium', camera_movement: i === 0 ? 'dolly_in' : 'tracking' };
+  });
 }
-
-/* ── Nav ──────────────────────────────────────────────────── */
-
-const NAV = [
-  { id: 'suggestions', label: 'Sugerencias', icon: Lightbulb },
-  { id: 'details', label: 'Video', icon: Film },
-  { id: 'scenes', label: 'Escenas', icon: Sparkles },
-] as const;
-
-type Step = (typeof NAV)[number]['id'];
 
 /* ── Component ────────────────────────────────────────────── */
 
 export function VideoCreateModal({ open, onOpenChange, projectId, projectShortId, onSuccess }: ModalProps) {
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const mutation = useCreateVideo(projectId);
+  const qc = useQueryClient();
+  const mut = useCreateVideo(projectId);
 
-  let projectTitle = ''; let projectStyle = 'pixar'; let projectDesc = '';
-  let charCount = 0; let bgCount = 0;
-  try {
-    const ctx = useProject();
-    projectTitle = ctx.project?.title ?? '';
-    projectStyle = ctx.project?.style ?? 'pixar';
-    projectDesc = ctx.project?.description ?? '';
-    charCount = ctx.characters?.length ?? 0;
-    bgCount = ctx.backgrounds?.length ?? 0;
-  } catch { /* not in project context */ }
+  let projTitle = ''; let projStyle = 'pixar'; let projDesc = ''; let chars = 0; let bgs = 0;
+  try { const c = useProject(); projTitle = c.project?.title ?? ''; projStyle = c.project?.style ?? 'pixar'; projDesc = c.project?.description ?? ''; chars = c.characters?.length ?? 0; bgs = c.backgrounds?.length ?? 0; } catch {}
 
-  const [step, setStep] = useState<Step>('suggestions');
+  const [step, setStep] = useState<'video' | 'scenes'>('video');
   const [form, setForm] = useState<VideoFormData>({ ...DEFAULT_VIDEO });
+  const [sugs] = useState<Suggestion[]>(() => makeSuggestions(projTitle).slice(0, 3));
+  const [showMoreSugs, setShowMoreSugs] = useState(false);
 
-  // Suggestions
-  const [suggestions, setSuggestions] = useState<VideoSuggestion[]>(() =>
-    generateSuggestions(projectTitle, projectStyle, charCount, bgCount, projectDesc).slice(0, 3)
-  );
-  const [showMoreCount, setShowMoreCount] = useState(3);
-
-  // Scenes
-  const [aiInstruction, setAiInstruction] = useState('');
   const [generating, setGenerating] = useState(false);
-  const [generatedScenes, setGeneratedScenes] = useState<GeneratedScene[]>([]);
-  const [savingScenes, setSavingScenes] = useState(false);
-  const [editingIdx, setEditingIdx] = useState<number | null>(null);
+  const [scenes, setScenes] = useState<GenScene[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [editIdx, setEditIdx] = useState<number | null>(null);
+  const [chatInput, setChatInput] = useState('');
+  const [chatBusy, setChatBusy] = useState(false);
 
-  const updateField = useCallback(<K extends keyof VideoFormData>(key: K, value: VideoFormData[K]) => {
-    setForm((f) => ({ ...f, [key]: value }));
-  }, []);
+  const upd = useCallback(<K extends keyof VideoFormData>(k: K, v: VideoFormData[K]) => setForm(f => ({ ...f, [k]: v })), []);
 
-  const handlePlatformChange = useCallback((platform: VideoFormData['platform']) => {
-    const p = PLATFORMS.find((pl) => pl.value === platform);
-    setForm((f) => ({ ...f, platform, aspect_ratio: (p?.ratio ?? '16:9') as VideoFormData['aspect_ratio'] }));
-  }, []);
+  function close() { setForm({ ...DEFAULT_VIDEO }); setStep('video'); setScenes([]); setEditIdx(null); setChatInput(''); onOpenChange(false); }
 
-  function handleClose() {
-    setForm({ ...DEFAULT_VIDEO }); setStep('suggestions');
-    setSuggestions(generateSuggestions(projectTitle, projectStyle, charCount, bgCount, projectDesc).slice(0, 3));
-    setShowMoreCount(3); setAiInstruction(''); setGeneratedScenes([]); setEditingIdx(null);
-    onOpenChange(false);
+  function useSug(s: Suggestion) {
+    setForm({ title: s.title, description: s.desc, platform: s.platform as VideoFormData['platform'], target_duration_seconds: s.dur, aspect_ratio: (PLATFORMS.find(p => p.value === s.platform)?.ratio ?? '16:9') as VideoFormData['aspect_ratio'] });
   }
 
-  /* ── Use suggestion → fill form ────────────────────────── */
-  function useSuggestion(s: VideoSuggestion) {
-    setForm({
-      title: s.title,
-      description: s.description,
-      platform: s.platform as VideoFormData['platform'],
-      target_duration_seconds: s.duration,
-      aspect_ratio: (PLATFORMS.find(p => p.value === s.platform)?.ratio ?? '16:9') as VideoFormData['aspect_ratio'],
-    });
-    setStep('details');
-  }
-
-  /* ── Show more suggestions ─────────────────────────────── */
-  function showMore() {
-    const all = generateSuggestions(projectTitle, projectStyle, charCount, bgCount, projectDesc);
-    const next = showMoreCount + 2;
-    setSuggestions(all.slice(0, next));
-    setShowMoreCount(next);
-  }
-
-  /* ── Generate scenes ───────────────────────────────────── */
-  async function handleGenerateScenes() {
-    setGenerating(true);
-    toast.ai('Generando escenas con IA...', { id: 'gen-scenes' });
-
-    const instruction = `Genera escenas para "${form.title}" de ${form.target_duration_seconds}s en ${form.platform} (${form.aspect_ratio}).
-${form.description ? `Descripcion: ${form.description}` : ''}
-${aiInstruction ? `Instrucciones: ${aiInstruction}` : ''}
-Estilo: ${projectStyle}. Arco narrativo (hook→build→peak→close) cubriendo ${form.target_duration_seconds}s.`;
-
+  async function genScenes() {
+    setGenerating(true); toast.ai('Generando escenas...', { id: 'gs' });
     try {
-      const res = await fetch('/api/ai/generate-scenes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId, instruction }),
-      });
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success && json.data) {
-          setGeneratedScenes(prev => [...prev, json.data]);
-          toast.success('Escena generada', { id: 'gen-scenes' });
-          setGenerating(false);
-          return;
-        }
-      }
-    } catch { /* fallback */ }
+      const r = await fetch('/api/ai/generate-scenes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId, instruction: `Escenas para "${form.title}" ${form.target_duration_seconds}s ${form.platform} estilo ${projStyle}. ${form.description ?? ''}` }) });
+      if (r.ok) { const j = await r.json(); if (j.success && j.data) { setScenes([{ ...j.data, duration_seconds: snap(j.data.duration_seconds ?? 5) }]); toast.success('Generada', { id: 'gs' }); setGenerating(false); return; } }
+    } catch {}
+    setScenes(mockScenes(form.target_duration_seconds, form.description, projTitle));
+    toast.success('Escenas generadas', { id: 'gs' }); setGenerating(false);
+  }
 
-    // Fallback: mock scenes
-    const dur = form.target_duration_seconds;
-    const phases = ['hook', 'build', 'build', 'peak', 'close'];
-    const titles = ['Apertura impactante', 'Presentacion del contexto', 'Desarrollo principal', 'Momento clave', 'Cierre y CTA'];
-    const descs = [
-      `Toma dinamica que capta la atencion en los primeros segundos. ${projectTitle ? `Contexto de ${projectTitle}.` : ''}`,
-      `Se establece el escenario. ${charCount > 0 ? `Aparecen los personajes principales.` : ''} ${bgCount > 0 ? `Fondo principal del proyecto.` : ''}`,
-      `${form.description || 'La narrativa se desarrolla mostrando el contenido central.'}`,
-      'El momento de mayor impacto visual y emocional del video.',
-      'Cierre con mensaje final, logo y llamada a la accion.',
-    ];
-    const count = dur <= 15 ? 3 : dur <= 30 ? 4 : dur <= 60 ? 5 : 6;
-    const sceneDur = Math.floor(dur / count);
-    const scenes: GeneratedScene[] = [];
-    for (let i = 0; i < count; i++) {
-      const pi = Math.min(i, phases.length - 1);
-      scenes.push({
-        title: titles[pi], description: descs[pi],
-        arc_phase: phases[pi], duration_seconds: i === count - 1 ? dur - sceneDur * (count - 1) : sceneDur,
-        camera_angle: i === 0 ? 'wide' : i === count - 1 ? 'medium' : 'close_up',
-        camera_movement: i === 0 ? 'dolly_in' : 'tracking',
-      });
+  function toggleSel(i: number) { setScenes(p => p.map((s, j) => j === i ? { ...s, selected: !s.selected } : s)); }
+
+  async function regenOne(i: number) {
+    toast.ai('Regenerando...', { id: `r${i}` });
+    try {
+      const s = scenes[i];
+      const r = await fetch('/api/ai/generate-scenes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId, instruction: `Alternativa para escena ${i + 1}: "${s.title}" (${s.arc_phase}, ${s.duration_seconds}s). Estilo ${projStyle}. Durar 3-10s.` }) });
+      if (r.ok) { const j = await r.json(); if (j.success && j.data) { setScenes(p => p.map((sc, k) => k === i ? { ...j.data, duration_seconds: snap(j.data.duration_seconds ?? s.duration_seconds) } : sc)); toast.success('OK', { id: `r${i}` }); return; } }
+    } catch {}
+    toast.success('Sin cambios', { id: `r${i}` });
+  }
+
+  async function chatSend() {
+    const t = chatInput.trim(); if (!t || chatBusy) return;
+    const sel = scenes.map((s, i) => s.selected ? i : -1).filter(i => i >= 0);
+    if (sel.length === 0) { toast.error('Selecciona escenas'); return; }
+    setChatInput(''); setChatBusy(true); toast.ai('Actualizando...', { id: 'cu' });
+    const up = [...scenes];
+    for (const idx of sel) {
+      const s = up[idx];
+      try {
+        const r = await fetch('/api/ai/generate-scenes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId, instruction: `Actualiza escena: "${s.title}" (${s.arc_phase}, ${s.duration_seconds}s). Feedback: "${t}". Estilo ${projStyle}. Durar 3-10s.` }) });
+        if (r.ok) { const j = await r.json(); if (j.success && j.data) { up[idx] = { ...j.data, duration_seconds: snap(j.data.duration_seconds ?? s.duration_seconds), selected: false }; continue; } }
+      } catch {}
+      up[idx] = { ...s, description: `${s.description} — ${t}`, selected: false };
     }
-    setGeneratedScenes(scenes);
-    toast.success(`${scenes.length} escenas generadas`, { id: 'gen-scenes' });
-    setGenerating(false);
+    setScenes(up); toast.success('Actualizado', { id: 'cu' }); setChatBusy(false);
   }
 
-  /* ── Update a scene ────────────────────────────────────── */
-  function updateScene(idx: number, field: keyof GeneratedScene, value: string | number) {
-    setGeneratedScenes(prev => prev.map((s, i) => i === idx ? { ...s, [field]: value } : s));
-  }
-
-  /* ── Create video + scenes + prompts ───────────────────── */
-  async function handleCreateAll() {
-    if (!form.title.trim()) return;
-    setSavingScenes(true);
-    toast.ai('Creando video y escenas...', { id: 'create-all' });
-
+  async function createAll() {
+    if (!form.title.trim()) return; setSaving(true);
+    toast.ai('Creando video...', { id: 'ca' });
     try {
-      const video = await mutation.mutateAsync(form);
-      if (!video?.id) throw new Error('No se pudo crear el video');
-
-      if (generatedScenes.length > 0) {
-        const supabase = createClient();
-        for (let i = 0; i < generatedScenes.length; i++) {
-          const s = generatedScenes[i];
-          const { data: newScene } = await supabase.from('scenes').insert({
-            video_id: video.id, project_id: projectId, title: s.title,
-            description: s.description, duration_seconds: s.duration_seconds,
-            arc_phase: s.arc_phase as 'hook' | 'build' | 'peak' | 'close',
-            scene_number: i + 1, sort_order: i + 1, short_id: generateShortId(),
-            status: 'draft', scene_type: 'original',
-          }).select('id').single();
-          if (newScene) {
-            await supabase.from('scene_camera').insert({
-              scene_id: newScene.id,
-              camera_angle: (s.camera_angle ?? 'medium') as Database['public']['Enums']['camera_angle'],
-              camera_movement: (s.camera_movement ?? 'static') as Database['public']['Enums']['camera_movement'],
-            });
-            fetch('/api/ai/generate-scene-prompts', {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ sceneId: newScene.id }),
-            }).catch(() => {});
+      const v = await mut.mutateAsync(form); if (!v?.id) throw 0;
+      if (scenes.length > 0) {
+        const sb = createClient();
+        for (let i = 0; i < scenes.length; i++) {
+          const s = scenes[i];
+          const { data: ns } = await sb.from('scenes').insert({ video_id: v.id, project_id: projectId, title: s.title, description: s.description, duration_seconds: s.duration_seconds, arc_phase: s.arc_phase as 'hook' | 'build' | 'peak' | 'close', scene_number: i + 1, sort_order: i + 1, short_id: generateShortId(), status: 'draft', scene_type: 'original' }).select('id').single();
+          if (ns) {
+            await sb.from('scene_camera').insert({ scene_id: ns.id, camera_angle: (s.camera_angle ?? 'medium') as Database['public']['Enums']['camera_angle'], camera_movement: (s.camera_movement ?? 'static') as Database['public']['Enums']['camera_movement'] });
+            fetch('/api/ai/generate-scene-prompts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sceneId: ns.id }) }).catch(() => {});
           }
         }
       }
-
-      queryClient.invalidateQueries({ queryKey: ['scenes'] });
-      queryClient.invalidateQueries({ queryKey: ['video'] });
-      toast.success(`Video creado con ${generatedScenes.length} escenas`, { id: 'create-all' });
-      handleClose(); onSuccess?.();
-      if (video.short_id && projectShortId) router.push(`/project/${projectShortId}/video/${video.short_id}`);
-    } catch {
-      toast.error('Error al crear', { id: 'create-all' });
-    }
-    setSavingScenes(false);
+      qc.invalidateQueries({ queryKey: ['scenes'] }); qc.invalidateQueries({ queryKey: ['video'] });
+      toast.success(`Video con ${scenes.length} escenas`, { id: 'ca' });
+      close(); onSuccess?.();
+      if (v.short_id && projectShortId) router.push(`/project/${projectShortId}/video/${v.short_id}`);
+    } catch { toast.error('Error', { id: 'ca' }); }
+    setSaving(false);
   }
 
   if (!open) return null;
-
-  const isVertical = form.aspect_ratio === '9:16';
-  const totalDur = generatedScenes.reduce((s, sc) => s + sc.duration_seconds, 0);
-  const canGoToScenes = form.title.trim().length > 0;
+  const isV = form.aspect_ratio === '9:16';
+  const totDur = scenes.reduce((a, s) => a + s.duration_seconds, 0);
+  const selCount = scenes.filter(s => s.selected).length;
+  const ok = form.title.trim().length > 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm" onClick={handleClose}>
-      <div className="flex h-[min(720px,88vh)] w-full max-w-3xl overflow-hidden rounded-2xl border border-border bg-card shadow-2xl" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm" onClick={close}>
+      <div className="flex h-[min(700px,88vh)] w-full max-w-4xl overflow-hidden rounded-2xl border border-border bg-card shadow-2xl" onClick={e => e.stopPropagation()}>
 
-        {/* Left nav */}
-        <div className="w-44 shrink-0 border-r border-border bg-card flex flex-col">
-          <div className="px-4 pt-4 pb-2">
-            <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Nuevo video</p>
-          </div>
+        {/* Nav */}
+        <div className="w-36 shrink-0 border-r border-border flex flex-col">
+          <div className="px-3 pt-4 pb-2"><p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Nuevo video</p></div>
           <nav className="flex-1 px-2 space-y-0.5">
-            {NAV.map(item => {
-              const disabled = item.id === 'scenes' && !canGoToScenes;
-              return (
-                <button key={item.id} type="button" disabled={disabled}
-                  onClick={() => { if (!disabled) setStep(item.id); }}
-                  className={cn(
-                    'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs transition-colors',
-                    step === item.id ? 'bg-accent font-medium text-foreground' : 'text-muted-foreground hover:bg-accent/60',
-                    disabled && 'opacity-40 cursor-not-allowed',
-                  )}>
-                  <item.icon className="size-4 shrink-0" />
-                  {item.label}
-                  {item.id === 'scenes' && generatedScenes.length > 0 && (
-                    <span className="ml-auto text-[10px] text-primary font-medium">{generatedScenes.length}</span>
-                  )}
-                </button>
-              );
-            })}
+            {[
+              { id: 'video' as const, label: 'Video', icon: Film },
+              { id: 'scenes' as const, label: 'Escenas', icon: Sparkles, dis: !ok },
+            ].map(n => (
+              <button key={n.id} type="button" disabled={n.dis} onClick={() => !n.dis && setStep(n.id)}
+                className={cn('flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs transition-colors',
+                  step === n.id ? 'bg-accent font-medium text-foreground' : 'text-muted-foreground hover:bg-accent/60',
+                  n.dis && 'opacity-40 cursor-not-allowed')}>
+                <n.icon className="size-3.5" />{n.label}
+                {n.id === 'scenes' && scenes.length > 0 && <span className="ml-auto text-[10px] text-primary font-medium">{scenes.length}</span>}
+              </button>
+            ))}
           </nav>
         </div>
 
-        {/* Right content */}
+        {/* Main */}
         <div className="flex-1 flex flex-col min-w-0">
-          <div className="flex items-center justify-between border-b border-border px-6 py-3 shrink-0">
-            <p className="text-sm font-semibold text-foreground">
-              {step === 'suggestions' ? 'Que video quieres crear?' : step === 'details' ? 'Detalles del video' : 'Preview de escenas'}
-            </p>
-            <button type="button" onClick={handleClose} className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
-              <X className="size-4" />
-            </button>
+          <div className="flex items-center justify-between border-b border-border px-5 py-2.5 shrink-0">
+            <p className="text-sm font-semibold">{step === 'video' ? 'Detalles del video' : 'Escenas del video'}</p>
+            <button type="button" onClick={close} className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"><X className="size-4" /></button>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-6 py-5">
-            {/* ── Step: Suggestions ──────────────────────── */}
-            {step === 'suggestions' && (
-              <div className="space-y-4">
-                <div className="rounded-xl border border-border bg-background/50 p-3">
-                  <p className="text-[11px] text-muted-foreground">
-                    Basandome en <span className="text-foreground font-medium">{projectTitle || 'tu proyecto'}</span>
-                    {charCount > 0 && ` (${charCount} personajes`}{bgCount > 0 && `, ${bgCount} fondos`}{(charCount > 0 || bgCount > 0) && ')'}
-                    , te sugiero estos videos:
-                  </p>
-                </div>
+          <div className="flex flex-1 min-h-0">
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto px-5 py-4">
 
-                <div className="space-y-2">
-                  {suggestions.map((s, i) => (
-                    <button key={i} type="button" onClick={() => useSuggestion(s)}
-                      className="w-full rounded-xl border border-border bg-card p-4 text-left hover:border-primary/30 hover:bg-primary/5 transition-all group">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">{s.title}</p>
-                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{s.description}</p>
-                        </div>
-                        <div className="flex flex-col items-end gap-1 shrink-0 text-[10px] text-muted-foreground">
-                          <span>{PLATFORMS.find(p => p.value === s.platform)?.label}</span>
-                          <span>{s.duration >= 60 ? `${Math.floor(s.duration / 60)}m` : `${s.duration}s`}</span>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-
-                {showMoreCount < 8 && (
-                  <button type="button" onClick={showMore}
-                    className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-2.5 text-xs text-muted-foreground hover:border-primary/30 hover:text-foreground transition-colors">
-                    <ChevronDown className="size-3" /> Ver mas sugerencias
-                  </button>
-                )}
-
-                <div className="pt-2 border-t border-border">
-                  <button type="button" onClick={() => setStep('details')}
-                    className="w-full rounded-xl border border-border py-2.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
-                    O crear desde cero →
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* ── Step: Details ──────────────────────────── */}
-            {step === 'details' && (
-              <div className="space-y-4 max-w-md">
-                <TextField variant="secondary" value={form.title} onChange={(v) => updateField('title', v)} isRequired autoFocus>
-                  <Label>Titulo *</Label>
-                  <Input placeholder="Ej. Spot primavera 2025" />
-                </TextField>
-
-                <div className="space-y-2">
-                  <p className="text-[11px] font-medium text-muted-foreground">Plataforma</p>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {PLATFORMS.map(p => (
-                      <button key={p.value} type="button" onClick={() => handlePlatformChange(p.value)}
-                        className={cn('rounded-lg border px-3 py-2 text-left transition-all',
-                          form.platform === p.value ? 'border-primary/40 bg-primary/5' : 'border-border hover:border-primary/20')}>
-                        <div className="flex items-center gap-1.5">
-                          {p.ratio === '9:16' ? <Smartphone className="size-3 text-muted-foreground" /> : <Monitor className="size-3 text-muted-foreground" />}
-                          <p className={cn('text-xs font-medium', form.platform === p.value ? 'text-primary' : 'text-foreground')}>{p.label}</p>
-                        </div>
-                      </button>
-                    ))}
+              {/* ── Video step ────────────────────────── */}
+              {step === 'video' && (
+                <div className="space-y-4 max-w-md">
+                  <TextField variant="secondary" value={form.title} onChange={v => upd('title', v)} isRequired autoFocus>
+                    <Label>Titulo *</Label><Input placeholder="Ej. Spot primavera 2025" />
+                  </TextField>
+                  <div className="space-y-1.5">
+                    <p className="text-[11px] font-medium text-muted-foreground">Plataforma</p>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {PLATFORMS.map(p => (
+                        <button key={p.value} type="button" onClick={() => { upd('platform', p.value); upd('aspect_ratio', (p.ratio ?? '16:9') as VideoFormData['aspect_ratio']); }}
+                          className={cn('rounded-lg border px-2.5 py-1.5 text-left transition-all', form.platform === p.value ? 'border-primary/40 bg-primary/5' : 'border-border hover:border-primary/20')}>
+                          <div className="flex items-center gap-1">
+                            {p.ratio === '9:16' ? <Smartphone className="size-3 text-muted-foreground" /> : <Monitor className="size-3 text-muted-foreground" />}
+                            <p className={cn('text-[11px] font-medium', form.platform === p.value ? 'text-primary' : 'text-foreground')}>{p.label}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-[11px] font-medium text-muted-foreground">Duracion</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {DURATIONS.map(d => (
-                      <button key={d.value} type="button" onClick={() => updateField('target_duration_seconds', d.value)}
-                        className={cn('rounded-lg border px-3 py-1.5 text-xs font-medium transition-all',
-                          form.target_duration_seconds === d.value ? 'border-primary/40 bg-primary/5 text-primary' : 'border-border text-muted-foreground hover:border-primary/20')}>
-                        {d.label}
-                      </button>
-                    ))}
+                  <div className="space-y-1.5">
+                    <p className="text-[11px] font-medium text-muted-foreground">Duracion</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {DURATIONS.map(d => (
+                        <button key={d.value} type="button" onClick={() => upd('target_duration_seconds', d.value)}
+                          className={cn('rounded-lg border px-3 py-1.5 text-xs font-medium transition-all', form.target_duration_seconds === d.value ? 'border-primary/40 bg-primary/5 text-primary' : 'border-border text-muted-foreground hover:border-primary/20')}>
+                          {d.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className={cn('rounded-md border border-border bg-background flex items-center justify-center', isVertical ? 'w-7 h-12' : 'w-12 h-7')}>
-                    <span className="text-[7px] text-muted-foreground/50">{form.aspect_ratio}</span>
+                  <div className="flex items-center gap-2">
+                    <div className={cn('rounded border border-border bg-background flex items-center justify-center', isV ? 'w-5 h-9' : 'w-9 h-5')}>
+                      <span className="text-[6px] text-muted-foreground/40">{form.aspect_ratio}</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground"><span className="font-medium text-foreground">{form.aspect_ratio}</span> · {isV ? 'Vertical' : 'Horizontal'}</p>
                   </div>
-                  <p className="text-xs text-muted-foreground"><span className="font-medium text-foreground">{form.aspect_ratio}</span> · {isVertical ? 'Vertical' : 'Horizontal'}</p>
+                  <TextField variant="secondary" value={form.description} onChange={v => upd('description', v)}>
+                    <Label>Descripcion</Label><TextArea placeholder="De que trata..." rows={2} />
+                  </TextField>
                 </div>
+              )}
 
-                <TextField variant="secondary" value={form.description} onChange={(v) => updateField('description', v)}>
-                  <Label>Descripcion</Label>
-                  <TextArea placeholder="De que trata este video..." rows={2} />
-                </TextField>
-              </div>
-            )}
+              {/* ── Scenes step ───────────────────────── */}
+              {step === 'scenes' && (
+                <div className="space-y-3">
+                  <div className="rounded-lg border border-border bg-background/50 px-3 py-2 text-[11px] text-muted-foreground">
+                    <span className="text-foreground font-medium">{form.title}</span> · {PLATFORMS.find(p => p.value === form.platform)?.label} · {form.target_duration_seconds}s
+                  </div>
 
-            {/* ── Step: Scenes ───────────────────────────── */}
-            {step === 'scenes' && (
-              <div className="space-y-4">
-                <div className="rounded-xl border border-border bg-background/50 p-3 text-[11px] text-muted-foreground">
-                  <span className="text-foreground font-medium">{form.title}</span> · {PLATFORMS.find(p => p.value === form.platform)?.label} · {form.target_duration_seconds}s · {projectStyle}
-                </div>
-
-                {generatedScenes.length === 0 && !generating && (
-                  <>
-                    <TextField variant="secondary" value={aiInstruction} onChange={setAiInstruction}>
-                      <Label>Que quieres en el video? (opcional)</Label>
-                      <TextArea placeholder="Ej. Presentar al equipo, mostrar transformaciones..." rows={3} />
-                    </TextField>
-                    <button type="button" onClick={handleGenerateScenes}
+                  {scenes.length === 0 && !generating && (
+                    <button type="button" onClick={genScenes}
                       className="w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors flex items-center justify-center gap-2">
                       <Sparkles className="size-4" /> Generar escenas con IA
                     </button>
-                  </>
-                )}
+                  )}
 
-                {generating && (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 className="size-6 animate-spin text-primary mr-2" />
-                    <span className="text-sm text-muted-foreground">Generando escenas...</span>
-                  </div>
-                )}
-
-                {generatedScenes.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-semibold">{generatedScenes.length} escenas · {totalDur}s total</p>
-                      <button type="button" onClick={() => { setGeneratedScenes([]); handleGenerateScenes(); }}
-                        className="text-[10px] text-primary hover:underline flex items-center gap-0.5">
-                        <RefreshCw className="size-2.5" /> Regenerar todo
-                      </button>
+                  {generating && (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="size-5 animate-spin text-primary mr-2" /><span className="text-sm text-muted-foreground">Generando...</span>
                     </div>
+                  )}
 
-                    {generatedScenes.map((s, i) => (
-                      <div key={i} className="rounded-xl border border-border bg-background/50 overflow-hidden">
-                        <div className="flex items-center justify-between px-3.5 py-2.5">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="text-[10px] font-bold text-muted-foreground">#{i + 1}</span>
-                            {editingIdx === i ? (
-                              <input type="text" value={s.title} onChange={e => updateScene(i, 'title', e.target.value)}
-                                onBlur={() => setEditingIdx(null)} autoFocus
-                                className="text-sm font-medium text-foreground bg-transparent border-b border-primary/30 outline-none flex-1" />
-                            ) : (
-                              <button type="button" onClick={() => setEditingIdx(i)}
-                                className="text-sm font-medium text-foreground hover:text-primary transition-colors truncate text-left">
-                                {s.title}
-                              </button>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 text-[10px] shrink-0">
-                            <span className={cn('rounded-md px-1.5 py-0.5 font-medium text-white', PHASE_STYLES[s.arc_phase] ?? 'bg-zinc-500')}>
-                              {s.arc_phase}
-                            </span>
-                            <span className="flex items-center gap-0.5 text-muted-foreground"><Clock className="size-2.5" />{s.duration_seconds}s</span>
-                          </div>
-                        </div>
-                        <div className="px-3.5 pb-2.5">
-                          {editingIdx === i ? (
-                            <textarea value={s.description} onChange={e => updateScene(i, 'description', e.target.value)}
-                              rows={2} className="w-full text-[11px] text-muted-foreground bg-transparent border border-border rounded-lg px-2 py-1 outline-none focus:border-primary/30" />
-                          ) : (
-                            <p className="text-[11px] text-muted-foreground line-clamp-2 cursor-pointer" onClick={() => setEditingIdx(i)}>
-                              {s.description}
-                            </p>
-                          )}
-                          {s.camera_angle && (
-                            <p className="text-[9px] text-muted-foreground/50 mt-1 flex items-center gap-1">
-                              <Camera className="size-2" /> {s.camera_angle} · {s.camera_movement}
-                            </p>
-                          )}
-                        </div>
+                  {scenes.length > 0 && (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold">{scenes.length} escenas · {totDur}s</p>
+                        <button type="button" onClick={() => { setScenes([]); genScenes(); }} className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-0.5"><RefreshCw className="size-2.5" /> Regenerar</button>
                       </div>
-                    ))}
-                  </div>
+                      {scenes.map((s, i) => (
+                        <div key={i} className={cn('rounded-xl border overflow-hidden transition-colors', s.selected ? 'border-primary/40 bg-primary/5' : 'border-border bg-background/50')}>
+                          <div className="flex items-center gap-2 px-3 py-2">
+                            <button type="button" onClick={() => toggleSel(i)} className={cn('flex size-4 items-center justify-center rounded border shrink-0', s.selected ? 'bg-primary border-primary text-white' : 'border-border')}>
+                              {s.selected && <Check className="size-2.5" />}
+                            </button>
+                            <span className="text-[10px] font-bold text-muted-foreground">#{i + 1}</span>
+                            {editIdx === i ? (
+                              <input type="text" value={s.title} onChange={e => setScenes(p => p.map((sc, j) => j === i ? { ...sc, title: e.target.value } : sc))}
+                                onBlur={() => setEditIdx(null)} autoFocus className="text-xs font-medium bg-transparent border-b border-primary/30 outline-none flex-1" />
+                            ) : (
+                              <button type="button" onClick={() => setEditIdx(i)} className="text-xs font-medium text-foreground hover:text-primary truncate text-left flex-1">{s.title}</button>
+                            )}
+                            <span className={cn('rounded px-1 py-0.5 text-[8px] font-medium text-white', PHASE_STYLES[s.arc_phase] ?? 'bg-zinc-500')}>{s.arc_phase}</span>
+                            <span className="text-[10px] text-muted-foreground">{s.duration_seconds}s</span>
+                            <button type="button" onClick={() => regenOne(i)} className="text-muted-foreground hover:text-foreground"><RefreshCw className="size-2.5" /></button>
+                          </div>
+                          <p className={cn('px-3 pb-2 text-[10px] text-muted-foreground', editIdx !== i && 'line-clamp-1 cursor-pointer')} onClick={() => editIdx !== i && setEditIdx(i)}>{s.description}</p>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Right sidebar: suggestions (video) or chat (scenes) */}
+            {step === 'video' && (
+              <div className="w-52 shrink-0 border-l border-border bg-background/50 overflow-y-auto px-3 py-3 space-y-2 hidden lg:block">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Sugerencias</p>
+                {(showMoreSugs ? sugs : sugs.slice(0, 3)).map((s, i) => (
+                  <button key={i} type="button" onClick={() => useSug(s)}
+                    className="w-full rounded-lg border border-border p-2.5 text-left hover:border-primary/30 hover:bg-primary/5 transition-all">
+                    <p className="text-[11px] font-medium text-foreground leading-tight">{s.title}</p>
+                    <p className="text-[9px] text-muted-foreground mt-0.5">{s.desc}</p>
+                    <p className="text-[9px] text-muted-foreground/50 mt-1">{PLATFORMS.find(p => p.value === s.platform)?.label} · {s.dur >= 60 ? `${Math.floor(s.dur / 60)}m` : `${s.dur}s`}</p>
+                  </button>
+                ))}
+                {!showMoreSugs && (
+                  <button type="button" onClick={() => setShowMoreSugs(true)}
+                    className="w-full flex items-center justify-center gap-1 rounded-lg border border-dashed border-border py-1.5 text-[10px] text-muted-foreground hover:text-foreground">
+                    <ChevronDown className="size-2.5" /> Ver mas
+                  </button>
                 )}
+              </div>
+            )}
+
+            {step === 'scenes' && scenes.length > 0 && (
+              <div className="w-52 shrink-0 border-l border-border bg-background/50 flex flex-col hidden lg:flex">
+                <div className="px-3 py-2.5 border-b border-border">
+                  <p className="text-[10px] font-medium text-muted-foreground">
+                    {selCount > 0 ? `${selCount} seleccionada${selCount > 1 ? 's' : ''}` : 'Selecciona para editar'}
+                  </p>
+                </div>
+                <div className="flex-1 px-3 py-2 overflow-y-auto">
+                  <p className="text-[9px] text-muted-foreground leading-relaxed">Marca las escenas y describe que cambiar.</p>
+                </div>
+                <div className="px-2 py-2 border-t border-border">
+                  <div className="flex gap-1">
+                    <textarea value={chatInput} onChange={e => setChatInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); chatSend(); } }}
+                      placeholder="Que cambiarias..." rows={2} disabled={selCount === 0}
+                      className="flex-1 resize-none rounded-lg border border-border bg-background px-2 py-1 text-[10px] outline-none placeholder:text-muted-foreground/50 focus:border-primary/30 disabled:opacity-40" />
+                    <button type="button" onClick={chatSend} disabled={!chatInput.trim() || selCount === 0 || chatBusy}
+                      className="flex size-7 items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 shrink-0 self-end">
+                      {chatBusy ? <Loader2 className="size-3 animate-spin" /> : <Send className="size-3" />}
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>
 
           {/* Footer */}
-          <div className="flex items-center gap-2 border-t border-border px-6 py-3 shrink-0">
-            {step === 'suggestions' && (
-              <button type="button" onClick={handleClose}
-                className="flex-1 rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
-                Cancelar
+          {step === 'video' && (
+            <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-3 shrink-0">
+              <button type="button" onClick={() => { setScenes([]); createAll(); }} disabled={!ok || saving}
+                className="rounded-xl px-4 py-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50">
+                Crear sin escenas
               </button>
-            )}
-
-            {step === 'details' && (
-              <>
-                <button type="button" onClick={() => setStep('suggestions')}
-                  className="rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
-                  ← Atras
-                </button>
-                <div className="flex-1" />
-                <button type="button" onClick={() => { handleCreateAll(); }} disabled={!canGoToScenes || savingScenes}
-                  className="rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50">
-                  Crear sin escenas
-                </button>
-                <button type="button" onClick={() => setStep('scenes')} disabled={!canGoToScenes}
-                  className="rounded-xl bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center gap-1.5">
-                  Generar escenas <ChevronRight className="size-3.5" />
-                </button>
-              </>
-            )}
-
-            {step === 'scenes' && (
-              <>
-                <button type="button" onClick={() => setStep('details')}
-                  className="rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
-                  ← Volver
-                </button>
-                <div className="flex-1" />
-                {generatedScenes.length > 0 && (
-                  <button type="button" onClick={handleCreateAll} disabled={savingScenes}
-                    className="rounded-xl bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center gap-2">
-                    {savingScenes ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
-                    Crear video con {generatedScenes.length} escenas
-                  </button>
-                )}
-              </>
-            )}
-          </div>
+              <button type="button" onClick={() => setStep('scenes')} disabled={!ok}
+                className="rounded-xl bg-primary px-4 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center gap-1.5">
+                Generar escenas <ChevronRight className="size-3" />
+              </button>
+            </div>
+          )}
+          {step === 'scenes' && scenes.length > 0 && (
+            <div className="flex items-center justify-end border-t border-border px-5 py-3 shrink-0">
+              <button type="button" onClick={createAll} disabled={saving}
+                className="rounded-xl bg-primary px-5 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center gap-2">
+                {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
+                Crear video con {scenes.length} escenas
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
