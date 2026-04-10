@@ -890,13 +890,9 @@ export default function VideoOverviewPage() {
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => openVideoSettingsModal('general')}
-          className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
-        >
-          <Settings2 className="h-4 w-4 text-muted-foreground" />
-          Ajustes
+        <button type="button" onClick={() => openVideoSettingsModal('general')}
+          className="flex size-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors" title="Ajustes del video">
+          <Settings2 className="h-4 w-4" />
         </button>
       </div>
 

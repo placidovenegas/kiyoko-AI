@@ -312,13 +312,9 @@ export default function ProjectOverviewPage() {
             <p className="mt-1 max-w-2xl truncate text-sm text-muted-foreground">{project.description}</p>
           )}
         </div>
-        <button
-          type="button"
-          onClick={() => openProjectSettingsModal('general')}
-          className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted/60"
-        >
+        <button type="button" onClick={() => openProjectSettingsModal('general')}
+          className="flex size-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors" title="Ajustes del proyecto">
           <Settings className="size-4" />
-          <span className="hidden sm:inline">Ajustes</span>
         </button>
       </header>
 
@@ -332,9 +328,6 @@ export default function ProjectOverviewPage() {
         </Link>
         <Link href={`/project/${sid}/resources/backgrounds`} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:border-primary/30 hover:bg-primary/5 transition-colors">
           <ImageIcon className="size-3.5 text-muted-foreground" />Fondos
-        </Link>
-        <Link href={`/project/${sid}/tasks`} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:border-primary/30 hover:bg-primary/5 transition-colors">
-          <Layers3 className="size-3.5 text-muted-foreground" />Tareas
         </Link>
         <Link href={`/project/${sid}/publications`} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:border-primary/30 hover:bg-primary/5 transition-colors">
           <Sparkles className="size-3.5 text-muted-foreground" />Publicaciones

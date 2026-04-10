@@ -91,7 +91,6 @@ export function SidebarProjectNav({ projectShortId }: { projectShortId: string }
         <div className="px-2 py-1">
           <ul className="flex flex-col gap-0.5">
             <NavItem href={base} icon={LayoutDashboard} label={t('project.title')} pathname={pathname} isCollapsed exact />
-            <NavItem href={`${base}/tasks`} icon={CheckSquare} label={t('project.tasks')} pathname={pathname} isCollapsed />
             <NavItem href={`${base}/publications`} icon={Smartphone} label={t('nav.publications')} pathname={pathname} isCollapsed />
           </ul>
         </div>
@@ -156,7 +155,6 @@ export function SidebarProjectNav({ projectShortId }: { projectShortId: string }
         <SectionLabel>General</SectionLabel>
         <ul className="flex flex-col gap-0.5">
           <NavItem href={base} icon={LayoutDashboard} label={t('project.title')} pathname={pathname} isCollapsed={false} exact />
-          <NavItem href={`${base}/tasks`} icon={CheckSquare} label={t('project.tasks')} pathname={pathname} isCollapsed={false} />
           <NavItem href={`${base}/publications`} icon={Smartphone} label={t('nav.publications')} pathname={pathname} isCollapsed={false} />
         </ul>
       </div>

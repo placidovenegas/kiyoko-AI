@@ -124,8 +124,8 @@ export function DashboardHomeView() {
           <p className="mt-1 text-sm text-muted-foreground">Gestiona tus proyectos y sigue tu progreso</p>
         </div>
         <button type="button" onClick={openProjectCreatePanel}
-          className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
-          <Plus className="size-4" />
+          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
+          <Plus className="size-3.5" />
           Nuevo proyecto
         </button>
       </div>

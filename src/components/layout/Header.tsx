@@ -7,96 +7,54 @@ import { useDashboard } from '@/providers/DashboardBootstrap';
 import Link from 'next/link';
 import {
   ChevronLeft, ChevronRight, Search, Settings2,
-  FolderKanban, Film, LayoutGrid, Sparkles, Download, Copy,
+  FolderKanban, Film, LayoutGrid, Plus,
 } from 'lucide-react';
-import { Tooltip as HeroTooltip, Button } from '@heroui/react';
 import { cn } from '@/lib/utils/cn';
 import { useUIStore } from '@/stores/useUIStore';
 import { NotificationBell } from './NotificationBell';
-import { FeedbackDialog } from '@/components/shared/FeedbackDialog';
-// Breadcrumb names derived from URL segments (context-free)
-
-const Tooltip = HeroTooltip as React.FC<{ content?: string; placement?: string; children: React.ReactNode }>;
-
-/* ── Helpers ────────────────────────────────────────────── */
-
-function shouldShowBackButton(pathname: string): boolean {
-  const depth = pathname.split('/').filter(Boolean).length;
-  return depth > 1;
-}
 
 /* ── Route context ──────────────────────────────────────── */
 
-interface HeaderRouteContext {
-  scope: 'dashboard' | 'project' | 'video';
+type Scope = 'dashboard' | 'project' | 'video';
+
+interface RouteContext {
+  scope: Scope;
   label: string;
   icon: typeof LayoutGrid;
-  showSearch: boolean;
-  showFeedback: boolean;
-  showProjectSettings: boolean;
-  showVideoSettings: boolean;
+  showSettings: 'project' | 'video' | null;
+  quickAction: { label: string; action: string } | null;
 }
 
-function deriveHeaderRouteContext(pathname: string): HeaderRouteContext {
-  const segments = (pathname.replace(/\/+$/, '') || '/').split('/').filter(Boolean);
+function deriveContext(pathname: string): RouteContext {
+  const s = (pathname.replace(/\/+$/, '') || '/').split('/').filter(Boolean);
 
-  if (segments[0] === 'project' && segments[1] && segments[2] === 'video' && segments[3]) {
-    const section = segments[4] ?? 'overview';
-    const labelMap: Record<string, string> = {
-      overview: 'Video', scene: 'Escena', timeline: 'Timeline',
-      narration: 'Narracion', analysis: 'Analisis', export: 'Exportar', share: 'Compartir',
-    };
-    return { scope: 'video', label: labelMap[section] ?? 'Video', icon: Film, showSearch: true, showFeedback: false, showProjectSettings: false, showVideoSettings: true };
+  if (s[0] === 'project' && s[1] && s[2] === 'video' && s[3]) {
+    return { scope: 'video', label: 'Video', icon: Film, showSettings: 'video', quickAction: { label: 'Escena', action: 'scene' } };
   }
-
-  if (segments[0] === 'project' && segments[1]) {
-    const section = segments[2] ?? 'overview';
-    const labelMap: Record<string, string> = {
-      overview: 'Proyecto', videos: 'Videos', resources: 'Recursos',
-      publications: 'Publicaciones', activity: 'Actividad', chat: 'IA',
-    };
-    return { scope: 'project', label: labelMap[section] ?? 'Proyecto', icon: FolderKanban, showSearch: true, showFeedback: false, showProjectSettings: true, showVideoSettings: false };
+  if (s[0] === 'project' && s[1]) {
+    return { scope: 'project', label: 'Proyecto', icon: FolderKanban, showSettings: 'project', quickAction: { label: 'Video', action: 'video' } };
   }
-
-  const labelMap: Record<string, string> = { dashboard: 'Dashboard', settings: 'Ajustes', admin: 'Admin' };
-  return { scope: 'dashboard', label: labelMap[segments[0] ?? 'dashboard'] ?? 'Workspace', icon: LayoutGrid, showSearch: true, showFeedback: true, showProjectSettings: false, showVideoSettings: false };
+  return { scope: 'dashboard', label: 'Dashboard', icon: LayoutGrid, showSettings: null, quickAction: { label: 'Proyecto', action: 'project' } };
 }
 
-/* ── Breadcrumbs builder ────────────────────────────────── */
+/* ── Breadcrumbs ────────────────────────────────────────── */
 
 interface Crumb { label: string; href: string }
 
-function buildBreadcrumbs(pathname: string): Crumb[] {
-  const segments = pathname.split('/').filter(Boolean);
+function buildCrumbs(pathname: string): Crumb[] {
+  const s = pathname.split('/').filter(Boolean);
   const crumbs: Crumb[] = [];
-
-  if (segments[0] === 'project' && segments[1]) {
-    crumbs.push({ label: 'Proyecto', href: `/project/${segments[1]}` });
-
-    if (segments[2] === 'video' && segments[3]) {
-      crumbs.push({ label: 'Video', href: `/project/${segments[1]}/video/${segments[3]}` });
-
-      if (segments[4] === 'scene' && segments[5]) {
-        crumbs.push({ label: `Escena`, href: pathname });
-      } else if (segments[4] && segments[4] !== 'overview') {
-        const sectionLabels: Record<string, string> = {
-          timeline: 'Timeline', narration: 'Narracion', analysis: 'Analisis',
-          export: 'Exportar', share: 'Compartir',
-        };
-        if (sectionLabels[segments[4]]) {
-          crumbs.push({ label: sectionLabels[segments[4]], href: pathname });
-        }
-      }
-    } else if (segments[2] && segments[2] !== 'overview') {
-      const sectionLabels: Record<string, string> = {
-        videos: 'Videos', resources: 'Recursos', publications: 'Publicaciones',
-      };
-      if (sectionLabels[segments[2]]) {
-        crumbs.push({ label: sectionLabels[segments[2]], href: pathname });
-      }
+  if (s[0] === 'project' && s[1]) {
+    crumbs.push({ label: 'Proyecto', href: `/project/${s[1]}` });
+    if (s[2] === 'video' && s[3]) {
+      crumbs.push({ label: 'Video', href: `/project/${s[1]}/video/${s[3]}` });
+      const sub: Record<string, string> = { scene: 'Escena', timeline: 'Timeline', narration: 'Narracion', analysis: 'Analisis', export: 'Exportar', share: 'Compartir' };
+      if (s[4] && sub[s[4]]) crumbs.push({ label: sub[s[4]], href: pathname });
+    } else if (s[2]) {
+      const sub: Record<string, string> = { videos: 'Videos', resources: 'Recursos', publications: 'Publicaciones' };
+      if (sub[s[2]]) crumbs.push({ label: sub[s[2]], href: pathname });
     }
   }
-
   return crumbs;
 }
 
@@ -106,55 +64,52 @@ export function Header() {
   const router = useRouter();
   const pathname = usePathname();
   const t = useTranslations();
-
   useDashboard();
+
   const openProjectSettingsModal = useUIStore((s) => s.openProjectSettingsModal);
   const openVideoSettingsModal = useUIStore((s) => s.openVideoSettingsModal);
+  const openProjectCreatePanel = useUIStore((s) => s.openProjectCreatePanel);
   const pageHeaderContext = useUIStore((s) => s.pageHeaderContext);
 
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const ctx = useMemo(() => deriveContext(pathname), [pathname]);
+  const crumbs = useMemo(() => buildCrumbs(pathname), [pathname]);
+  const showBack = useMemo(() => pageHeaderContext?.backHref === null ? false : pathname.split('/').filter(Boolean).length > 1, [pageHeaderContext?.backHref, pathname]);
 
-  const routeContext = useMemo(() => deriveHeaderRouteContext(pathname), [pathname]);
-  const showBackButton = useMemo(() => pageHeaderContext?.backHref === null ? false : shouldShowBackButton(pathname), [pageHeaderContext?.backHref, pathname]);
-
-  const breadcrumbs = useMemo(() => buildBreadcrumbs(pathname), [pathname]);
-
-  const chromeBtn = 'flex items-center justify-center size-8 rounded-md border border-foreground/8 bg-background text-foreground/45 hover:bg-foreground/4 hover:text-foreground/75 transition-all duration-150';
-  const chromeTxtBtn = 'shrink-0 rounded-md border border-foreground/8 bg-background px-2.5 py-1 text-[12px] text-foreground/45 hover:bg-foreground/4 hover:text-foreground/75 transition-all duration-150';
-
-  function handleGoBack() {
+  function goBack() {
     if (pageHeaderContext?.backHref) { router.push(pageHeaderContext.backHref); return; }
     if (typeof window !== 'undefined' && window.history.length > 1) { router.back(); return; }
     router.push('/dashboard');
   }
 
+  function handleQuickAction() {
+    if (ctx.quickAction?.action === 'project') openProjectCreatePanel();
+    // video/scene creation is handled by the page itself via URL state
+  }
+
+  const iconBtn = 'flex items-center justify-center size-7 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors';
+
   return (
-    <div className="flex items-center h-full px-3 w-full">
+    <div className="flex items-center h-full w-full gap-2">
       {/* Left: back + breadcrumbs */}
-      <div className="flex flex-1 items-center gap-1.5 min-w-0">
-        {showBackButton && (
-          <Button type="button" variant="ghost" size="sm" isIconOnly onPress={handleGoBack}
-            className={cn(chromeBtn, 'shrink-0')} aria-label="Volver">
-            <ChevronLeft className="h-3.5 w-3.5" />
-          </Button>
+      <div className="flex items-center gap-1 min-w-0 shrink-0">
+        {showBack && (
+          <button type="button" onClick={goBack} className={iconBtn} aria-label="Volver">
+            <ChevronLeft className="size-4" />
+          </button>
         )}
 
-        {/* Breadcrumbs */}
-        <nav className="hidden md:flex items-center gap-1 min-w-0 text-xs">
-          {breadcrumbs.length === 0 ? (
-            <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1 text-muted-foreground">
-              <routeContext.icon className="h-3.5 w-3.5 text-primary" />
-              {routeContext.label}
-            </span>
+        <nav className="hidden md:flex items-center gap-0.5 text-xs min-w-0">
+          {crumbs.length === 0 ? (
+            <span className="text-muted-foreground font-medium">{ctx.label}</span>
           ) : (
-            breadcrumbs.map((crumb, i) => (
-              <span key={crumb.href} className="flex items-center gap-1 min-w-0">
-                {i > 0 && <ChevronRight className="h-3 w-3 text-muted-foreground/40 shrink-0" />}
-                {i === breadcrumbs.length - 1 ? (
-                  <span className="text-foreground font-medium truncate max-w-[120px]">{crumb.label}</span>
+            crumbs.map((c, i) => (
+              <span key={c.href} className="flex items-center gap-0.5 min-w-0">
+                {i > 0 && <ChevronRight className="size-3 text-muted-foreground/30 shrink-0" />}
+                {i === crumbs.length - 1 ? (
+                  <span className="text-foreground font-medium truncate max-w-[100px]">{c.label}</span>
                 ) : (
-                  <Link href={crumb.href} className="text-muted-foreground hover:text-foreground truncate max-w-[120px] transition-colors">
-                    {crumb.label}
+                  <Link href={c.href} className="text-muted-foreground hover:text-foreground truncate max-w-[100px] transition-colors">
+                    {c.label}
                   </Link>
                 )}
               </span>
@@ -163,49 +118,42 @@ export function Header() {
         </nav>
       </div>
 
-      {/* Center: search */}
-      {routeContext.showSearch && (
-        <Button type="button" variant="ghost"
+      {/* Center: search — always centered */}
+      <div className="flex-1 flex justify-center">
+        <button type="button"
           onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }))}
-          className={cn('flex items-center gap-2 h-8 px-3 rounded-md', routeContext.scope === 'dashboard' ? 'w-64' : 'w-48',
-            'bg-background border border-foreground/8 text-sm text-foreground/40 hover:text-foreground/70 hover:bg-foreground/6 transition-all duration-150')}>
-          <Search size={14} className="shrink-0" />
-          <span className="flex-1 text-left text-[13px]">{t('common.search')}</span>
-          <kbd className="shrink-0 text-[10px] font-medium text-foreground/25 bg-foreground/6 border border-foreground/10 rounded px-1 py-0.5">⌘K</kbd>
-        </Button>
-      )}
-
-      <div className="flex-1" />
-
-      {/* Feedback */}
-      {routeContext.showFeedback && (
-        <Button type="button" variant="ghost" size="sm" onClick={() => setFeedbackOpen(true)} className={cn(chromeTxtBtn, 'mr-1.5')}>
-          {t('nav.feedback')}
-        </Button>
-      )}
-
-      {/* Right: contextual actions + settings */}
-      <div className="flex items-center gap-1 shrink-0">
-        {routeContext.showProjectSettings && (
-          <Tooltip content="Ajustes del proyecto" placement="bottom">
-            <button type="button" onClick={() => openProjectSettingsModal('general')} className={chromeBtn} aria-label="Ajustes del proyecto">
-              <Settings2 size={14} />
-            </button>
-          </Tooltip>
-        )}
-        {routeContext.showVideoSettings && (
-          <>
-            <Tooltip content="Ajustes del video" placement="bottom">
-              <button type="button" onClick={() => openVideoSettingsModal('general')} className={chromeBtn} aria-label="Ajustes del video">
-                <Settings2 size={14} />
-              </button>
-            </Tooltip>
-          </>
-        )}
-        <NotificationBell />
+          className="flex items-center gap-2 h-7 px-3 rounded-md w-52 bg-accent/50 border border-border/50 text-xs text-muted-foreground hover:bg-accent hover:border-border transition-all">
+          <Search size={12} className="shrink-0 opacity-50" />
+          <span className="flex-1 text-left">{t('common.search')}</span>
+          <kbd className="text-[9px] text-muted-foreground/40 bg-background/50 border border-border/50 rounded px-1 py-px">⌘K</kbd>
+        </button>
       </div>
 
-      <FeedbackDialog open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
+      {/* Right: quick action + settings + notifications */}
+      <div className="flex items-center gap-1 shrink-0">
+        {/* Quick create button */}
+        {ctx.quickAction && ctx.quickAction.action === 'project' && (
+          <button type="button" onClick={handleQuickAction}
+            className="hidden sm:flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+            <Plus className="size-3" />
+            {ctx.quickAction.label}
+          </button>
+        )}
+
+        {/* Settings */}
+        {ctx.showSettings === 'project' && (
+          <button type="button" onClick={() => openProjectSettingsModal('general')} className={iconBtn} aria-label="Ajustes" title="Ajustes del proyecto">
+            <Settings2 size={14} />
+          </button>
+        )}
+        {ctx.showSettings === 'video' && (
+          <button type="button" onClick={() => openVideoSettingsModal('general')} className={iconBtn} aria-label="Ajustes" title="Ajustes del video">
+            <Settings2 size={14} />
+          </button>
+        )}
+
+        <NotificationBell />
+      </div>
     </div>
   );
 }
