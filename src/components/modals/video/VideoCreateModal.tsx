@@ -107,42 +107,54 @@ function makeSugs(name: string): Suggestion[] {
   ].sort(() => Math.random() - 0.5);
 }
 
-function mockScenes(dur: number, desc: string, proj: string, charNames: string[] = []): GenScene[] {
+function mockScenes(dur: number, desc: string, proj: string, charNames: string[] = [], charIdLookup: Array<{ id: string; name: string }> = []): GenScene[] {
   const scenes: GenScene[] = [];
   const main = charNames[0] ?? 'el protagonista';
   const sec = charNames.length > 1 ? charNames.slice(1) : [];
   const secJoin = sec.length > 0 ? joinNames(sec) : '';
 
-  // Scene templates with character-aware descriptions
+  // Each scene has different character combinations
+  const allIds = charNames.map((_, idx) => idx);
+  const mainOnly = [0]; // Just main character
+  const mainPlusOne = sec.length > 0 ? [0, 1] : [0]; // Main + first secondary
+  const mainPlusTwo = sec.length > 1 ? [0, 1, 2] : mainPlusOne;
+  const everyone = allIds; // All characters
+
+  // Scene templates — each has specific characters
   const templates = [
     {
       phase: 'hook', title: 'Apertura — plano general',
-      desc: `Plano general. ${main} aparece en escena${sec.length > 0 ? ` junto a ${secJoin}` : ''}. Toma impactante que establece el escenario${proj ? ` de ${proj}` : ''}.`,
-      extDesc: `${main} mira a camara. ${sec.length > 0 ? `${sec[0]} reacciona en segundo plano.` : 'Expresion de confianza.'}`,
+      chars: mainOnly, // Only main character in opening
+      desc: `Plano general. ${main} aparece solo en escena. Toma impactante que establece el escenario${proj ? ` de ${proj}` : ''}.`,
+      extDesc: `${main} mira a camara con expresion de confianza. Momento intimo antes de que empiece la accion.`,
       cam: 'wide', move: 'dolly_in',
     },
     {
       phase: 'build', title: 'Presentacion',
+      chars: mainPlusOne, // Main + one secondary
       desc: `${main} ${sec.length > 0 ? `y ${sec[0]} interactuan` : 'en accion'}. ${desc || `Se presentan los servicios y el equipo${proj ? ` de ${proj}` : ''}.`}`,
-      extDesc: `Continuacion. ${sec.length > 0 ? `${sec[0]} muestra algo a ${main}.` : `${main} continua la accion.`} Detalle emocional.`,
+      extDesc: `Continuacion. ${sec.length > 0 ? `${sec[0]} muestra algo a ${main}.` : `${main} continua.`} Detalle emocional.`,
       cam: 'medium', move: 'tracking',
     },
     {
       phase: 'build', title: 'Desarrollo',
-      desc: `${main} ${sec.length > 0 ? `trabaja con ${secJoin}` : 'muestra su trabajo'}. ${desc || 'Accion principal del video.'} Plano medio con seguimiento.`,
-      extDesc: `${sec.length > 0 ? `${sec[0]} sonrie mientras ${main} continua.` : `${main} en detalle.`} La camara se acerca suavemente.`,
+      chars: mainPlusTwo, // Main + two secondaries
+      desc: `${main} ${sec.length > 1 ? `trabaja con ${joinNames(sec.slice(0, 2))}` : sec.length > 0 ? `y ${sec[0]} en accion` : 'muestra su trabajo'}. ${desc || 'Accion principal del video.'}`,
+      extDesc: `${sec.length > 0 ? `${sec[0]} sonrie mientras ${main} continua.` : `${main} en detalle.`} La camara se acerca.`,
       cam: 'medium', move: 'tracking',
     },
     {
       phase: 'peak', title: 'Climax — momento clave',
-      desc: `Momento culminante. ${main} ${sec.length > 0 ? `y ${sec[0]} comparten un momento de emocion` : 'muestra el resultado final'}. Maxima intensidad visual.`,
-      extDesc: `${main} en primer plano con expresion de satisfaccion. ${sec.length > 0 ? `${secJoin} ${sec.length > 1 ? 'aplauden' : 'aplaude'} detras.` : 'FREEZE.'}`,
+      chars: everyone, // Everyone in the climax
+      desc: `Momento culminante. ${charNames.length > 1 ? `${joinNames(charNames)} juntos` : main}. Maxima intensidad visual y emocional.`,
+      extDesc: `${main} en primer plano. ${sec.length > 0 ? `${joinNames(sec)} ${sec.length > 1 ? 'celebran' : 'celebra'} detras.` : 'FREEZE.'}`,
       cam: 'close_up', move: 'orbit',
     },
     {
       phase: 'close', title: 'Cierre y CTA',
-      desc: `${charNames.length > 1 ? `${main}, ${secJoin} — todos juntos` : main} de frente a camara. Sonrisas. Logo${proj ? ` de ${proj}` : ''} y llamada a la accion final.`,
-      extDesc: `Plano final. ${main} despide con una sonrisa. Fade a negro con logo.`,
+      chars: everyone, // Everyone in closing
+      desc: `${charNames.length > 1 ? `${joinNames(charNames)} — todos juntos` : main} de frente a camara. Sonrisas. Logo${proj ? ` de ${proj}` : ''} y CTA.`,
+      extDesc: `Plano final. ${main} despide con una sonrisa. Fade a negro.`,
       cam: 'wide', move: 'dolly_out',
     },
   ];
@@ -155,6 +167,12 @@ function mockScenes(dur: number, desc: string, proj: string, charNames: string[]
     const tmpl = templates[Math.min(i, templates.length - 1)];
     const isLast = i === pairs - 1;
 
+    // Map template char indexes to actual IDs
+    const sceneCharIds = tmpl.chars.filter(ci => ci < charNames.length).map(ci => {
+      const name = charNames[ci];
+      return charIdLookup.find(c => c.name === name)?.id;
+    }).filter(Boolean) as string[];
+
     // Clip principal (10s)
     const clipDur = isLast ? Math.min(10, dur - t) : 10;
     if (clipDur > 0) {
@@ -162,6 +180,7 @@ function mockScenes(dur: number, desc: string, proj: string, charNames: string[]
         title: tmpl.title, description: tmpl.desc, arc_phase: tmpl.phase,
         duration_seconds: snap(clipDur),
         camera_angle: tmpl.cam, camera_movement: tmpl.move,
+        charIds: sceneCharIds,
       });
       t += clipDur;
     }
@@ -173,6 +192,7 @@ function mockScenes(dur: number, desc: string, proj: string, charNames: string[]
         title: `${tmpl.title} — continuacion`, description: tmpl.extDesc,
         arc_phase: tmpl.phase, duration_seconds: snap(extDur),
         camera_angle: tmpl.cam, camera_movement: 'tracking',
+        charIds: sceneCharIds, // Same characters as parent clip
       });
       t += extDur;
     }
@@ -241,7 +261,7 @@ export function VideoCreateModal({ open, onOpenChange, projectId, projectShortId
       const r = await fetch('/api/ai/generate-scenes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId, instruction: `Escenas para "${form.title}" ${form.target_duration_seconds}s ${form.platform} estilo ${projStyle}. ${charCtx}${bgCtx}${form.description ?? ''}` }) });
       if (r.ok) { const j = await r.json(); if (j.success && j.data) { setScenes(addTimelines([{ ...j.data, duration_seconds: snap(j.data.duration_seconds ?? 5) }], resolvedCharNames)); toast.success('Generada', { id: 'gs' }); setGenerating(false); return; } }
     } catch {}
-    setScenes(addTimelines(mockScenes(form.target_duration_seconds, form.description, projTitle, resolvedCharNames), resolvedCharNames));
+    setScenes(addTimelines(mockScenes(form.target_duration_seconds, form.description, projTitle, resolvedCharNames, allChars), resolvedCharNames));
     toast.success('Escenas generadas', { id: 'gs' }); setGenerating(false);
   }
 
@@ -356,15 +376,21 @@ export function VideoCreateModal({ open, onOpenChange, projectId, projectShortId
     const main = resolvedCharNames[0] ?? 'el cantante';
     const sec = resolvedCharNames.length > 1 ? resolvedCharNames.slice(1) : [];
 
-    const structure: Array<{ type: string; pct: number; title: string; desc: string; phase: string; cam: string; move: string }> = [
-      { type: 'intro', pct: 0.08, title: 'Intro', desc: `Plano general atmosferico. ${main} aparece en silueta. La camara avanza lentamente revelando el escenario. Iluminacion suave.`, phase: 'hook', cam: 'wide', move: 'dolly_in' },
-      { type: 'verse', pct: 0.15, title: 'Estrofa 1', desc: `${main} canta en plano medio. ${sec.length > 0 ? `${sec[0]} aparece en segundo plano.` : 'Expresion emotiva.'} Camara tracking siguiendo al artista. Narrativa visual.`, phase: 'build', cam: 'medium', move: 'tracking' },
-      { type: 'chorus', pct: 0.12, title: 'Estribillo 1', desc: `Explosion de energia. ${main} en primer plano cantando con pasion. ${sec.length > 0 ? `${joinNames(sec)} bailan o celebran detras.` : 'Camara gira alrededor.'} Maxima intensidad visual.`, phase: 'peak', cam: 'close_up', move: 'orbit' },
-      { type: 'verse', pct: 0.15, title: 'Estrofa 2', desc: `La historia se desarrolla. ${main} ${sec.length > 0 ? `interactua con ${sec[0]}` : 'camina por el escenario'}. Plano medio con tracking suave. Momentos emotivos.`, phase: 'build', cam: 'medium', move: 'tracking' },
-      { type: 'chorus', pct: 0.12, title: 'Estribillo 2', desc: `Repeticion con mas fuerza. ${main} en close-up con expresion intensa. ${sec.length > 0 ? `${sec[0]} reacciona emocionado.` : 'La gente se mueve detras.'} Iluminacion dramatica.`, phase: 'peak', cam: 'close_up', move: 'dolly_in' },
-      { type: 'bridge', pct: 0.10, title: 'Puente', desc: `Cambio de ritmo. ${main} solo, mirando al horizonte. Plano general diferente. Momento reflexivo. Camara lenta. Iluminacion fria.`, phase: 'build', cam: 'wide', move: 'crane' },
-      { type: 'chorus', pct: 0.15, title: 'Estribillo final', desc: `Climax del videoclip. ${resolvedCharNames.length > 1 ? `${resolvedCharNames.join(', ')} juntos` : main} en el centro. Primer plano rotando. Explosion de color, emocion y movimiento.`, phase: 'peak', cam: 'close_up', move: 'orbit' },
-      { type: 'outro', pct: 0.13, title: 'Outro', desc: `Cierre. La camara se aleja lentamente. ${main} queda solo en el centro del escenario. Fade suave a negro. Titulo de la cancion aparece.`, phase: 'close', cam: 'wide', move: 'dolly_out' },
+    // Map char names to IDs for per-scene assignment
+    const charIdMap = resolvedCharNames.map(name => allChars.find(c => c.name === name)?.id).filter(Boolean) as string[];
+    const mainId = charIdMap[0] ? [charIdMap[0]] : [];
+    const mainPlusOneId = charIdMap.length > 1 ? charIdMap.slice(0, 2) : mainId;
+    const allCharIds = charIdMap;
+
+    const structure: Array<{ type: string; pct: number; title: string; desc: string; phase: string; cam: string; move: string; cIds: string[] }> = [
+      { type: 'intro', pct: 0.08, title: 'Intro', desc: `Plano general atmosferico. ${main} aparece en silueta. La camara avanza lentamente. Iluminacion suave.`, phase: 'hook', cam: 'wide', move: 'dolly_in', cIds: mainId },
+      { type: 'verse', pct: 0.15, title: 'Estrofa 1', desc: `${main} canta en plano medio. ${sec.length > 0 ? `${sec[0]} aparece en segundo plano.` : 'Expresion emotiva.'} Tracking siguiendo al artista.`, phase: 'build', cam: 'medium', move: 'tracking', cIds: mainPlusOneId },
+      { type: 'chorus', pct: 0.12, title: 'Estribillo 1', desc: `Explosion de energia. ${main} en primer plano con pasion. ${sec.length > 0 ? `${joinNames(sec)} bailan detras.` : 'Camara gira.'} Maxima intensidad.`, phase: 'peak', cam: 'close_up', move: 'orbit', cIds: allCharIds },
+      { type: 'verse', pct: 0.15, title: 'Estrofa 2', desc: `La historia se desarrolla. ${main} ${sec.length > 0 ? `interactua con ${sec[0]}` : 'camina por el escenario'}. Tracking suave. Momentos emotivos.`, phase: 'build', cam: 'medium', move: 'tracking', cIds: mainPlusOneId },
+      { type: 'chorus', pct: 0.12, title: 'Estribillo 2', desc: `Repeticion con mas fuerza. ${main} en close-up intenso. ${sec.length > 0 ? `${sec[0]} reacciona emocionado.` : ''} Iluminacion dramatica.`, phase: 'peak', cam: 'close_up', move: 'dolly_in', cIds: allCharIds },
+      { type: 'bridge', pct: 0.10, title: 'Puente', desc: `Cambio de ritmo. ${main} solo, mirando al horizonte. Momento reflexivo. Camara lenta. Iluminacion fria.`, phase: 'build', cam: 'wide', move: 'crane', cIds: mainId },
+      { type: 'chorus', pct: 0.15, title: 'Estribillo final', desc: `Climax del videoclip. ${resolvedCharNames.length > 1 ? `${joinNames(resolvedCharNames)} juntos` : main} en el centro. Explosion de color y emocion.`, phase: 'peak', cam: 'close_up', move: 'orbit', cIds: allCharIds },
+      { type: 'outro', pct: 0.13, title: 'Outro', desc: `Cierre. La camara se aleja. ${main} queda solo. Fade a negro. Titulo de la cancion.`, phase: 'close', cam: 'wide', move: 'dolly_out', cIds: mainId },
     ];
     const scenes: GenScene[] = [];
     let t = 0;
@@ -374,6 +400,7 @@ export function VideoCreateModal({ open, onOpenChange, projectId, projectShortId
       scenes.push({
         title: s.title, description: s.desc, arc_phase: s.phase,
         duration_seconds: sd, camera_angle: s.cam, camera_movement: s.move,
+        charIds: s.cIds,
       });
       t += sd;
     }
