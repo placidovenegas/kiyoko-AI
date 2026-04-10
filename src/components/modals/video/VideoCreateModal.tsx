@@ -354,13 +354,13 @@ export function VideoCreateModal({ open, onOpenChange, projectId, projectShortId
                           {d.label}
                         </button>
                       ))}
-                      <TextField variant="secondary"
-                        value={!DURATIONS.some(d => d.value === form.target_duration_seconds) ? String(form.target_duration_seconds) : ''}
-                        onChange={v => { const n = parseInt(v, 10); if (n > 0) upd('target_duration_seconds', n); }}
-                        className="w-20">
-                        <Label className="sr-only">Duracion custom</Label>
-                        <Input type="number" placeholder="Otra" className="text-center" />
-                      </TextField>
+                      <div className="flex items-center rounded-lg border border-border overflow-hidden">
+                        <button type="button" onClick={() => upd('target_duration_seconds', Math.max(5, form.target_duration_seconds - 5))}
+                          className="flex items-center justify-center w-7 h-7 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors border-r border-border text-xs">−</button>
+                        <span className="w-10 text-center text-xs font-medium text-foreground tabular-nums">{form.target_duration_seconds}s</span>
+                        <button type="button" onClick={() => upd('target_duration_seconds', form.target_duration_seconds + 5)}
+                          className="flex items-center justify-center w-7 h-7 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors border-l border-border text-xs">+</button>
+                      </div>
                     </div>
                   </div>
 
