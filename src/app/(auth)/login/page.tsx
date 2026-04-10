@@ -136,14 +136,14 @@ export default function LoginPage() {
           autoComplete="current-password"
         />
 
-        <Button
+        <button
           type="submit"
-          size="lg"
-          isLoading={loading}
-          className="w-full shadow-lg shadow-primary/25 rounded-md"
+          disabled={loading}
+          className="w-full h-11 rounded-xl bg-primary text-primary-foreground font-medium text-sm shadow-lg shadow-primary/25 hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
         >
-          Iniciar sesión
-        </Button>
+          {loading && <span className="size-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />}
+          Iniciar sesion
+        </button>
       </form>
 
       <div className="mt-6 space-y-2 text-center text-sm text-white/40 lg:text-muted-foreground">

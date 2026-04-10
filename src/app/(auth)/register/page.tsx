@@ -139,14 +139,14 @@ export default function RegisterPage() {
           }
         />
 
-        <Button
+        <button
           type="submit"
-          size="lg"
-          isLoading={loading}
-          className="w-full shadow-lg shadow-primary/25 rounded-md"
+          disabled={loading}
+          className="w-full h-11 rounded-xl bg-primary text-primary-foreground font-medium text-sm shadow-lg shadow-primary/25 hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
         >
+          {loading && <span className="size-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />}
           Crear cuenta
-        </Button>
+        </button>
       </form>
 
       <p className="mt-6 text-center text-sm text-white/40 lg:text-muted-foreground">
