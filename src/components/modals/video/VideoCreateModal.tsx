@@ -118,6 +118,19 @@ export function VideoCreateModal({ open, onOpenChange, projectId, projectShortId
   const [chatFocused, setChatFocused] = useState(false);
   const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant'; text: string }>>([]);
 
+  // Character/background selection
+  const [selectedCharIds, setSelectedCharIds] = useState<string[]>([]);
+  const [selectedBgIds, setSelectedBgIds] = useState<string[]>([]);
+
+  // Get project characters and backgrounds
+  let allChars: Array<{ id: string; name: string; initials: string | null; color_accent: string | null }> = [];
+  let allBgs: Array<{ id: string; name: string; location_type: string | null }> = [];
+  try {
+    const ctx = useProject();
+    allChars = (ctx.characters ?? []).map(c => ({ id: c.id, name: c.name, initials: c.initials, color_accent: c.color_accent }));
+    allBgs = (ctx.backgrounds ?? []).map(b => ({ id: b.id, name: b.name, location_type: b.location_type }));
+  } catch {}
+
   // Audio
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -125,15 +138,21 @@ export function VideoCreateModal({ open, onOpenChange, projectId, projectShortId
   const [audioSections, setAudioSections] = useState<Array<{ type: string; durationSeconds: number; mood: string; energy: string; suggestedSceneType: string }>>([]);
 
   const upd = useCallback(<K extends keyof VideoFormData>(k: K, v: VideoFormData[K]) => setForm(f => ({ ...f, [k]: v })), []);
-  function close() { setForm({ ...DEFAULT_VIDEO }); setStep(1); setScenes([]); setEditIdx(null); setChatInput(''); setSugVis(3); onOpenChange(false); }
+  function close() { setForm({ ...DEFAULT_VIDEO }); setStep(1); setScenes([]); setEditIdx(null); setChatInput(''); setSugVis(3); setSelectedCharIds([]); setSelectedBgIds([]); setChatMessages([]); setAudioFile(null); setAudioUrl(null); setAudioSections([]); onOpenChange(false); }
   function useSug(s: Suggestion) {
     setForm({ title: s.title, description: s.desc, platform: s.platform as VideoFormData['platform'], target_duration_seconds: s.dur, aspect_ratio: (PLATFORMS.find(p => p.value === s.platform)?.ratio ?? '16:9') as VideoFormData['aspect_ratio'] });
   }
 
   async function genScenes() {
     setGenerating(true); toast.ai('Generando escenas...', { id: 'gs' });
+
+    const selCharNames = selectedCharIds.length > 0 ? allChars.filter(c => selectedCharIds.includes(c.id)).map(c => c.name) : allChars.map(c => c.name);
+    const selBgNames = selectedBgIds.length > 0 ? allBgs.filter(b => selectedBgIds.includes(b.id)).map(b => b.name) : [];
+    const charCtx = selCharNames.length > 0 ? `Personajes principales: ${selCharNames.join(', ')}. ` : '';
+    const bgCtx = selBgNames.length > 0 ? `Fondos: ${selBgNames.join(', ')}. ` : '';
+
     try {
-      const r = await fetch('/api/ai/generate-scenes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId, instruction: `Escenas para "${form.title}" ${form.target_duration_seconds}s ${form.platform} estilo ${projStyle}. ${form.description ?? ''}` }) });
+      const r = await fetch('/api/ai/generate-scenes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId, instruction: `Escenas para "${form.title}" ${form.target_duration_seconds}s ${form.platform} estilo ${projStyle}. ${charCtx}${bgCtx}${form.description ?? ''}` }) });
       if (r.ok) { const j = await r.json(); if (j.success && j.data) { setScenes(addTimelines([{ ...j.data, duration_seconds: snap(j.data.duration_seconds ?? 5) }])); toast.success('Generada', { id: 'gs' }); setGenerating(false); return; } }
     } catch {}
     setScenes(addTimelines(mockScenes(form.target_duration_seconds, form.description, projTitle)));
@@ -377,6 +396,53 @@ export function VideoCreateModal({ open, onOpenChange, projectId, projectShortId
                   <TextField variant="secondary" value={form.description} onChange={v => upd('description', v)}>
                     <Label>Descripcion</Label><TextArea placeholder="De que trata este video... (ayuda a la IA a generar mejores escenas)" rows={3} />
                   </TextField>
+
+                  {/* Characters */}
+                  {allChars.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-[11px] font-medium text-muted-foreground">Personajes {selectedCharIds.length > 0 ? `(${selectedCharIds.length})` : '— todos si no seleccionas'}</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {allChars.map(c => {
+                          const sel = selectedCharIds.includes(c.id);
+                          return (
+                            <button key={c.id} type="button"
+                              onClick={() => setSelectedCharIds(prev => sel ? prev.filter(id => id !== c.id) : [...prev, c.id])}
+                              className={cn('inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all',
+                                sel ? 'border-primary/40 bg-primary/5 text-primary' : 'border-border text-muted-foreground hover:border-primary/20')}>
+                              <span className="flex size-4 items-center justify-center rounded-full text-[7px] font-bold text-white shrink-0"
+                                style={{ backgroundColor: c.color_accent ?? '#666' }}>
+                                {c.initials?.[0] ?? c.name[0]}
+                              </span>
+                              {c.name}
+                              {sel && <Check className="size-2.5" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Backgrounds */}
+                  {allBgs.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-[11px] font-medium text-muted-foreground">Fondos {selectedBgIds.length > 0 ? `(${selectedBgIds.length})` : '— la IA elige si no seleccionas'}</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {allBgs.map(b => {
+                          const sel = selectedBgIds.includes(b.id);
+                          return (
+                            <button key={b.id} type="button"
+                              onClick={() => setSelectedBgIds(prev => sel ? prev.filter(id => id !== b.id) : [...prev, b.id])}
+                              className={cn('inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all',
+                                sel ? 'border-primary/40 bg-primary/5 text-primary' : 'border-border text-muted-foreground hover:border-primary/20')}>
+                              {b.name}
+                              {b.location_type && <span className="text-[9px] text-muted-foreground/50">{b.location_type}</span>}
+                              {sel && <Check className="size-2.5" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Audio upload */}
                   <div className="space-y-2">
