@@ -377,15 +377,36 @@ export function VideoCreateModal({ open, onOpenChange, projectId, projectShortId
           const s = scenes[i];
           const { data: ns } = await sb.from('scenes').insert({ video_id: v.id, project_id: projectId, title: s.title, description: s.description, duration_seconds: s.duration_seconds, arc_phase: s.arc_phase as 'hook' | 'build' | 'peak' | 'close', scene_number: i + 1, sort_order: i + 1, short_id: generateShortId(), status: 'draft', scene_type: 'original' }).select('id').single();
           if (ns) {
+            // Camera
             await sb.from('scene_camera').insert({ scene_id: ns.id, camera_angle: (s.camera_angle ?? 'medium') as Database['public']['Enums']['camera_angle'], camera_movement: (s.camera_movement ?? 'static') as Database['public']['Enums']['camera_movement'] });
+
+            // Characters — assign selected (or all) to each scene
+            const charIds = selectedCharIds.length > 0 ? selectedCharIds : allChars.map(c => c.id);
+            if (charIds.length > 0) {
+              await sb.from('scene_characters').insert(
+                charIds.map((cid, ci) => ({ scene_id: ns.id, character_id: cid, sort_order: ci }))
+              );
+            }
+
+            // Backgrounds — assign selected (or first available) to each scene
+            const bgIds = selectedBgIds.length > 0 ? selectedBgIds : allBgs.slice(0, 1).map(b => b.id);
+            if (bgIds.length > 0) {
+              await sb.from('scene_backgrounds').insert(
+                bgIds.map((bid, bi) => ({ scene_id: ns.id, background_id: bid, is_primary: bi === 0 }))
+              );
+            }
+
+            // Auto-generate prompts in background
             fetch('/api/ai/generate-scene-prompts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sceneId: ns.id }) }).catch(() => {});
           }
         }
       }
       qc.invalidateQueries({ queryKey: ['scenes'] }); qc.invalidateQueries({ queryKey: ['video'] });
+      qc.invalidateQueries({ queryKey: ['scene-characters'] }); qc.invalidateQueries({ queryKey: ['scene-backgrounds'] });
       toast.success(`Video con ${scenes.length} escenas creado`, { id: 'ca' });
+      const videoShortId = v.short_id;
       close(); onSuccess?.();
-      if (v.short_id && projectShortId) router.push(`/project/${projectShortId}/video/${v.short_id}`);
+      if (videoShortId && projectShortId) router.push(`/project/${projectShortId}/video/${videoShortId}`);
     } catch { toast.error('Error', { id: 'ca' }); }
     setSaving(false);
   }
