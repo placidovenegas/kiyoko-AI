@@ -7,7 +7,7 @@ import { TextField, Input, TextArea, Label } from '@heroui/react';
 import {
   Film, Sparkles, X, Loader2, Monitor, Smartphone, Clock,
   ChevronRight, ChevronLeft, Plus, RefreshCw, Check, Send, Wand2, Clapperboard,
-  Music, Upload,
+  Music, Upload, Camera,
 } from 'lucide-react';
 import { toast } from '@/components/ui/toast';
 import type { ModalProps } from '../shared/types';
@@ -25,7 +25,13 @@ import { StreamingWave } from '@/components/chat/StreamingWave';
 /* ── Types ────────────────────────────────────────────────── */
 
 interface Suggestion { title: string; desc: string; platform: string; dur: number }
-interface GenScene { title: string; description: string; arc_phase: string; duration_seconds: number; camera_angle?: string; camera_movement?: string; selected?: boolean; timeline?: string; expanded?: boolean }
+interface GenScene {
+  title: string; description: string; arc_phase: string; duration_seconds: number;
+  camera_angle?: string; camera_movement?: string;
+  selected?: boolean; timeline?: string; expanded?: boolean;
+  charIds?: string[]; bgIds?: string[];
+  music?: boolean; dialogue?: boolean; sfx?: boolean;
+}
 
 const VALID_DURS = [3, 4, 5, 6, 8, 10];
 function snap(d: number) { return VALID_DURS.reduce((p, c) => Math.abs(c - d) < Math.abs(p - d) ? c : p); }
@@ -380,19 +386,19 @@ export function VideoCreateModal({ open, onOpenChange, projectId, projectShortId
             // Camera
             await sb.from('scene_camera').insert({ scene_id: ns.id, camera_angle: (s.camera_angle ?? 'medium') as Database['public']['Enums']['camera_angle'], camera_movement: (s.camera_movement ?? 'static') as Database['public']['Enums']['camera_movement'] });
 
-            // Characters — assign selected (or all) to each scene
-            const charIds = selectedCharIds.length > 0 ? selectedCharIds : allChars.map(c => c.id);
-            if (charIds.length > 0) {
+            // Characters — per-scene selection, fallback to video-level selection, fallback to all
+            const sceneCharIds = s.charIds?.length ? s.charIds : (selectedCharIds.length > 0 ? selectedCharIds : allChars.map(c => c.id));
+            if (sceneCharIds.length > 0) {
               await sb.from('scene_characters').insert(
-                charIds.map((cid, ci) => ({ scene_id: ns.id, character_id: cid, sort_order: ci }))
+                sceneCharIds.map((cid, ci) => ({ scene_id: ns.id, character_id: cid, sort_order: ci }))
               );
             }
 
-            // Backgrounds — assign selected (or first available) to each scene
-            const bgIds = selectedBgIds.length > 0 ? selectedBgIds : allBgs.slice(0, 1).map(b => b.id);
-            if (bgIds.length > 0) {
+            // Backgrounds — per-scene selection, fallback to video-level, fallback to first
+            const sceneBgIds = s.bgIds?.length ? s.bgIds : (selectedBgIds.length > 0 ? selectedBgIds : allBgs.slice(0, 1).map(b => b.id));
+            if (sceneBgIds.length > 0) {
               await sb.from('scene_backgrounds').insert(
-                bgIds.map((bid, bi) => ({ scene_id: ns.id, background_id: bid, is_primary: bi === 0 }))
+                sceneBgIds.map((bid, bi) => ({ scene_id: ns.id, background_id: bid, is_primary: bi === 0 }))
               );
             }
 
@@ -660,6 +666,89 @@ export function VideoCreateModal({ open, onOpenChange, projectId, projectShortId
                               className="w-full px-3.5 pb-2 text-left">
                               <p className="text-[11px] text-muted-foreground/60 line-clamp-1 hover:text-muted-foreground transition-colors">{s.description}</p>
                             </button>
+                          )}
+
+                          {/* Scene config: chars, bgs, camera, audio */}
+                          {s.expanded && (
+                            <div className="mx-3.5 mb-2 space-y-2">
+                              {/* Characters in this scene */}
+                              {allChars.length > 0 && (
+                                <div className="flex items-center gap-1 flex-wrap">
+                                  <span className="text-[8px] text-muted-foreground/50 w-14 shrink-0">Personajes</span>
+                                  {allChars.map(c => {
+                                    const inScene = (s.charIds ?? selectedCharIds ?? []).includes(c.id) || !(s.charIds?.length);
+                                    return (
+                                      <button key={c.id} type="button"
+                                        onClick={() => setScenes(p => p.map((sc, j) => {
+                                          if (j !== i) return sc;
+                                          const cur = sc.charIds ?? (selectedCharIds.length > 0 ? [...selectedCharIds] : allChars.map(ch => ch.id));
+                                          return { ...sc, charIds: cur.includes(c.id) ? cur.filter(id => id !== c.id) : [...cur, c.id] };
+                                        }))}
+                                        className={cn('inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] transition-all',
+                                          inScene ? 'border-primary/30 bg-primary/5 text-foreground' : 'border-border/40 text-muted-foreground/40')}>
+                                        <span className="size-3 rounded-full text-[6px] font-bold text-white flex items-center justify-center"
+                                          style={{ backgroundColor: inScene ? (c.color_accent ?? '#666') : '#444' }}>{c.initials?.[0] ?? c.name[0]}</span>
+                                        {c.name}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+
+                              {/* Backgrounds */}
+                              {allBgs.length > 0 && (
+                                <div className="flex items-center gap-1 flex-wrap">
+                                  <span className="text-[8px] text-muted-foreground/50 w-14 shrink-0">Fondo</span>
+                                  {allBgs.map(b => {
+                                    const inScene = (s.bgIds ?? selectedBgIds ?? []).includes(b.id) || !(s.bgIds?.length);
+                                    return (
+                                      <button key={b.id} type="button"
+                                        onClick={() => setScenes(p => p.map((sc, j) => {
+                                          if (j !== i) return sc;
+                                          const cur = sc.bgIds ?? (selectedBgIds.length > 0 ? [...selectedBgIds] : []);
+                                          return { ...sc, bgIds: cur.includes(b.id) ? cur.filter(id => id !== b.id) : [...cur, b.id] };
+                                        }))}
+                                        className={cn('rounded-md border px-1.5 py-0.5 text-[9px] transition-all',
+                                          inScene ? 'border-primary/30 bg-primary/5 text-foreground' : 'border-border/40 text-muted-foreground/40')}>
+                                        {b.name}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+
+                              {/* Camera + Audio row */}
+                              <div className="flex items-center gap-3 flex-wrap">
+                                <div className="flex items-center gap-1">
+                                  <Camera className="size-2.5 text-muted-foreground/40" />
+                                  <select value={s.camera_angle ?? 'medium'} onChange={e => setScenes(p => p.map((sc, j) => j === i ? { ...sc, camera_angle: e.target.value } : sc))}
+                                    className="text-[9px] bg-transparent text-muted-foreground border-none outline-none cursor-pointer">
+                                    <option value="wide">General</option><option value="medium">Medio</option>
+                                    <option value="close_up">Primer plano</option><option value="extreme_close_up">Extreme CU</option>
+                                  </select>
+                                  <select value={s.camera_movement ?? 'static'} onChange={e => setScenes(p => p.map((sc, j) => j === i ? { ...sc, camera_movement: e.target.value } : sc))}
+                                    className="text-[9px] bg-transparent text-muted-foreground border-none outline-none cursor-pointer">
+                                    <option value="static">Estatica</option><option value="dolly_in">Dolly in</option>
+                                    <option value="dolly_out">Dolly out</option><option value="tracking">Tracking</option>
+                                    <option value="orbit">Orbita</option><option value="crane">Grua</option>
+                                  </select>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  {[
+                                    { key: 'music' as const, label: '♫' },
+                                    { key: 'dialogue' as const, label: '💬' },
+                                    { key: 'sfx' as const, label: 'SFX' },
+                                  ].map(a => (
+                                    <button key={a.key} type="button"
+                                      onClick={() => setScenes(p => p.map((sc, j) => j === i ? { ...sc, [a.key]: !sc[a.key] } : sc))}
+                                      className={cn('rounded px-1.5 py-0.5 text-[8px] font-medium transition-all',
+                                        s[a.key] ? 'bg-primary/10 text-primary border border-primary/20' : 'text-muted-foreground/30 border border-transparent hover:border-border')}>
+                                      {a.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
                           )}
 
                           {/* Expandable timeline */}
