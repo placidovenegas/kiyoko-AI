@@ -331,14 +331,14 @@ export function VideoCreateModal({ open, onOpenChange, projectId, projectShortId
       // Create a temp video to associate the analysis (will be replaced on final save)
       // For now just do mock analysis since we don't have videoId yet
       const mockSections = generateAudioScenes(audioDur);
-      setScenes(mockSections);
+      setScenes(addTimelines(mockSections, resolvedCharNames));
       setAudioSections(mockSections.map(s => ({ type: s.arc_phase, durationSeconds: s.duration_seconds, mood: s.description, energy: 'medium', suggestedSceneType: s.arc_phase })));
 
-      toast.success(`Cancion analizada — ${mockSections.length} escenas, ${audioDur}s`, { id: 'audio-analyze' });
+      toast.success(`Cancion analizada — ${mockSections.length} escenas para videoclip`, { id: 'audio-analyze' });
 
       setChatMessages(prev => [...prev, {
         role: 'assistant',
-        text: `Cancion "${fileName}" analizada. ${mockSections.length} secciones detectadas. Duracion: ${audioDur}s. Las escenas estan listas en el paso 2.`,
+        text: `Videoclip "${fileName}" preparado. ${mockSections.length} escenas alineadas con la estructura musical (${audioDur}s). Cada escena describe que pasa visualmente.${resolvedCharNames.length > 0 ? ` Protagonistas: ${resolvedCharNames.join(', ')}.` : ''}`,
       }]);
 
     } catch {
@@ -348,24 +348,26 @@ export function VideoCreateModal({ open, onOpenChange, projectId, projectShortId
   }
 
   function generateAudioScenes(dur: number): GenScene[] {
-    const structure: Array<{ type: string; pct: number; title: string; mood: string; phase: string; cam: string; move: string }> = [
-      { type: 'intro', pct: 0.08, title: 'Intro', mood: 'Atmosferico, establecer tono', phase: 'hook', cam: 'wide', move: 'dolly_in' },
-      { type: 'verse', pct: 0.15, title: 'Estrofa 1', mood: 'Narrativo, presentar contexto', phase: 'build', cam: 'medium', move: 'tracking' },
-      { type: 'chorus', pct: 0.12, title: 'Estribillo 1', mood: 'Energetico, momento clave', phase: 'peak', cam: 'close_up', move: 'orbit' },
-      { type: 'verse', pct: 0.15, title: 'Estrofa 2', mood: 'Desarrollo, profundizar', phase: 'build', cam: 'medium', move: 'tracking' },
-      { type: 'chorus', pct: 0.12, title: 'Estribillo 2', mood: 'Maximo impacto visual', phase: 'peak', cam: 'close_up', move: 'dolly_in' },
-      { type: 'bridge', pct: 0.10, title: 'Puente', mood: 'Reflexivo, cambio de ritmo', phase: 'build', cam: 'wide', move: 'crane' },
-      { type: 'chorus', pct: 0.15, title: 'Estribillo final', mood: 'Climax, explosion visual', phase: 'peak', cam: 'close_up', move: 'orbit' },
-      { type: 'outro', pct: 0.13, title: 'Outro', mood: 'Cierre, fade out', phase: 'close', cam: 'wide', move: 'dolly_out' },
+    const main = resolvedCharNames[0] ?? 'el cantante';
+    const sec = resolvedCharNames.length > 1 ? resolvedCharNames.slice(1) : [];
+
+    const structure: Array<{ type: string; pct: number; title: string; desc: string; phase: string; cam: string; move: string }> = [
+      { type: 'intro', pct: 0.08, title: 'Intro', desc: `Plano general atmosferico. ${main} aparece en silueta. La camara avanza lentamente revelando el escenario. Iluminacion suave.`, phase: 'hook', cam: 'wide', move: 'dolly_in' },
+      { type: 'verse', pct: 0.15, title: 'Estrofa 1', desc: `${main} canta en plano medio. ${sec.length > 0 ? `${sec[0]} aparece en segundo plano.` : 'Expresion emotiva.'} Camara tracking siguiendo al artista. Narrativa visual.`, phase: 'build', cam: 'medium', move: 'tracking' },
+      { type: 'chorus', pct: 0.12, title: 'Estribillo 1', desc: `Explosion de energia. ${main} en primer plano cantando con pasion. ${sec.length > 0 ? `${sec.join(' y ')} bailan o celebran detras.` : 'Camara gira alrededor.'} Maxima intensidad visual.`, phase: 'peak', cam: 'close_up', move: 'orbit' },
+      { type: 'verse', pct: 0.15, title: 'Estrofa 2', desc: `La historia se desarrolla. ${main} ${sec.length > 0 ? `interactua con ${sec[0]}` : 'camina por el escenario'}. Plano medio con tracking suave. Momentos emotivos.`, phase: 'build', cam: 'medium', move: 'tracking' },
+      { type: 'chorus', pct: 0.12, title: 'Estribillo 2', desc: `Repeticion con mas fuerza. ${main} en close-up con expresion intensa. ${sec.length > 0 ? `${sec[0]} reacciona emocionado.` : 'La gente se mueve detras.'} Iluminacion dramatica.`, phase: 'peak', cam: 'close_up', move: 'dolly_in' },
+      { type: 'bridge', pct: 0.10, title: 'Puente', desc: `Cambio de ritmo. ${main} solo, mirando al horizonte. Plano general diferente. Momento reflexivo. Camara lenta. Iluminacion fria.`, phase: 'build', cam: 'wide', move: 'crane' },
+      { type: 'chorus', pct: 0.15, title: 'Estribillo final', desc: `Climax del videoclip. ${resolvedCharNames.length > 1 ? `${resolvedCharNames.join(', ')} juntos` : main} en el centro. Primer plano rotando. Explosion de color, emocion y movimiento.`, phase: 'peak', cam: 'close_up', move: 'orbit' },
+      { type: 'outro', pct: 0.13, title: 'Outro', desc: `Cierre. La camara se aleja lentamente. ${main} queda solo en el centro del escenario. Fade suave a negro. Titulo de la cancion aparece.`, phase: 'close', cam: 'wide', move: 'dolly_out' },
     ];
     const scenes: GenScene[] = [];
     let t = 0;
     for (const s of structure) {
-      const raw = Math.round(dur * s.pct);
-      const sd = snap(raw);
-      if (t + sd > dur + 5) break; // Don't exceed duration by much
+      const sd = snap(Math.round(dur * s.pct));
+      if (t + sd > dur + 5) break;
       scenes.push({
-        title: s.title, description: s.mood, arc_phase: s.phase,
+        title: s.title, description: s.desc, arc_phase: s.phase,
         duration_seconds: sd, camera_angle: s.cam, camera_movement: s.move,
       });
       t += sd;

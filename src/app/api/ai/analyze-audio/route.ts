@@ -21,8 +21,9 @@ interface AudioSection {
   durationSeconds: number;
   mood: string;
   energy: 'low' | 'medium' | 'high' | 'very_high';
-  lyrics?: string;
+  lyrics?: string | null;
   suggestedSceneType: 'hook' | 'build' | 'peak' | 'close';
+  visualSuggestion?: string;
 }
 
 interface AudioAnalysis {
@@ -67,38 +68,45 @@ async function analyzeWithGemini(audioUrl: string): Promise<AudioAnalysis | null
                 },
               },
               {
-                text: `Analyze this audio/song and return a JSON object with this EXACT structure. No markdown, only JSON:
+                text: `You are a music video director. Analyze this song for creating a professional music video (videoclip).
+
+Return a JSON object with this EXACT structure. No markdown, ONLY valid JSON:
 
 {
-  "bpm": number (estimated beats per minute),
+  "bpm": number,
   "totalDurationSeconds": number,
-  "genre": "string (e.g. pop, rock, electronic, hip-hop)",
-  "mood": "string (e.g. energetic, melancholic, uplifting, dramatic)",
+  "genre": "string",
+  "mood": "string",
   "hasLyrics": boolean,
   "language": "string or null",
+  "fullLyrics": "Complete transcription of all lyrics in the original language. If instrumental, set to null.",
   "sections": [
     {
       "type": "intro" | "verse" | "chorus" | "bridge" | "outro" | "instrumental" | "buildup" | "drop",
       "startSeconds": number,
       "endSeconds": number,
       "durationSeconds": number,
-      "mood": "string describing the mood of this section",
+      "mood": "string — the emotional feeling of this section",
       "energy": "low" | "medium" | "high" | "very_high",
-      "lyrics": "brief lyrics summary if applicable, null if instrumental",
-      "suggestedSceneType": "hook" | "build" | "peak" | "close"
+      "lyrics": "EXACT lyrics sung in this section (transcribe word by word). null if instrumental.",
+      "suggestedSceneType": "hook" | "build" | "peak" | "close",
+      "visualSuggestion": "Describe in Spanish what should be VISUALLY happening in the music video during this section. Be specific: who is doing what, camera movement, lighting, mood. Example: 'El cantante camina por una calle vacia bajo la lluvia. Camara le sigue con tracking. Plano medio. Expresion melancolica.'"
     }
   ]
 }
 
-Rules for suggestedSceneType:
-- intro → "hook"
-- verse → "build"
-- chorus/drop → "peak"
-- bridge → "build"
-- outro → "close"
-- buildup → "build"
-
-Make sure sections cover the entire duration without gaps. Each section should be between 3 and 15 seconds for video generation purposes. If a section is longer than 15s, split it into multiple subsections.`,
+IMPORTANT RULES:
+- Transcribe ALL lyrics word by word in the original language
+- Each section MUST have visualSuggestion in SPANISH describing the video scene
+- Sections must cover the ENTIRE duration with NO gaps
+- Split sections longer than 10 seconds into subsections of 6-10 seconds
+- For the visualSuggestion, think like a music video director:
+  * Intro: atmospheric, establishing shot, slow reveal
+  * Verse: narrative, storytelling, character focus
+  * Chorus: high energy, dynamic camera, impactful visuals
+  * Bridge: change of pace, different angle, emotional moment
+  * Outro: closing, fade, final image
+- suggestedSceneType mapping: intro→hook, verse→build, chorus/drop→peak, bridge→build, outro→close`,
               },
             ],
           }],
@@ -132,30 +140,28 @@ Make sure sections cover the entire duration without gaps. Each section should b
 // ---------------------------------------------------------------------------
 
 function mockAnalysis(durationHint: number): AudioAnalysis {
-  const dur = durationHint || 180; // default 3 min
+  const dur = durationHint || 180;
   const sections: AudioSection[] = [];
 
-  // Generate realistic song structure
-  const structure: Array<{ type: AudioSection['type']; pct: number; mood: string; energy: AudioSection['energy']; scene: AudioSection['suggestedSceneType'] }> = [
-    { type: 'intro', pct: 0.08, mood: 'atmospheric', energy: 'low', scene: 'hook' },
-    { type: 'verse', pct: 0.15, mood: 'building', energy: 'medium', scene: 'build' },
-    { type: 'chorus', pct: 0.12, mood: 'energetic', energy: 'high', scene: 'peak' },
-    { type: 'verse', pct: 0.15, mood: 'developing', energy: 'medium', scene: 'build' },
-    { type: 'chorus', pct: 0.12, mood: 'powerful', energy: 'very_high', scene: 'peak' },
-    { type: 'bridge', pct: 0.10, mood: 'reflective', energy: 'medium', scene: 'build' },
-    { type: 'buildup', pct: 0.05, mood: 'tense', energy: 'high', scene: 'build' },
-    { type: 'chorus', pct: 0.12, mood: 'climactic', energy: 'very_high', scene: 'peak' },
-    { type: 'outro', pct: 0.11, mood: 'fading', energy: 'low', scene: 'close' },
+  const structure: Array<{ type: AudioSection['type']; pct: number; mood: string; energy: AudioSection['energy']; scene: AudioSection['suggestedSceneType']; visual: string; lyrics: string | null }> = [
+    { type: 'intro', pct: 0.08, mood: 'atmospheric', energy: 'low', scene: 'hook', visual: 'Plano general atmosferico. La camara avanza lentamente revelando el escenario principal. Iluminacion suave y calida.', lyrics: null },
+    { type: 'verse', pct: 0.15, mood: 'building', energy: 'medium', scene: 'build', visual: 'El protagonista aparece en plano medio. Camara tracking le sigue mientras camina. Expresion pensativa, mirada al horizonte.', lyrics: '(Letra de la estrofa 1)' },
+    { type: 'chorus', pct: 0.12, mood: 'energetic', energy: 'high', scene: 'peak', visual: 'Explosion de energia. Primer plano del protagonista cantando con emocion. Camara orbita alrededor. Iluminacion dramatica.', lyrics: '(Letra del estribillo)' },
+    { type: 'verse', pct: 0.15, mood: 'developing', energy: 'medium', scene: 'build', visual: 'Narrativa se desarrolla. Plano medio con los personajes interactuando. Tracking suave. Momentos emotivos entre ellos.', lyrics: '(Letra de la estrofa 2)' },
+    { type: 'chorus', pct: 0.12, mood: 'powerful', energy: 'very_high', scene: 'peak', visual: 'Repeticion del estribillo con mas intensidad. Close-up de caras. Movimiento dinamico. La gente baila o celebra detras.', lyrics: '(Letra del estribillo - repeticion)' },
+    { type: 'bridge', pct: 0.10, mood: 'reflective', energy: 'medium', scene: 'build', visual: 'Cambio de ritmo. Plano general diferente. Momento reflexivo. El protagonista solo, mirando lejos. Camara lenta.', lyrics: '(Letra del puente)' },
+    { type: 'chorus', pct: 0.15, mood: 'climactic', energy: 'very_high', scene: 'peak', visual: 'Estribillo final. Maximo impacto. Todos los personajes juntos. Primer plano rotando. Explosion de color y emocion.', lyrics: '(Estribillo final)' },
+    { type: 'outro', pct: 0.13, mood: 'fading', energy: 'low', scene: 'close', visual: 'Cierre. Plano general alejandose. El protagonista queda solo. Fade a negro. Logo o titulo final.', lyrics: null },
   ];
 
   let t = 0;
   for (const s of structure) {
-    const rawDur = Math.round(dur * s.pct);
-    const secDur = Math.max(3, Math.min(10, rawDur)); // Snap to 3-10s
+    const secDur = Math.max(3, Math.min(10, Math.round(dur * s.pct)));
     sections.push({
       type: s.type, startSeconds: t, endSeconds: t + secDur,
       durationSeconds: secDur, mood: s.mood, energy: s.energy,
-      suggestedSceneType: s.scene,
+      suggestedSceneType: s.scene, lyrics: s.lyrics,
+      visualSuggestion: s.visual,
     });
     t += secDur;
   }
