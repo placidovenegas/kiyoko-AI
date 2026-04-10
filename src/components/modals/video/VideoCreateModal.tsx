@@ -30,44 +30,50 @@ interface GenScene { title: string; description: string; arc_phase: string; dura
 const VALID_DURS = [3, 4, 5, 6, 8, 10];
 function snap(d: number) { return VALID_DURS.reduce((p, c) => Math.abs(c - d) < Math.abs(p - d) ? c : p); }
 
-function genTimeline(title: string, desc: string, dur: number, cam: string, move: string, phase: string): string {
+function fmt(s: number): string { return String(Math.min(s, 59)).padStart(2, '0'); }
+
+function genTimeline(title: string, desc: string, dur: number, cam: string, move: string, phase: string, chars: string[] = []): string {
   const blocks: string[] = [];
+  const bs = Math.max(2, Math.min(3, Math.floor(dur / 3)));
+  const camL: Record<string, string> = { wide: 'Plano general', medium: 'Plano medio', close_up: 'Primer plano', extreme_close_up: 'Primerisimo plano' };
+  const movL: Record<string, string> = { static: 'Camara estatica', dolly_in: 'Camara avanza lentamente', dolly_out: 'Camara retrocede', tracking: 'Camara sigue al sujeto', orbit: 'Camara gira alrededor', crane: 'Camara asciende con grua' };
+  const c = camL[cam] ?? 'Plano medio';
+  const m = movL[move] ?? 'Camara estatica';
+
+  // Build character actions based on who's in the scene
+  const main = chars[0] ?? 'el protagonista';
+  const secondary = chars.length > 1 ? chars.slice(1) : [];
+  const secText = secondary.length > 0 ? `. ${secondary.join(' y ')} ${secondary.length > 1 ? 'aparecen' : 'aparece'} en segundo plano` : '';
+
   let t = 0;
-  const blockSize = Math.max(2, Math.min(3, Math.floor(dur / 3)));
-
-  const camLabels: Record<string, string> = { wide: 'Plano general', medium: 'Plano medio', close_up: 'Primer plano', extreme_close_up: 'Primerísimo plano' };
-  const moveLabels: Record<string, string> = { static: 'Camara estatica', dolly_in: 'Camara avanza lentamente', dolly_out: 'Camara retrocede', tracking: 'Camara sigue al sujeto', orbit: 'Camara gira alrededor', crane: 'Camara asciende con grua' };
-  const camL = camLabels[cam] ?? 'Plano medio';
-  const moveL = moveLabels[move] ?? 'Camara estatica';
-
   if (phase === 'hook') {
-    blocks.push(`[00:00-00:0${Math.min(blockSize, dur)}]: ${camL}. ${title} — ${desc}. ${moveL} estableciendo la escena.`);
-    t = blockSize;
-    if (t < dur) { blocks.push(`[00:0${t}-00:0${Math.min(t + blockSize, dur)}]: La accion se intensifica. Elementos visuales clave aparecen para captar atencion inmediata.`); t += blockSize; }
-    if (t < dur) { blocks.push(`[00:0${t}-00:${String(dur).padStart(2, '0')}]: Transicion al siguiente momento. ${moveL} se detiene en el punto focal.`); }
+    blocks.push(`[00:${fmt(t)}-00:${fmt(t + bs)}]: ${c}. ${main} entra en escena${secText}. ${m} estableciendo el escenario. ${desc}.`);
+    t += bs;
+    if (t < dur) { blocks.push(`[00:${fmt(t)}-00:${fmt(Math.min(t + bs, dur))}]: ${main} mira directamente a camara con expresion intensa. Elementos visuales dinamicos captan la atencion del espectador.`); t += bs; }
+    if (t < dur) { blocks.push(`[00:${fmt(t)}-00:${fmt(dur)}]: ${m} se detiene en ${main}. Transicion suave al siguiente momento.`); }
   } else if (phase === 'peak') {
-    blocks.push(`[00:00-00:0${Math.min(blockSize, dur)}]: ${camL}. Momento de maxima intensidad. ${moveL} con energia.`);
-    t = blockSize;
-    if (t < dur) { blocks.push(`[00:0${t}-00:0${Math.min(t + blockSize, dur)}]: ${desc}. La accion alcanza su punto mas alto. Expresiones intensas, movimiento dinamico.`); t += blockSize; }
-    if (t < dur) { blocks.push(`[00:0${t}-00:${String(dur).padStart(2, '0')}]: Climax visual. ${moveL}. Todo converge en un instante de impacto maximo.`); }
+    blocks.push(`[00:${fmt(t)}-00:${fmt(t + bs)}]: ${c}. Momento culminante. ${main} en el centro de la accion con expresion intensa${secText}.`);
+    t += bs;
+    if (t < dur) { blocks.push(`[00:${fmt(t)}-00:${fmt(Math.min(t + bs, dur))}]: ${m} con energia. ${main} ${chars.length > 1 ? `interactua con ${secondary[0]}` : 'realiza la accion principal'}. Maxima intensidad visual y emocional.`); t += bs; }
+    if (t < dur) { blocks.push(`[00:${fmt(t)}-00:${fmt(dur)}]: Climax. ${main} en primer plano, expresion de impacto. Todo converge en este instante.`); }
   } else if (phase === 'close') {
-    blocks.push(`[00:00-00:0${Math.min(blockSize, dur)}]: ${camL}. ${desc}. El ritmo se calma.`);
-    t = blockSize;
-    if (t < dur) { blocks.push(`[00:0${t}-00:0${Math.min(t + blockSize, dur)}]: ${moveL} retrocediendo. La escena se resuelve con serenidad.`); t += blockSize; }
-    if (t < dur) { blocks.push(`[00:0${t}-00:${String(dur).padStart(2, '0')}]: Cierre. Ultimo momento visual antes de la transicion. Fade suave.`); }
+    blocks.push(`[00:${fmt(t)}-00:${fmt(t + bs)}]: ${c}. ${main} en calma${secText}. ${desc}. El ritmo se ralentiza.`);
+    t += bs;
+    if (t < dur) { blocks.push(`[00:${fmt(t)}-00:${fmt(Math.min(t + bs, dur))}]: ${m} retrocediendo. ${main} ${secondary.length > 0 ? `y ${secondary.join(', ')} comparten un ultimo momento` : 'cierra la escena con serenidad'}.`); t += bs; }
+    if (t < dur) { blocks.push(`[00:${fmt(t)}-00:${fmt(dur)}]: Ultimo plano de ${main}. Fade suave hacia negro.`); }
   } else {
-    blocks.push(`[00:00-00:0${Math.min(blockSize, dur)}]: ${camL}. ${title} — ${desc}. ${moveL} acompanando la narracion.`);
-    t = blockSize;
-    if (t < dur) { blocks.push(`[00:0${t}-00:0${Math.min(t + blockSize, dur)}]: La escena se desarrolla. Detalles visuales que enriquecen la narrativa. ${moveL}.`); t += blockSize; }
-    if (t < dur) { blocks.push(`[00:0${t}-00:${String(dur).padStart(2, '0')}]: Preparacion para la siguiente escena. El movimiento se suaviza hacia la transicion.`); }
+    blocks.push(`[00:${fmt(t)}-00:${fmt(t + bs)}]: ${c}. ${main} protagoniza la escena${secText}. ${desc}. ${m}.`);
+    t += bs;
+    if (t < dur) { blocks.push(`[00:${fmt(t)}-00:${fmt(Math.min(t + bs, dur))}]: ${main} ${secondary.length > 0 ? `junto a ${secondary[0]}` : 'desarrolla la accion'}. Detalles visuales que enriquecen la narrativa. ${m}.`); t += bs; }
+    if (t < dur) { blocks.push(`[00:${fmt(t)}-00:${fmt(dur)}]: ${main} prepara la transicion. El movimiento se suaviza hacia la siguiente escena.`); }
   }
   return blocks.join('\n');
 }
 
-function addTimelines(scenes: GenScene[]): GenScene[] {
+function addTimelines(scenes: GenScene[], charNames: string[] = []): GenScene[] {
   return scenes.map(s => ({
     ...s,
-    timeline: s.timeline ?? genTimeline(s.title, s.description, s.duration_seconds, s.camera_angle ?? 'medium', s.camera_movement ?? 'static', s.arc_phase),
+    timeline: s.timeline ?? genTimeline(s.title, s.description, s.duration_seconds, s.camera_angle ?? 'medium', s.camera_movement ?? 'static', s.arc_phase, charNames),
   }));
 }
 
@@ -146,16 +152,15 @@ export function VideoCreateModal({ open, onOpenChange, projectId, projectShortId
   async function genScenes() {
     setGenerating(true); toast.ai('Generando escenas...', { id: 'gs' });
 
-    const selCharNames = selectedCharIds.length > 0 ? allChars.filter(c => selectedCharIds.includes(c.id)).map(c => c.name) : allChars.map(c => c.name);
     const selBgNames = selectedBgIds.length > 0 ? allBgs.filter(b => selectedBgIds.includes(b.id)).map(b => b.name) : [];
-    const charCtx = selCharNames.length > 0 ? `Personajes principales: ${selCharNames.join(', ')}. ` : '';
+    const charCtx = resolvedCharNames.length > 0 ? `Personajes principales: ${resolvedCharNames.join(', ')}. ` : '';
     const bgCtx = selBgNames.length > 0 ? `Fondos: ${selBgNames.join(', ')}. ` : '';
 
     try {
       const r = await fetch('/api/ai/generate-scenes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId, instruction: `Escenas para "${form.title}" ${form.target_duration_seconds}s ${form.platform} estilo ${projStyle}. ${charCtx}${bgCtx}${form.description ?? ''}` }) });
-      if (r.ok) { const j = await r.json(); if (j.success && j.data) { setScenes(addTimelines([{ ...j.data, duration_seconds: snap(j.data.duration_seconds ?? 5) }])); toast.success('Generada', { id: 'gs' }); setGenerating(false); return; } }
+      if (r.ok) { const j = await r.json(); if (j.success && j.data) { setScenes(addTimelines([{ ...j.data, duration_seconds: snap(j.data.duration_seconds ?? 5) }], resolvedCharNames)); toast.success('Generada', { id: 'gs' }); setGenerating(false); return; } }
     } catch {}
-    setScenes(addTimelines(mockScenes(form.target_duration_seconds, form.description, projTitle)));
+    setScenes(addTimelines(mockScenes(form.target_duration_seconds, form.description, projTitle), resolvedCharNames));
     toast.success('Escenas generadas', { id: 'gs' }); setGenerating(false);
   }
 
@@ -204,6 +209,9 @@ export function VideoCreateModal({ open, onOpenChange, projectId, projectShortId
   }
 
   /* ── Audio upload + analyze (in step 1) ─────────────────── */
+  // Resolved character names (used in multiple places)
+  const resolvedCharNames = selectedCharIds.length > 0 ? allChars.filter(c => selectedCharIds.includes(c.id)).map(c => c.name) : allChars.map(c => c.name);
+
   async function handleAudioUpload(file: File) {
     setAudioFile(file);
     setAnalyzingAudio(true);
@@ -234,7 +242,7 @@ export function VideoCreateModal({ open, onOpenChange, projectId, projectShortId
       if (uploadError) {
         // Storage might not be configured — use mock analysis
         const mockSections = generateAudioScenes(audioDur);
-        setScenes(addTimelines(mockSections));
+        setScenes(addTimelines(mockSections, resolvedCharNames));
         setAudioSections(mockSections.map(s => ({ type: s.arc_phase, durationSeconds: s.duration_seconds, mood: s.description, energy: 'medium', suggestedSceneType: s.arc_phase })));
         toast.success(`Cancion analizada — ${mockSections.length} escenas generadas`, { id: 'audio-analyze' });
         setAnalyzingAudio(false);
