@@ -96,49 +96,72 @@ function makeSugs(name: string): Suggestion[] {
   ].sort(() => Math.random() - 0.5);
 }
 
-function mockScenes(dur: number, desc: string, proj: string): GenScene[] {
-  // Follow Grok production rules: clips (10s) + extensions (6s)
-  // Pattern: clip → extension → clip → extension → ...
+function mockScenes(dur: number, desc: string, proj: string, charNames: string[] = []): GenScene[] {
   const scenes: GenScene[] = [];
-  const phases = ['hook', 'build', 'build', 'peak', 'close'];
-  const titles = ['Apertura — plano general', 'Presentacion', 'Desarrollo', 'Climax — momento clave', 'Cierre y CTA'];
-  const descs = [
-    `Toma impactante estableciendo el escenario.${proj ? ` ${proj}.` : ''}`,
-    `Se presentan los elementos principales. ${desc || 'Contexto visual.'}`,
-    desc || 'Contenido central del video. Accion principal.',
-    'Momento de mayor impacto visual y emocional.',
-    'Cierre con mensaje final y llamada a la accion.',
+  const main = charNames[0] ?? 'el protagonista';
+  const sec = charNames.length > 1 ? charNames.slice(1) : [];
+  const secJoin = sec.length > 0 ? sec.join(' y ') : '';
+
+  // Scene templates with character-aware descriptions
+  const templates = [
+    {
+      phase: 'hook', title: 'Apertura — plano general',
+      desc: `Plano general. ${main} aparece en escena${sec.length > 0 ? ` junto a ${secJoin}` : ''}. Toma impactante que establece el escenario${proj ? ` de ${proj}` : ''}.`,
+      extDesc: `${main} mira a camara. ${sec.length > 0 ? `${sec[0]} reacciona en segundo plano.` : 'Expresion de confianza.'}`,
+      cam: 'wide', move: 'dolly_in',
+    },
+    {
+      phase: 'build', title: 'Presentacion',
+      desc: `${main} ${sec.length > 0 ? `y ${sec[0]} interactuan` : 'en accion'}. ${desc || `Se presentan los servicios y el equipo${proj ? ` de ${proj}` : ''}.`}`,
+      extDesc: `Continuacion. ${sec.length > 0 ? `${sec[0]} muestra algo a ${main}.` : `${main} continua la accion.`} Detalle emocional.`,
+      cam: 'medium', move: 'tracking',
+    },
+    {
+      phase: 'build', title: 'Desarrollo',
+      desc: `${main} ${sec.length > 0 ? `trabaja con ${secJoin}` : 'muestra su trabajo'}. ${desc || 'Accion principal del video.'} Plano medio con seguimiento.`,
+      extDesc: `${sec.length > 0 ? `${sec[0]} sonrie mientras ${main} continua.` : `${main} en detalle.`} La camara se acerca suavemente.`,
+      cam: 'medium', move: 'tracking',
+    },
+    {
+      phase: 'peak', title: 'Climax — momento clave',
+      desc: `Momento culminante. ${main} ${sec.length > 0 ? `y ${sec[0]} comparten un momento de emocion` : 'muestra el resultado final'}. Maxima intensidad visual.`,
+      extDesc: `${main} en primer plano con expresion de satisfaccion. ${sec.length > 0 ? `${secJoin} ${sec.length > 1 ? 'aplauden' : 'aplaude'} detras.` : 'FREEZE.'}`,
+      cam: 'close_up', move: 'orbit',
+    },
+    {
+      phase: 'close', title: 'Cierre y CTA',
+      desc: `${charNames.length > 1 ? `${main}, ${secJoin} — todos juntos` : main} de frente a camara. Sonrisas. Logo${proj ? ` de ${proj}` : ''} y llamada a la accion final.`,
+      extDesc: `Plano final. ${main} despide con una sonrisa. Fade a negro con logo.`,
+      cam: 'wide', move: 'dolly_out',
+    },
   ];
 
-  // Calculate how many clip+extension pairs we need
-  const pairDur = 16; // 10s clip + 6s extension
+  const pairDur = 16;
   const pairs = Math.max(2, Math.ceil(dur / pairDur));
   let t = 0;
 
   for (let i = 0; i < pairs && t < dur; i++) {
-    const pi = Math.min(i, phases.length - 1);
+    const tmpl = templates[Math.min(i, templates.length - 1)];
     const isLast = i === pairs - 1;
 
     // Clip principal (10s)
     const clipDur = isLast ? Math.min(10, dur - t) : 10;
     if (clipDur > 0) {
       scenes.push({
-        title: titles[pi], description: descs[pi], arc_phase: phases[pi],
+        title: tmpl.title, description: tmpl.desc, arc_phase: tmpl.phase,
         duration_seconds: snap(clipDur),
-        camera_angle: i === 0 ? 'wide' : pi >= 3 ? 'close_up' : 'medium',
-        camera_movement: i === 0 ? 'dolly_in' : pi >= 3 ? 'orbit' : 'tracking',
+        camera_angle: tmpl.cam, camera_movement: tmpl.move,
       });
       t += clipDur;
     }
 
-    // Extension (6s) — solo si hay tiempo y no es el ultimo
+    // Extension (6s)
     if (t < dur && !isLast) {
       const extDur = Math.min(6, dur - t);
       scenes.push({
-        title: `${titles[pi]} — continuacion`, description: `Continuacion directa. La camara sigue el movimiento anterior.`,
-        arc_phase: phases[pi], duration_seconds: snap(extDur),
-        camera_angle: scenes[scenes.length - 1]?.camera_angle ?? 'medium',
-        camera_movement: 'tracking',
+        title: `${tmpl.title} — continuacion`, description: tmpl.extDesc,
+        arc_phase: tmpl.phase, duration_seconds: snap(extDur),
+        camera_angle: tmpl.cam, camera_movement: 'tracking',
       });
       t += extDur;
     }
@@ -207,7 +230,7 @@ export function VideoCreateModal({ open, onOpenChange, projectId, projectShortId
       const r = await fetch('/api/ai/generate-scenes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId, instruction: `Escenas para "${form.title}" ${form.target_duration_seconds}s ${form.platform} estilo ${projStyle}. ${charCtx}${bgCtx}${form.description ?? ''}` }) });
       if (r.ok) { const j = await r.json(); if (j.success && j.data) { setScenes(addTimelines([{ ...j.data, duration_seconds: snap(j.data.duration_seconds ?? 5) }], resolvedCharNames)); toast.success('Generada', { id: 'gs' }); setGenerating(false); return; } }
     } catch {}
-    setScenes(addTimelines(mockScenes(form.target_duration_seconds, form.description, projTitle), resolvedCharNames));
+    setScenes(addTimelines(mockScenes(form.target_duration_seconds, form.description, projTitle, resolvedCharNames), resolvedCharNames));
     toast.success('Escenas generadas', { id: 'gs' }); setGenerating(false);
   }
 
@@ -696,9 +719,19 @@ export function VideoCreateModal({ open, onOpenChange, projectId, projectShortId
                 {/* Messages */}
                 <div className="flex-1 px-3 py-2 overflow-y-auto space-y-2">
                   {chatMessages.length === 0 && !chatBusy && (
-                    <p className="text-[10px] text-muted-foreground/60 leading-relaxed py-2">
-                      Describe que cambiar. Si marcas escenas, solo esas se actualizan. Si no, se actualizan todas.
-                    </p>
+                    <div className="space-y-2 py-1">
+                      <p className="text-[10px] text-muted-foreground/60 leading-relaxed">
+                        Describe que cambiar o usa las sugerencias:
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {['Mas dramatico', 'Mas dinamico', 'Añade humor', 'Mas emotivo', 'Cambia el cierre', 'Mas corto'].map(q => (
+                          <button key={q} type="button" onClick={() => setChatInput(q)}
+                            className="rounded-md border border-border px-2 py-1 text-[9px] text-muted-foreground hover:border-primary/30 hover:text-foreground transition-colors">
+                            {q}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   )}
                   {chatMessages.map((msg, i) => (
                     <div key={i} className={cn('rounded-lg px-2.5 py-1.5 text-[11px] leading-relaxed',
