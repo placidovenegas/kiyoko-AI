@@ -1,17 +1,18 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useDashboard } from '@/providers/DashboardBootstrap';
 import Link from 'next/link';
 import {
   ChevronLeft, ChevronRight, Search, Settings2,
-  FolderKanban, Film, LayoutGrid, Plus,
+  FolderKanban, Film, LayoutGrid, Plus, MessageCircle,
 } from 'lucide-react';
 import { Tooltip as HeroTooltip } from '@heroui/react';
 import { useUIStore } from '@/stores/useUIStore';
 import { NotificationBell } from './NotificationBell';
+import { FeedbackDialog } from '@/components/shared/FeedbackDialog';
 
 const Tooltip = HeroTooltip as React.FC<{ content?: string; placement?: string; children: React.ReactNode }>;
 
@@ -72,6 +73,7 @@ export function Header() {
   const openProjectCreatePanel = useUIStore((s) => s.openProjectCreatePanel);
   const pageHeaderContext = useUIStore((s) => s.pageHeaderContext);
 
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const ctx = useMemo(() => deriveContext(pathname), [pathname]);
   const crumbs = useMemo(() => buildCrumbs(pathname), [pathname]);
   const showBack = useMemo(() => pageHeaderContext?.backHref === null ? false : pathname.split('/').filter(Boolean).length > 1, [pageHeaderContext?.backHref, pathname]);
@@ -157,9 +159,18 @@ export function Header() {
           </Tooltip>
         )}
 
+        {/* Feedback */}
+        <Tooltip content="Feedback" placement="bottom">
+          <button type="button" onClick={() => setFeedbackOpen(true)} className={btnStyle} aria-label="Feedback">
+            <MessageCircle className="size-3.5" />
+          </button>
+        </Tooltip>
+
         {/* Notifications */}
         <NotificationBell />
       </div>
+
+      <FeedbackDialog open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
     </div>
   );
 }
